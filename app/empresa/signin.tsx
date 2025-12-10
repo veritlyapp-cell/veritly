@@ -1,16 +1,16 @@
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { ArrowRight, HelpCircle, Lock, Mail, UserPlus } from 'lucide-react-native';
+import { ArrowRight, Building2, HelpCircle, Lock, Mail } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth } from '../config/firebase';
-import { AppConfig } from '../constants/Config';
+import { auth } from '../../config/firebase';
+import { AppConfig } from '../../constants/Config';
 
 // --- LOGO LOCAL ---
-// Apuntando a tu archivo guardado
-const LocalLogo = require('../assets/images/veritly3.png');
+// Apuntando a tu archivo guardado - ajustando path para estar dentro de (company)
+const LocalLogo = require('../../assets/images/veritly3.png');
 
-export default function LoginScreen() {
+export default function CompanyLoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -33,14 +33,14 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             if (isRegistering) {
-                // Redirección inteligente: Si es nuevo, va al Perfil
+                // Redirección inteligente: Si es nuevo, va al Create (Perfil empresa?)
                 await createUserWithEmailAndPassword(auth, cleanEmail, password);
-                showAlert("¡Bienvenido!", "Cuenta creada. Por favor completa tu perfil.");
-                router.replace('/(tabs)/profile');
+                showAlert("¡Bienvenido, Empresa!", "Cuenta creada. Por favor completa tu perfil de empresa.");
+                router.replace('/empresa/dashboard');
             } else {
-                // Si ya existe, va al Scanner
+                // Si ya existe, va al Dashboard
                 await signInWithEmailAndPassword(auth, cleanEmail, password);
-                router.replace('/(tabs)');
+                router.replace('/empresa/dashboard');
             }
         } catch (error: any) {
             let msg = "Error de acceso.";
@@ -87,7 +87,8 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             await signInWithPopup(auth, new GoogleAuthProvider());
-            router.replace('/(tabs)');
+            // Asumimos que si entra por google es login o register, lo mandamos al dashboard por defecto o checkeamos rol
+            router.replace('/empresa/dashboard');
         } catch (error: any) {
             showAlert("Error Google", error.message);
         } finally {
@@ -101,8 +102,8 @@ export default function LoginScreen() {
             <View style={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.logoContainer}><Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" /></View>
-                    <Text style={styles.title}>{isRegistering ? "CREAR CUENTA" : AppConfig.name.toUpperCase()}</Text>
-                    <Text style={styles.subtitle}>{isRegistering ? `Únete a ${AppConfig.name}` : AppConfig.slogan}</Text>
+                    <Text style={styles.title}>{isRegistering ? "EMPRESA: CREAR CUENTA" : "EMPRESA: INICIAR SESIÓN"}</Text>
+                    <Text style={styles.subtitle}>{isRegistering ? `Registra tu empresa en ${AppConfig.name}` : "Portal de Empresas"}</Text>
                 </View>
 
                 <View style={styles.form}>
@@ -110,7 +111,7 @@ export default function LoginScreen() {
                         <Mail color="#64748b" size={20} style={{ marginRight: 10 }} />
                         <TextInput
                             style={styles.input}
-                            placeholder="Correo electrónico"
+                            placeholder="Correo corporativo"
                             placeholderTextColor="#64748b"
                             value={email}
                             onChangeText={setEmail}
@@ -132,7 +133,7 @@ export default function LoginScreen() {
 
                     <TouchableOpacity style={styles.loginButton} onPress={handleAuth} disabled={loading}>
                         {loading ? <ActivityIndicator color="white" /> : (
-                            <><Text style={styles.loginText}>{isRegistering ? "REGISTRARME" : "INICIAR SESIÓN"}</Text>{isRegistering ? <UserPlus color="white" size={20} /> : <ArrowRight color="white" size={20} />}</>
+                            <><Text style={styles.loginText}>{isRegistering ? "REGISTRAR EMPRESA" : "ACCEDER"}</Text>{isRegistering ? <Building2 color="white" size={20} /> : <ArrowRight color="white" size={20} />}</>
                         )}
                     </TouchableOpacity>
 
@@ -146,10 +147,14 @@ export default function LoginScreen() {
                     <View style={styles.divider}><View style={styles.line} /><Text style={styles.orText}>O</Text><View style={styles.line} /></View>
                     <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} disabled={loading}><Text style={styles.googleText}>🔵  Google</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.switchButton} onPress={() => setIsRegistering(!isRegistering)}>
-                        <Text style={styles.switchText}>{isRegistering ? `¿Ya tienes cuenta en ${AppConfig.name}? Inicia Sesión` : `¿Nuevo en ${AppConfig.name}? Crea una cuenta`}</Text>
+                        <Text style={styles.switchText}>{isRegistering ? `¿Ya tienes cuenta? Inicia Sesión` : `¿Nueva empresa? Crea una cuenta`}</Text>
                     </TouchableOpacity>
                 </View>
-                <Text style={styles.footerText}>¿Eres empresa? <Text onPress={() => router.push('/empresa/signin')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Entrar aquí</Text></Text>
+
+                {/* Return to user login */}
+                <TouchableOpacity onPress={() => router.replace('/')}>
+                    <Text style={styles.footerText}>¿Buscas empleo? <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>Soy Candidato</Text></Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -161,7 +166,7 @@ const styles = StyleSheet.create({
     header: { alignItems: 'center', marginBottom: 40 },
     logoContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
     logoImage: { width: 60, height: 60 },
-    title: { fontSize: 28, fontWeight: '900', color: 'white', letterSpacing: 2, marginBottom: 5 },
+    title: { fontSize: 24, fontWeight: '900', color: 'white', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
     subtitle: { fontSize: 14, color: '#94a3b8', letterSpacing: 0.5 },
     form: { width: '100%' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 15, height: 55, marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
