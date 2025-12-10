@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { ArrowRight, HelpCircle, Lock, Mail, UserPlus } from 'lucide-react-native';
+import { ArrowRight, CheckSquare, HelpCircle, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../config/firebase';
@@ -16,6 +16,8 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
+    // --- ESTADO PARA TERMINOS ---
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     const showAlert = (title: string, msg: string) => {
         if (Platform.OS === 'web') window.alert(`${title}\n${msg}`);
@@ -28,6 +30,11 @@ export default function LoginScreen() {
 
         if (cleanEmail.length === 0 || password.length === 0) {
             return showAlert("Campos Vacíos", "Ingresa correo y contraseña.");
+        }
+
+        // VALIDACIÓN DE PRIVACIDAD
+        if (isRegistering && !acceptedTerms) {
+            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para crear una cuenta.");
         }
 
         setLoading(true);
@@ -84,6 +91,9 @@ export default function LoginScreen() {
 
     const handleGoogleLogin = async () => {
         if (Platform.OS !== 'web') return showAlert("Aviso", "En celular, por favor usa correo y contraseña por ahora.");
+        if (isRegistering && !acceptedTerms) {
+            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para registrarte.");
+        }
         setLoading(true);
         try {
             await signInWithPopup(auth, new GoogleAuthProvider());
@@ -129,6 +139,20 @@ export default function LoginScreen() {
                             onChangeText={setPassword}
                         />
                     </View>
+
+                    {/* CHECKBOX PRIVACIDAD (SOLO EN REGISTRO) */}
+                    {isRegistering && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                            <TouchableOpacity onPress={() => setAcceptedTerms(!acceptedTerms)} style={{ padding: 5 }}>
+                                {acceptedTerms ? <CheckSquare color="#3b82f6" size={24} /> : <Square color="#64748b" size={24} />}
+                            </TouchableOpacity>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+                                    He leído y acepto la <Text onPress={() => router.push('/privacy')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Política de Privacidad</Text> y Términos.
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                     <TouchableOpacity style={styles.loginButton} onPress={handleAuth} disabled={loading}>
                         {loading ? <ActivityIndicator color="white" /> : (

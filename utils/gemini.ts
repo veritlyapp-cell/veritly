@@ -9,8 +9,8 @@ const MODELS_TO_TRY = [
     "gemini-2.5-flash",       // 1. Equilibrio ideal
     "gemini-2.5-flash-lite",  // 2. Respaldo rápido y eficiente
     "gemini-2.0-flash",       // 3. Versión anterior estable
-    "gemini-2.5-pro",         // 4. Alta capacidad (si los flash fallan)
-    "gemini-3-pro"            // 5. Última generación (si está disponible)
+    "gemini-2.5-pro"         // 4. Alta capacidad (si los flash fallan)
+    //"gemini-3-pro"            // 5. Última generación (si está disponible)
 ];
 
 // --- FUNCIÓN INTELIGENTE DE PETICIÓN ---
@@ -25,7 +25,7 @@ const fetchWithFallback = async (body: any) => {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify({ ...body, generationConfig: { temperature: 0 } })
             });
 
             const data = await response.json();
@@ -130,7 +130,8 @@ export const generateInterviewQuestions = async (profile: string, jobData: strin
     let parts: any[] = [];
     const basePrompt = `
     Actúa como Headhunter. Genera 3 preguntas de entrevista difíciles para: "${profile}".
-    RESPONDE JSON: { "questions": ["P1", "P2", "P3"] }
+    IMPORTANTE: RESPONDE SOLO CON EL JSON. NO ESCRIBAS NADA MÁS.
+    FORMATO: { "questions": ["P1", "P2", "P3"] }
   `;
 
     try {
@@ -142,8 +143,13 @@ export const generateInterviewQuestions = async (profile: string, jobData: strin
         }
 
         const data = await fetchWithFallback({ contents: [{ parts }] });
-        const cleanJson = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
+        const textResponse = data.candidates[0].content.parts[0].text;
+
+        // Extracción robusta de JSON (busca el primer { y el último })
+        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("La respuesta no contiene JSON válido: " + textResponse.substring(0, 50));
+
+        return JSON.parse(jsonMatch[0]);
 
     } catch (error: any) {
         console.error("Error Entrevista:", error);

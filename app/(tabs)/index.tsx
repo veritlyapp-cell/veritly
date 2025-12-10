@@ -278,10 +278,20 @@ export default function VinkuScanner() {
 
       if (!userProfileText) return;
 
+      console.log("Generando preguntas...");
       const response = await generateInterviewQuestions(userProfileText, dataToAnalyze, mode === 'text' ? 'text' : 'image');
-      if (response && response.questions) setInterviewQuestions(response.questions);
+      console.log("Respuesta preguntas:", response);
+
+      if (response && response.questions && response.questions.length > 0) {
+        setInterviewQuestions(response.questions);
+      } else {
+        showAlert("Aviso", "La IA no generó preguntas esta vez. Intenta de nuevo.");
+        setInterviewQuestions(null);
+      }
+
     } catch (e: any) {
       console.log("Error preguntas:", e);
+      showAlert("Error Generando Preguntas", `Hubo un problema: ${e.message || "Desconocido"}. Intenta de nuevo.`);
     } finally {
       setLoadingQuestions(false);
     }
@@ -350,7 +360,7 @@ export default function VinkuScanner() {
             <TextInput style={[styles.input, { borderColor: color, borderWidth: 1, backgroundColor: 'white', color: '#334155' }]} placeholder="Pega aquí el link..." placeholderTextColor="#94a3b8" value={optionalLink} onChangeText={setOptionalLink} />
           </View>
           <View style={{ flexDirection: 'row', gap: 10, width: '100%', justifyContent: 'center', marginBottom: 20 }}>
-            {!interviewQuestions && !loadingQuestions && (
+            {!interviewQuestions && (
               <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4f46e5', flex: 1 }]} onPress={() => handleGenerateQuestions()} disabled={loadingQuestions}>
                 {loadingQuestions ? <ActivityIndicator color="white" /> : <MessageCircleQuestion size={20} color="white" />}
                 <Text style={styles.smallButtonText}>{loadingQuestions ? "Generando..." : "Ver Preguntas"}</Text>
