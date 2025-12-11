@@ -101,11 +101,14 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
     const basePrompt = `
     Actúa como un **Senior Technical Recruiter**.
     DATOS: CANDIDATO: "${profile}", ASPIRACIONES: "${aspirations}"
-    INSTRUCCIONES:
+    
+    INSTRUCCIONES CLAVE:
     1. Extrae CARGO y EMPRESA (o "No especificado").
-    2. Detecta SOBRECALIFICACIÓN en 'reason' si aplica.
-    3. Calcula MATCH (0-100) siendo estricto.
-    RESPONDE JSON: { "role": "Cargo", "company": "Empresa", "match": (0-100), "reason": "Veredicto", "tips": ["Tip 1", "Tip 2", "Tip 3"] }
+    2. Detecta **SOBRECALIFICACIÓN**: Si el perfil excede por mucho la vacante, el match debe ser bajo (30-50%) PERO el tip debe ser: "Adapta tu CV para resaltar humildad y enfoque operativo" (No digas "no postules").
+    3. Detecta **CONFLICTO DE INTERESES**: Si el candidato busca Minería y la vacante es Retail, baja el match, y el tip debe ser: "Considera ajustar tus intereses clave (Ej: 'Retail') si te interesa este sector".
+    4. Calcula MATCH (0-100) siendo estricto pero justo.
+    
+    RESPONDE SOLO JSON: { "role": "Cargo", "company": "Empresa", "match": (0-100), "reason": "Veredicto Breve", "tips": ["Tip Estratégico 1", "Tip Estratégico 2", "Tip Estratégico 3"] }
   `;
 
     try {

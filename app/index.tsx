@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAdditionalUserInfo, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { ArrowRight, CheckSquare, HelpCircle, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -96,8 +96,15 @@ export default function LoginScreen() {
         }
         setLoading(true);
         try {
-            await signInWithPopup(auth, new GoogleAuthProvider());
-            router.replace('/(tabs)');
+            const userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
+            const additionalInfo = getAdditionalUserInfo(userCredential);
+
+            if (additionalInfo?.isNewUser) {
+                showAlert("¡Bienvenido!", "Por favor completa tu perfil y sube tu CV para comenzar.");
+                router.replace('/(tabs)/profile');
+            } else {
+                router.replace('/(tabs)');
+            }
         } catch (error: any) {
             showAlert("Error Google", error.message);
         } finally {

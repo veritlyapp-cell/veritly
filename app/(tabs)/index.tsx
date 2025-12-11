@@ -199,10 +199,10 @@ export default function VinkuScanner() {
   const handleAnalyze = async () => {
     let dataToAnalyze: any = null;
     if (mode === 'text') {
-      if (!textValue || textValue.length < 20) return showAlert("Error", "Texto muy corto.");
+      if (!textValue || textValue.length < 20) return showAlert("Falta Vacante", "Por favor, pega el texto de la vacante para analizar tu perfil.");
       dataToAnalyze = textValue;
     } else if (mode === 'image') {
-      if (!imageValue) return showAlert("Falta Imagen", "Sube una captura.");
+      if (!imageValue) return showAlert("Falta Vacante", "Por favor, sube una imagen de la vacante.");
       dataToAnalyze = imageValue;
     }
 
@@ -421,7 +421,7 @@ export default function VinkuScanner() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Info size={16} color="#38bdf8" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>¿Cómo funciona?</Text>
+              <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>✨ ¿Cómo Funciona la IA de Veritly?</Text>
             </View>
             {showInstructions ? <ChevronUp size={16} color="#38bdf8" /> : <ChevronDown size={16} color="#38bdf8" />}
           </View>
@@ -430,19 +430,39 @@ export default function VinkuScanner() {
             <View style={{ marginTop: 10 }}>
               <View style={styles.stepRow}>
                 <Text style={styles.stepNum}>1</Text>
-                <Text style={styles.stepText}>Elige Texto o Foto y pega la vacante.</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>Ingresa la Vacante:</Text>
+                  <Text style={styles.stepText}>Pega el texto completo del anuncio o sube (o pega) una imagen de la vacante.</Text>
+                </View>
               </View>
               <View style={styles.stepRow}>
                 <Text style={styles.stepNum}>2</Text>
-                <Text style={styles.stepText}>Dale a Analizar para ver tu % de Match.</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>Analiza tu Perfil:</Text>
+                  <Text style={styles.stepText}>Haz clic en "Analizar" para calcular tu compatibilidad (Match) con el puesto.</Text>
+                </View>
               </View>
               <View style={styles.stepRow}>
                 <Text style={styles.stepNum}>3</Text>
-                <Text style={styles.stepText}>Obtén consejos clave y preguntas de entrevista.</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>Prepárate para la Entrevista:</Text>
+                  <Text style={styles.stepText}>Recibe insights clave y preguntas estratégicas.</Text>
+                </View>
               </View>
             </View>
           )}
+
         </TouchableOpacity>
+
+        <Modal visible={loading} transparent={true} animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#1e293b', padding: 30, borderRadius: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#38bdf8" />
+              <Text style={{ color: 'white', marginTop: 20, fontWeight: 'bold' }}>Analizando tu perfil...</Text>
+              <Text style={{ color: '#94a3b8', marginTop: 5 }}>Esto puede demorar unos segundos</Text>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.card}>
           <View style={styles.tabContainer}>
@@ -624,6 +644,7 @@ const styles = StyleSheet.create({
   // ESTILOS INSTRUCCIONES
   instructionsContainer: { backgroundColor: 'rgba(56, 189, 248, 0.1)', padding: 12, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)' },
   stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  stepNum: { width: 20, height: 20, backgroundColor: '#38bdf8', borderRadius: 10, textAlign: 'center', color: 'black', fontSize: 12, fontWeight: 'bold', lineHeight: 20, marginRight: 10 },
-  stepText: { color: '#bae6fd', fontSize: 12 }
+  stepNum: { width: 20, height: 20, backgroundColor: '#38bdf8', borderRadius: 10, textAlign: 'center', color: 'black', fontSize: 12, fontWeight: 'bold', lineHeight: 20, marginRight: 10, marginTop: 2 },
+  stepTitle: { color: '#e0f2fe', fontWeight: 'bold', fontSize: 12, marginBottom: 2 },
+  stepText: { color: '#bae6fd', fontSize: 12, lineHeight: 16 }
 });
