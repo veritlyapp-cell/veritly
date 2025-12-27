@@ -69,7 +69,7 @@ export default function PrivacyScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>6. Contacto</Text>
                     <Text style={styles.text}>
-                        Si tienes preguntas sobre esta política, contáctanos a través de nuestros canales oficiales de soporte o legal@vinku.app.
+                        Si tienes preguntas sobre esta política, contáctanos a través de nuestros canales oficiales de soporte o legal@veritly.app.
                     </Text>
                 </View>
 

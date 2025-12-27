@@ -13,7 +13,7 @@ import { getHistoryFromCloud, getUserProfileFromCloud, saveAnalysisToCloud, upda
 // --- LOGO LOCAL ---
 const LocalLogo = require('../../assets/images/veritly3.png');
 
-export default function VinkuScanner() {
+export default function VeritlyScanner() {
   const [mode, setMode] = useState<'text' | 'image'>('text');
 
   const [textValue, setTextValue] = useState('');
@@ -355,6 +355,51 @@ export default function VinkuScanner() {
               </View>
             ))}
           </View>
+
+          {/* 🆕 SECCIÓN DE MEJORA DE CV */}
+          {(result.cvGaps || result.suggestedKeywords || result.cvImprovements) && (
+            <View style={styles.cvImprovementSection}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                <Lightbulb size={20} color="#f59e0b" style={{ marginRight: 8 }} />
+                <Text style={styles.cvImprovementTitle}>💡 Cómo Mejorar tu CV para esta Vacante</Text>
+              </View>
+
+              {result.cvGaps && result.cvGaps.length > 0 && (
+                <View style={{ marginBottom: 15 }}>
+                  <Text style={styles.cvSubtitle}>⚠️ Elementos Faltantes:</Text>
+                  {result.cvGaps.map((gap: string, idx: number) => (
+                    <View key={idx} style={styles.cvGapItem}>
+                      <Text style={styles.cvGapText}>• {gap}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {result.suggestedKeywords && result.suggestedKeywords.length > 0 && (
+                <View style={{ marginBottom: 15 }}>
+                  <Text style={styles.cvSubtitle}>🔑 Keywords Recomendadas:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {result.suggestedKeywords.map((keyword: string, idx: number) => (
+                      <View key={idx} style={styles.keywordBadge}>
+                        <Text style={styles.keywordText}>{keyword}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {result.cvImprovements && result.cvImprovements.length > 0 && (
+                <View>
+                  <Text style={styles.cvSubtitle}>✅ Recomendaciones Específicas:</Text>
+                  {result.cvImprovements.map((improvement: string, idx: number) => (
+                    <View key={idx} style={styles.cvImprovementItem}>
+                      <Text style={styles.cvImprovementText}>{improvement}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
           <View style={{ width: '100%', marginBottom: 20 }}>
             <Text style={styles.label}>LINK DE REFERENCIA (Opcional)</Text>
             <TextInput style={[styles.input, { borderColor: color, borderWidth: 1, backgroundColor: 'white', color: '#334155' }]} placeholder="Pega aquí el link..." placeholderTextColor="#94a3b8" value={optionalLink} onChangeText={setOptionalLink} />
@@ -408,7 +453,10 @@ export default function VinkuScanner() {
             ) : (
               <CheckCircle2 size={45} color="#38bdf8" style={{ marginRight: 10 }} />
             )}
-            <Text style={styles.logo}>{AppConfig.name.toUpperCase()}</Text>
+            <View>
+              <Text style={styles.logo}>{AppConfig.name.toUpperCase()}</Text>
+              <Text style={{ fontSize: 10, color: '#f59e0b', fontStyle: 'italic', fontWeight: '600' }}>Antes de postular, Veritly</Text>
+            </View>
           </View>
           <View style={styles.badge}><Text style={styles.badgeText}>IA 2.5</Text></View>
         </View>
@@ -646,5 +694,16 @@ const styles = StyleSheet.create({
   stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   stepNum: { width: 20, height: 20, backgroundColor: '#38bdf8', borderRadius: 10, textAlign: 'center', color: 'black', fontSize: 12, fontWeight: 'bold', lineHeight: 20, marginRight: 10, marginTop: 2 },
   stepTitle: { color: '#e0f2fe', fontWeight: 'bold', fontSize: 12, marginBottom: 2 },
-  stepText: { color: '#bae6fd', fontSize: 12, lineHeight: 16 }
+  stepText: { color: '#bae6fd', fontSize: 12, lineHeight: 16 },
+
+  // ESTILOS CV IMPROVEMENT
+  cvImprovementSection: { width: '100%', backgroundColor: 'rgba(251, 191, 36, 0.1)', borderWidth: 2, borderColor: '#f59e0b', borderRadius: 16, padding: 20, marginBottom: 20 },
+  cvImprovementTitle: { fontSize: 16, fontWeight: 'bold', color: '#92400e', flex: 1 },
+  cvSubtitle: { fontSize: 13, fontWeight: 'bold', color: '#78350f', marginBottom: 8, marginTop: 5 },
+  cvGapItem: { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderLeftWidth: 3, borderLeftColor: '#ef4444', padding: 10, borderRadius: 8, marginBottom: 6 },
+  cvGapText: { color: '#991b1b', fontSize: 13, lineHeight: 18 },
+  keywordBadge: { backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  keywordText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  cvImprovementItem: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderLeftWidth: 3, borderLeftColor: '#10b981', padding: 10, borderRadius: 8, marginBottom: 6 },
+  cvImprovementText: { color: '#065f46', fontSize: 13, lineHeight: 18 }
 });

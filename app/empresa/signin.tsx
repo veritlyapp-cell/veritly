@@ -1,22 +1,20 @@
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { ArrowRight, Building2, CheckSquare, HelpCircle, Lock, Mail, Square } from 'lucide-react-native';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { ArrowRight, CheckSquare, HelpCircle, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../config/firebase';
-import { AppConfig } from '../../constants/Config';
+import { createCompanyUser } from '../../services/auth-service';
 
 // --- LOGO LOCAL ---
-// Apuntando a tu archivo guardado - ajustando path para estar dentro de (company)
 const LocalLogo = require('../../assets/images/veritly3.png');
 
-export default function CompanyLoginScreen() {
+export default function CompanySignIn() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
-    // --- ESTADO PARA TERMINOS ---
     const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     const showAlert = (title: string, msg: string) => {
@@ -25,27 +23,21 @@ export default function CompanyLoginScreen() {
     };
 
     const handleAuth = async () => {
-        // Limpiamos el email de espacios accidentales
         const cleanEmail = email.trim().toLowerCase();
+        if (cleanEmail.length === 0 || password.length === 0) return showAlert("Campos Vacíos", "Ingresa correo y contraseña.");
 
-        if (cleanEmail.length === 0 || password.length === 0) {
-            return showAlert("Campos Vacíos", "Ingresa correo y contraseña.");
-        }
-
-        // VALIDACIÓN DE PRIVACIDAD
-        if (isRegistering && !acceptedTerms) {
-            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para crear una cuenta.");
-        }
+        if (isRegistering && !acceptedTerms) return showAlert("Requerido", "Acepta la Política de Privacidad para registrarte.");
 
         setLoading(true);
         try {
             if (isRegistering) {
-                // Redirección inteligente: Si es nuevo, va al Create (Perfil empresa?)
-                await createUserWithEmailAndPassword(auth, cleanEmail, password);
-                showAlert("¡Bienvenido, Empresa!", "Cuenta creada. Por favor completa tu perfil de empresa.");
-                router.replace('/empresa/dashboard');
+                // REGISTRO EMPRESA - Crea usuario en Auth Y Firestore con rol 'empresa'
+                await createCompanyUser(cleanEmail, password);
+                showAlert("¡Bienvenido!", "Cuenta de empresa creada.");
+                // Redirigir a onboarding para completar perfil
+                router.replace('/empresa/dashboard/onboarding');
             } else {
-                // Si ya existe, va al Dashboard
+                // LOGIN EMPRESA
                 await signInWithEmailAndPassword(auth, cleanEmail, password);
                 router.replace('/empresa/dashboard');
             }
@@ -53,56 +45,20 @@ export default function CompanyLoginScreen() {
             let msg = "Error de acceso.";
             if (error.code === 'auth/invalid-email') msg = "El correo no es válido.";
             if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') msg = "Credenciales incorrectas.";
-            if (error.code === 'auth/email-already-in-use') msg = "Este correo ya existe. Inicia sesión.";
-            if (error.code === 'auth/wrong-password') msg = "Contraseña incorrecta.";
+            if (error.code === 'auth/email-already-in-use') msg = "Este correo ya existe.";
             showAlert("Error", msg);
         } finally {
             setLoading(false);
         }
     };
 
-    // ... (handleForgotPassword y handleGoogleLogin siguen igual)
     const handleForgotPassword = async () => {
-        const cleanEmail = email.trim().toLowerCase();
-
-        if (cleanEmail.length === 0) {
-            return showAlert("Falta Correo", "Escribe tu correo en el campo de arriba para enviarte el link.");
-        }
-
-        setLoading(true);
+        if (!email) return showAlert("Falta Correo", "Escribe tu correo para restablecer la contraseña.");
         try {
-            console.log("Enviando reset a:", cleanEmail);
-            await sendPasswordResetEmail(auth, cleanEmail);
-
-            showAlert(
-                "Correo Enviado 📧",
-                `Hemos enviado un enlace a ${cleanEmail}.\n\nRevisa tu bandeja de entrada (y la carpeta de SPAM).`
-            );
-        } catch (error: any) {
-            console.error("Error Reset:", error);
-            let msg = error.message;
-            if (error.code === 'auth/user-not-found') msg = "Este correo no está registrado.";
-            if (error.code === 'auth/invalid-email') msg = "El formato del correo está mal.";
-            showAlert("No se pudo enviar", msg);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGoogleLogin = async () => {
-        if (Platform.OS !== 'web') return showAlert("Aviso", "En celular, por favor usa correo y contraseña por ahora.");
-        if (isRegistering && !acceptedTerms) {
-            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para registrarte.");
-        }
-        setLoading(true);
-        try {
-            await signInWithPopup(auth, new GoogleAuthProvider());
-            // Asumimos que si entra por google es login o register, lo mandamos al dashboard por defecto o checkeamos rol
-            router.replace('/empresa/dashboard');
-        } catch (error: any) {
-            showAlert("Error Google", error.message);
-        } finally {
-            setLoading(false);
+            await sendPasswordResetEmail(auth, email.trim());
+            showAlert("Enviado", "Revisa tu correo.");
+        } catch (e: any) {
+            showAlert("Error", e.message);
         }
     };
 
@@ -112,36 +68,20 @@ export default function CompanyLoginScreen() {
             <View style={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.logoContainer}><Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" /></View>
-                    <Text style={styles.title}>{isRegistering ? "EMPRESA: CREAR CUENTA" : "EMPRESA: INICIAR SESIÓN"}</Text>
-                    <Text style={styles.subtitle}>{isRegistering ? `Registra tu empresa en ${AppConfig.name}` : "Portal de Empresas"}</Text>
+                    <Text style={styles.title}>{isRegistering ? "NUEVA EMPRESA" : "ACCESO EMPRESAS"}</Text>
+                    <Text style={styles.subtitle}>{isRegistering ? "Crea tu cuenta corporativa" : "Gestiona tus vacantes con IA"}</Text>
                 </View>
 
                 <View style={styles.form}>
                     <View style={styles.inputContainer}>
                         <Mail color="#64748b" size={20} style={{ marginRight: 10 }} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Correo corporativo"
-                            placeholderTextColor="#64748b"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
+                        <TextInput style={styles.input} placeholder="Correo Corporativo" placeholderTextColor="#64748b" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
                     </View>
                     <View style={styles.inputContainer}>
                         <Lock color="#64748b" size={20} style={{ marginRight: 10 }} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Contraseña"
-                            placeholderTextColor="#64748b"
-                            secureTextEntry
-                            value={password}
-                            onChangeText={setPassword}
-                        />
+                        <TextInput style={styles.input} placeholder="Contraseña" placeholderTextColor="#64748b" secureTextEntry value={password} onChangeText={setPassword} />
                     </View>
 
-                    {/* CHECKBOX PRIVACIDAD (SOLO EN REGISTRO) */}
                     {isRegistering && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
                             <TouchableOpacity onPress={() => setAcceptedTerms(!acceptedTerms)} style={{ padding: 5 }}>
@@ -149,7 +89,7 @@ export default function CompanyLoginScreen() {
                             </TouchableOpacity>
                             <View style={{ flex: 1, marginLeft: 10 }}>
                                 <Text style={{ color: '#94a3b8', fontSize: 13 }}>
-                                    He leído y acepto la <Text onPress={() => router.push('/privacy')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Política de Privacidad</Text> y Términos.
+                                    Acepto la <Text onPress={() => router.push('/privacy')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Política de Privacidad</Text>.
                                 </Text>
                             </View>
                         </View>
@@ -157,28 +97,23 @@ export default function CompanyLoginScreen() {
 
                     <TouchableOpacity style={styles.loginButton} onPress={handleAuth} disabled={loading}>
                         {loading ? <ActivityIndicator color="white" /> : (
-                            <><Text style={styles.loginText}>{isRegistering ? "REGISTRAR EMPRESA" : "ACCEDER"}</Text>{isRegistering ? <Building2 color="white" size={20} /> : <ArrowRight color="white" size={20} />}</>
+                            <><Text style={styles.loginText}>{isRegistering ? "REGISTRAR EMPRESA" : "ENTRAR AL PANEL"}</Text>{isRegistering ? <UserPlus color="white" size={20} /> : <ArrowRight color="white" size={20} />}</>
                         )}
                     </TouchableOpacity>
 
                     {!isRegistering && (
                         <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
                             <HelpCircle size={14} color="#3b82f6" style={{ marginRight: 5 }} />
-                            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+                            <Text style={styles.forgotText}>¿Olvidaste la contraseña?</Text>
                         </TouchableOpacity>
                     )}
 
-                    <View style={styles.divider}><View style={styles.line} /><Text style={styles.orText}>O</Text><View style={styles.line} /></View>
-                    <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} disabled={loading}><Text style={styles.googleText}>🔵  Google</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.switchButton} onPress={() => setIsRegistering(!isRegistering)}>
-                        <Text style={styles.switchText}>{isRegistering ? `¿Ya tienes cuenta? Inicia Sesión` : `¿Nueva empresa? Crea una cuenta`}</Text>
+                        <Text style={styles.switchText}>{isRegistering ? "¿Ya tienes cuenta? Inicia Sesión" : "¿Nueva empresa? Regístrate aquí"}</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Return to user login */}
-                <TouchableOpacity onPress={() => router.replace('/')}>
-                    <Text style={styles.footerText}>¿Buscas empleo? <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>Soy Candidato</Text></Text>
-                </TouchableOpacity>
+                <Text style={styles.footerText}>¿Buscas empleo? <Text onPress={() => router.replace('/')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Ir a Candidatos</Text></Text>
             </View>
         </SafeAreaView>
     );
@@ -190,19 +125,14 @@ const styles = StyleSheet.create({
     header: { alignItems: 'center', marginBottom: 40 },
     logoContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
     logoImage: { width: 60, height: 60 },
-    title: { fontSize: 24, fontWeight: '900', color: 'white', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
-    subtitle: { fontSize: 14, color: '#94a3b8', letterSpacing: 0.5 },
+    title: { fontSize: 28, fontWeight: '900', color: 'white', letterSpacing: 2, marginBottom: 5 },
+    subtitle: { fontSize: 14, color: '#94a3b8' },
     form: { width: '100%' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 15, height: 55, marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
     input: { flex: 1, color: 'white', fontSize: 16 },
     loginButton: { backgroundColor: '#3b82f6', flexDirection: 'row', height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 15, gap: 10 },
     loginText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 10 },
-    line: { flex: 1, height: 1, backgroundColor: '#334155' },
-    orText: { color: '#64748b', marginHorizontal: 10, fontSize: 12 },
-    googleButton: { backgroundColor: 'white', height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-    googleText: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
-    switchButton: { alignItems: 'center', padding: 10 },
+    switchButton: { alignItems: 'center', padding: 10, marginTop: 10 },
     switchText: { color: '#cbd5e1', fontSize: 14, textDecorationLine: 'underline' },
     forgotButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 5, marginBottom: 10 },
     forgotText: { color: '#3b82f6', fontSize: 14 },

@@ -1,9 +1,12 @@
 import { Tabs } from 'expo-router';
-import { FileText, ScanFace } from 'lucide-react-native'; // Iconos más profesionales
+import { FileText, ScanFace } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 
 export default function TabLayout() {
+  // Note: Removed useRequireRole check - candidato pages are accessible without forced auth
+  // Individual pages handle their own authentication as needed
+
   return (
     <Tabs
       screenOptions={{

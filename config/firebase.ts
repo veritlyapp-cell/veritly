@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 // Importamos Auth de manera compatible con React Native
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { Auth, getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
@@ -20,7 +20,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // 2. Inicializar Auth con Persistencia
-let auth;
+let auth: Auth;
 if (Platform.OS === 'web') {
     auth = getAuth(app);
 } else {
@@ -35,3 +35,4 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 export { auth, db, storage };
+

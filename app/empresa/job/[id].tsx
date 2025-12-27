@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore'; // Added import
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator, Alert,
     FlatList,
     Linking,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -15,7 +17,7 @@ import {
 } from 'react-native';
 
 // Lógica
-import { auth } from '../../../config/firebase';
+import { auth, db } from '../../../config/firebase';
 import {
     getCandidateHistoryForCompany,
     getJobCandidates,
@@ -23,7 +25,8 @@ import {
     updateCandidateStatus
 } from '../../../services/storage';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
-import { analyzeCandidateForCompany, extractTextFromPDF } from '../../../utils/gemini';
+import { extractTextFromDocument } from '../../../utils/gemini';
+import { analyzeCandidateForCompany } from '../../../utils/gemini-company';
 
 // Colores del semáforo
 const getStatusColor = (status: MatchStatus) => {
@@ -49,77 +52,157 @@ export default function JobDetailScreen() {
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAnalysis | null>(null);
     const [candidateHistory, setCandidateHistory] = useState<CandidateAnalysis[]>([]);
 
+    // State for job details (since params might be missing)
+    const [jobDetails, setJobDetails] = useState({
+        title: title as string || '',
+        description: description as string || ''
+    });
+
     // 1. Cargar candidatos existentes al entrar
     useEffect(() => {
-        loadCandidates();
+        loadJobAndCandidates();
     }, [id]);
 
-    const loadCandidates = async () => {
+    const loadJobAndCandidates = async () => {
         setLoading(true);
-        const data = await getJobCandidates(id as string);
-        setCandidates(data);
-        setLoading(false);
+        try {
+            // A. Fetch Job Details if missing
+            if (!jobDetails.description) {
+                console.log("Fetching job details from Firestore...");
+                const jobDoc = await getDoc(doc(db, 'jobs', id as string));
+                if (jobDoc.exists()) {
+                    const data = jobDoc.data();
+                    setJobDetails({
+                        title: data.jobTitle || 'Vacante',
+                        description: data.optimizedText || data.originalText || ''
+                    });
+                } else {
+                    showAlert("Error", "No se encontró la información del puesto.");
+                }
+            }
+
+            // B. Fetch Candidates
+            const data = await getJobCandidates(id as string);
+            setCandidates(data);
+        } catch (error) {
+            console.error(error);
+            showAlert("Error", "Falló la carga de datos.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Helper para alertas universales
+    const showAlert = (title: string, msg: string) => {
+        if (Platform.OS === 'web') {
+            window.alert(`${title}: ${msg}`);
+        } else {
+            Alert.alert(title, msg);
+        }
     };
 
     // 2. Subir y Procesar CVs
     const handlePickDocuments = async () => {
+        // DEBUG: Confirmar inicio
+        showAlert("Iniciando", "Abriendo selector...");
+
+        setProcessing(true);
+        console.log("Iniciando selección...");
+
         try {
             const result = await DocumentPicker.getDocumentAsync({
-                type: 'application/pdf',
+                type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'],
                 multiple: true,
                 copyToCacheDirectory: true
             });
 
-            if (result.canceled) return;
+            if (result.canceled) {
+                console.log("Selección cancelada");
+                showAlert("Cancelado", "No seleccionaste archivos.");
+                setProcessing(false);
+                return;
+            }
 
-            // Limitar a 10 archivos por lote
+            if (!result.assets || result.assets.length === 0) {
+                console.error("Assets vacíos o nulos");
+                showAlert("Error", "La lista de archivos retornada está vacía.");
+                setProcessing(false);
+                return;
+            }
+
+            console.log(`Seleccionados ${result.assets.length} archivos`);
             const filesToProcess = result.assets.slice(0, 10);
-            setProcessing(true);
 
             let processedCount = 0;
+            let errors: string[] = [];
 
-            // Procesamos uno por uno para no saturar la API
             for (const file of filesToProcess) {
+                console.log(`Procesando: ${file.name}`);
                 try {
                     // A. Extraer Texto
-                    const text = await extractTextFromPDF(file.uri);
-
-                    // B. Analizar con IA (Comparar con description)
-                    // Nota: description puede venir como string o array, aseguramos string
-                    const descString = Array.isArray(description) ? description[0] : description;
-                    const aiResult = await analyzeCandidateForCompany(text, descString || "");
-
-                    if (aiResult) {
-                        // C. Crear Objeto
-                        const newCandidate: CandidateAnalysis = {
-                            id: Math.random().toString(36).substring(7), // ID temporal único
-                            jobId: id as string,
-                            name: aiResult.name || "Candidato Desconocido",
-                            email: aiResult.email || null,
-                            phoneNumber: aiResult.phoneNumber,
-                            matchScore: aiResult.score,
-                            matchStatus: aiResult.score >= 80 ? 'green' : aiResult.score >= 50 ? 'yellow' : 'red',
-                            summary: aiResult.summary,
-                            pros: aiResult.pros || [],
-                            cons: aiResult.cons || [],
-                            recruitmentStatus: 'new',
-                            analyzedAt: new Date().toISOString(),
-                            originalJobTitle: Array.isArray(title) ? title[0] : title // Para historial
-                        };
-
-                        // D. Guardar en Firestore
-                        await saveCandidateAnalysis(id as string, newCandidate);
-                        processedCount++;
+                    let webFile;
+                    if (Platform.OS === 'web') {
+                        // @ts-ignore
+                        webFile = file.file || file.output;
                     }
-                } catch (e) {
-                    console.error(`Error procesando ${file.name}:`, e);
+
+                    const text = await extractTextFromDocument(file.uri, file.mimeType, webFile);
+
+                    if (!text || text.length < 50) {
+                        throw new Error("Texto insuficiente extraído (pdf/doc vacío o encriptado)");
+                    }
+
+                    // B. Analizar con Gemini
+                    const aiResult = await analyzeCandidateForCompany(text, jobDetails.description);
+
+                    // C. Guardar Candidato
+                    const newCandidate: CandidateAnalysis = {
+                        id: Math.random().toString(36).substring(7),
+                        jobId: id as string,
+                        name: aiResult.name || "Candidato",
+                        email: aiResult.email,
+                        phoneNumber: aiResult.phoneNumber,
+                        matchScore: aiResult.matchScore,
+                        summary: aiResult.summary,
+                        pros: aiResult.pros,
+                        cons: aiResult.cons,
+                        matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
+                        recruitmentStatus: 'screening',
+                        analyzedAt: new Date().toISOString(),
+                        originalJobTitle: jobDetails.title
+                    };
+
+                    await saveCandidateAnalysis(id as string, newCandidate);
+                    processedCount++;
+
+                    // Delay de 2 segundos entre cada CV para evitar límite de cuota
+                    if (filesToProcess.indexOf(file) < filesToProcess.length - 1) {
+                        console.log("⏳ Esperando 2 segundos antes del siguiente CV...");
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+
+                } catch (e: any) {
+                    console.error(`Error en ${file.name}:`, e);
+                    errors.push(`${file.name}: ${e.message}`);
                 }
             }
 
-            Alert.alert("Proceso Terminado", `${processedCount} CVs analizados correctamente.`);
-            loadCandidates(); // Recargar lista
-        } catch (error) {
-            Alert.alert("Error", "Ocurrió un error al seleccionar archivos.");
+            if (processedCount > 0) {
+                if (errors.length > 0) {
+                    showAlert("Parcial", `Éxito: ${processedCount}. Errores:\n${errors.join('\n')}`);
+                } else {
+                    showAlert("Éxito", `${processedCount} archivos analizados correctamente.`);
+                }
+                loadJobAndCandidates();
+            } else if (errors.length > 0) {
+                showAlert("Error Total", `Fallo total:\n${errors.join('\n')}`);
+            } else {
+                showAlert("Aviso", "No se procesó ningún archivo (¿Bucle vacío?)");
+            }
+
+        } catch (error: any) {
+            console.error("Crash General:", error);
+            showAlert("Crash", error.message);
         } finally {
             setProcessing(false);
         }
@@ -151,9 +234,19 @@ export default function JobDetailScreen() {
     };
 
     const openWhatsApp = (phone?: string) => {
-        if (!phone) return Alert.alert("Sin teléfono", "La IA no detectó un número en el CV.");
+        if (!phone) {
+            return showAlert("Sin teléfono", "La IA no detectó un número en el CV.");
+        }
         const cleanPhone = phone.replace(/[^\d]/g, '');
-        Linking.openURL(`https://wa.me/${cleanPhone}`);
+        const whatsappUrl = `https://wa.me/${cleanPhone}`;
+
+        if (Platform.OS === 'web') {
+            window.open(whatsappUrl, '_blank');
+        } else {
+            Linking.openURL(whatsappUrl).catch(() =>
+                showAlert("Error", "No se pudo abrir WhatsApp")
+            );
+        }
     };
 
     // --- RENDER ---
@@ -161,13 +254,12 @@ export default function JobDetailScreen() {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
+                <TouchableOpacity onPress={() => router.back()}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                <Text style={styles.title}>{jobDetails.title || 'Detalle de Vacante'}</Text>
             </View>
 
-            {/* Botón de Acción Principal */}
             <TouchableOpacity
                 style={[styles.uploadBtn, processing && styles.btnDisabled]}
                 onPress={handlePickDocuments}
@@ -207,7 +299,7 @@ export default function JobDetailScreen() {
                         </View>
                     </TouchableOpacity>
                 )}
-                ListEmptyComponent={!loading && <Text style={styles.emptyText}>No hay candidatos analizados aún.</Text>}
+                ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No hay candidatos analizados aún.</Text> : null}
             />
 
             {/* MODAL DE DETALLE */}

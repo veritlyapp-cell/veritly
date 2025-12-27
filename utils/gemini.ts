@@ -63,18 +63,24 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 const getBase64 = async (uri: string, webFile?: any) => {
-    if (Platform.OS === 'web') {
-        if (!webFile) throw new Error("Falta archivo Web");
+    // 1. Intento directo con objeto File (optimizado para Web)
+    // IMPORTANT: Check valid Blob instance to prevent parameter errors
+    if (Platform.OS === 'web' && webFile && webFile instanceof Blob) {
         return await blobToBase64(webFile);
-    } else {
+    }
+
+    // 2. Fallback: Fetch al URI (funciona en Native y en Web con blob: URIs)
+    try {
         const response = await fetch(uri);
         const blob = await response.blob();
         return await blobToBase64(blob);
+    } catch (e: any) {
+        throw new Error(`Falló lectura de archivo (${Platform.OS}): ${e.message}`);
     }
 }
 
-// 1. LEER PDF
-export const extractTextFromPDF = async (fileUri: string, webFile?: any) => {
+// 1. LEER DOCUMENTO (PDF, DOCX, TXT)
+export const extractTextFromDocument = async (fileUri: string, mimeType: string = 'application/pdf', webFile?: any) => {
     try {
         const base64Data = await getBase64(fileUri, webFile);
 
@@ -82,7 +88,7 @@ export const extractTextFromPDF = async (fileUri: string, webFile?: any) => {
             contents: [{
                 parts: [
                     { text: "Eres un experto en RRHH. Extrae del CV: Perfil, Skills y Experiencia. Haz un resumen claro." },
-                    { inline_data: { mime_type: "application/pdf", data: base64Data } }
+                    { inline_data: { mime_type: mimeType, data: base64Data } }
                 ]
             }]
         };
@@ -95,7 +101,10 @@ export const extractTextFromPDF = async (fileUri: string, webFile?: any) => {
     }
 };
 
-// 2. ANALIZAR MATCH
+// Alias para compatibilidad
+export const extractTextFromPDF = extractTextFromDocument;
+
+// 2. ANALIZAR MATCH CON MEJORAS DE CV
 export const analyzeWithGemini = async (profile: string, jobData: string | any, mode: 'link' | 'text' | 'image', aspirations: string = "") => {
     let parts: any[] = [];
     const basePrompt = `
@@ -107,8 +116,20 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
     2. Detecta **SOBRECALIFICACIÓN**: Si el perfil excede por mucho la vacante, el match debe ser bajo (30-50%) PERO el tip debe ser: "Adapta tu CV para resaltar humildad y enfoque operativo" (No digas "no postules").
     3. Detecta **CONFLICTO DE INTERESES**: Si el candidato busca Minería y la vacante es Retail, baja el match, y el tip debe ser: "Considera ajustar tus intereses clave (Ej: 'Retail') si te interesa este sector".
     4. Calcula MATCH (0-100) siendo estricto pero justo.
+    5. **ANALIZA EL CV**: Identifica qué le FALTA al CV del candidato para esta vacante específica.
+    6. **KEYWORDS**: Sugiere keywords clave que debería incluir en su CV para mejorar su match.
+    7. **MEJORAS**: Da 2-3 recomendaciones específicas de cómo mejorar el CV para esta vacante.
     
-    RESPONDE SOLO JSON: { "role": "Cargo", "company": "Empresa", "match": (0-100), "reason": "Veredicto Breve", "tips": ["Tip Estratégico 1", "Tip Estratégico 2", "Tip Estratégico 3"] }
+    RESPONDE SOLO JSON: { 
+      "role": "Cargo", 
+      "company": "Empresa", 
+      "match": (0-100), 
+      "reason": "Veredicto Breve", 
+      "tips": ["Tip Estratégico 1", "Tip Estratégico 2", "Tip Estratégico 3"],
+      "cvGaps": ["Elemento faltante 1", "Elemento faltante 2"],
+      "suggestedKeywords": ["keyword1", "keyword2", "keyword3", "keyword4"],
+      "cvImprovements": ["Mejora específica 1", "Mejora específica 2"]
+    }
   `;
 
     try {

@@ -48,7 +48,7 @@ export default function LoginScreen() {
 
           </View>
 
-          <Text style={styles.title}>VINKU</Text>
+          <Text style={styles.title}>VERITLY</Text>
 
           <Text style={styles.subtitle}>Tu Copiloto de Carrera con IA</Text>
 

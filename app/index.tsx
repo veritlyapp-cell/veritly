@@ -1,212 +1,248 @@
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, getAdditionalUserInfo, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { ArrowRight, CheckSquare, HelpCircle, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth } from '../config/firebase';
-import { AppConfig } from '../constants/Config';
+import { Briefcase, CheckCircle, Sparkles, Target, Zap } from 'lucide-react-native';
+import React from 'react';
+import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// --- LOGO LOCAL ---
-// Apuntando a tu archivo guardado
 const LocalLogo = require('../assets/images/veritly3.png');
+const FriendlyHero = require('../assets/images/friendly_hero.png');
+const SuccessMoment = require('../assets/images/success_moment.png');
+const AIFeatureImage = require('../assets/images/ai_feature.png');
 
-export default function LoginScreen() {
+export default function VeritlyLandingPage() {
     const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [isRegistering, setIsRegistering] = useState(false);
-    // --- ESTADO PARA TERMINOS ---
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-    const showAlert = (title: string, msg: string) => {
-        if (Platform.OS === 'web') window.alert(`${title}\n${msg}`);
-        else Alert.alert(title, msg);
-    };
-
-    const handleAuth = async () => {
-        // Limpiamos el email de espacios accidentales
-        const cleanEmail = email.trim().toLowerCase();
-
-        if (cleanEmail.length === 0 || password.length === 0) {
-            return showAlert("Campos Vacíos", "Ingresa correo y contraseña.");
+    const features = [
+        {
+            icon: Sparkles,
+            title: "Match Score Preciso",
+            description: "Sube tu CV y cualquier oferta de trabajo. Te mostramos tu compatibilidad al instante"
+        },
+        {
+            icon: Target,
+            title: "Consejos Personalizados",
+            description: "La IA te dirá exactamente qué agregar o mejorar en tu CV para esa posición"
+        },
+        {
+            icon: Zap,
+            title: "Preguntas Clave",
+            description: "Con alto match, te compartimos las preguntas que seguro te harán en la entrevista"
+        },
+        {
+            icon: CheckCircle,
+            title: "Tracking de Estatus",
+            description: "Guarda tus postulaciones y el estado. La IA aprenderá y te dará mejores consejos"
         }
-
-        // VALIDACIÓN DE PRIVACIDAD
-        if (isRegistering && !acceptedTerms) {
-            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para crear una cuenta.");
-        }
-
-        setLoading(true);
-        try {
-            if (isRegistering) {
-                // Redirección inteligente: Si es nuevo, va al Perfil
-                await createUserWithEmailAndPassword(auth, cleanEmail, password);
-                showAlert("¡Bienvenido!", "Cuenta creada. Por favor completa tu perfil.");
-                router.replace('/(tabs)/profile');
-            } else {
-                // Si ya existe, va al Scanner
-                await signInWithEmailAndPassword(auth, cleanEmail, password);
-                router.replace('/(tabs)');
-            }
-        } catch (error: any) {
-            let msg = "Error de acceso.";
-            if (error.code === 'auth/invalid-email') msg = "El correo no es válido.";
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') msg = "Credenciales incorrectas.";
-            if (error.code === 'auth/email-already-in-use') msg = "Este correo ya existe. Inicia sesión.";
-            if (error.code === 'auth/wrong-password') msg = "Contraseña incorrecta.";
-            showAlert("Error", msg);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // --- FUNCIÓN DE RECUPERACIÓN ---
-    const handleForgotPassword = async () => {
-        const cleanEmail = email.trim().toLowerCase();
-
-        if (cleanEmail.length === 0) {
-            return showAlert("Falta Correo", "Escribe tu correo en el campo de arriba para enviarte el link.");
-        }
-
-        setLoading(true);
-        try {
-            console.log("Enviando reset a:", cleanEmail);
-            await sendPasswordResetEmail(auth, cleanEmail);
-
-            showAlert(
-                "Correo Enviado 📧",
-                `Hemos enviado un enlace a ${cleanEmail}.\n\nRevisa tu bandeja de entrada (y la carpeta de SPAM).`
-            );
-        } catch (error: any) {
-            console.error("Error Reset:", error);
-            let msg = error.message;
-            if (error.code === 'auth/user-not-found') msg = "Este correo no está registrado.";
-            if (error.code === 'auth/invalid-email') msg = "El formato del correo está mal.";
-            showAlert("No se pudo enviar", msg);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGoogleLogin = async () => {
-        if (Platform.OS !== 'web') return showAlert("Aviso", "En celular, por favor usa correo y contraseña por ahora.");
-        if (isRegistering && !acceptedTerms) {
-            return showAlert("Requerido", "Debes aceptar la Política de Privacidad para registrarte.");
-        }
-        setLoading(true);
-        try {
-            const userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
-            const additionalInfo = getAdditionalUserInfo(userCredential);
-
-            if (additionalInfo?.isNewUser) {
-                showAlert("¡Bienvenido!", "Por favor completa tu perfil y sube tu CV para comenzar.");
-                router.replace('/(tabs)/profile');
-            } else {
-                router.replace('/(tabs)');
-            }
-        } catch (error: any) {
-            showAlert("Error Google", error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    ];
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-            <View style={styles.content}>
-                <View style={styles.header}>
-                    <View style={styles.logoContainer}><Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" /></View>
-                    <Text style={styles.title}>{isRegistering ? "CREAR CUENTA" : AppConfig.name.toUpperCase()}</Text>
-                    <Text style={styles.subtitle}>{isRegistering ? `Únete a ${AppConfig.name}` : AppConfig.slogan}</Text>
+            <StatusBar barStyle="light-content" backgroundColor="#0a0f1e" />
+            <ScrollView contentContainerStyle={styles.content}>
+
+                {/* NAVIGATION BAR */}
+                <View style={styles.navbar}>
+                    <View style={styles.navLogo}>
+                        <Image source={LocalLogo} style={styles.navLogoImage} resizeMode="contain" />
+                        <Text style={styles.navBrand}>Veritly</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => router.push('/signin')}>
+                        <Text style={styles.navLink}>Iniciar Sesión</Text>
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Mail color="#64748b" size={20} style={{ marginRight: 10 }} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Correo electrónico"
-                            placeholderTextColor="#64748b"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
-                    </View>
-                    <View style={styles.inputContainer}>
-                        <Lock color="#64748b" size={20} style={{ marginRight: 10 }} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Contraseña"
-                            placeholderTextColor="#64748b"
-                            secureTextEntry
-                            value={password}
-                            onChangeText={setPassword}
-                        />
-                    </View>
+                {/* HERO SECTION WITH IMAGE */}
+                <View style={styles.hero}>
+                    <View style={styles.heroContent}>
+                        <View style={styles.heroLeft}>
+                            <View style={styles.badge}>
+                                <Sparkles color="#3b82f6" size={14} />
+                                <Text style={styles.badgeText}>Tu coach personal de IA</Text>
+                            </View>
+                            <Text style={styles.heroTitle}>
+                                Tu próximo trabajo{'\n'}
+                                <Text style={styles.heroTitleHighlight}>está a un click</Text>
+                            </Text>
+                            <Text style={styles.heroSubtitle}>
+                                ¿Te has preguntado si tu CV encaja con ese trabajo? Nosotros te lo decimos. Veritly analiza tu perfil vs. cualquier oferta y te da tu % de match + consejos prácticos + preguntas de entrevista.
+                            </Text>
 
-                    {/* CHECKBOX PRIVACIDAD (SOLO EN REGISTRO) */}
-                    {isRegistering && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                            <TouchableOpacity onPress={() => setAcceptedTerms(!acceptedTerms)} style={{ padding: 5 }}>
-                                {acceptedTerms ? <CheckSquare color="#3b82f6" size={24} /> : <Square color="#64748b" size={24} />}
-                            </TouchableOpacity>
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={{ color: '#94a3b8', fontSize: 13 }}>
-                                    He leído y acepto la <Text onPress={() => router.push('/privacy')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Política de Privacidad</Text> y Términos.
-                                </Text>
+                            {/* CTA BUTTONS */}
+                            <View style={styles.ctaContainer}>
+                                <TouchableOpacity
+                                    style={styles.primaryButton}
+                                    onPress={() => router.push('/(tabs)/profile')}
+                                >
+                                    <Text style={styles.primaryButtonText}>Comenzar Gratis</Text>
+                                    <Zap color="white" size={20} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.secondaryButton}
+                                    onPress={() => router.push('/signin')}
+                                >
+                                    <Text style={styles.secondaryButtonText}>Iniciar Sesión</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* TRUST INDICATORS */}
+                            <View style={styles.stats}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statNumber}>95%</Text>
+                                    <Text style={styles.statLabel}>Precisión IA</Text>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statNumber}>2min</Text>
+                                    <Text style={styles.statLabel}>Tiempo promedio</Text>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statNumber}>24/7</Text>
+                                    <Text style={styles.statLabel}>Disponible</Text>
+                                </View>
                             </View>
                         </View>
-                    )}
 
-                    <TouchableOpacity style={styles.loginButton} onPress={handleAuth} disabled={loading}>
-                        {loading ? <ActivityIndicator color="white" /> : (
-                            <><Text style={styles.loginText}>{isRegistering ? "REGISTRARME" : "INICIAR SESIÓN"}</Text>{isRegistering ? <UserPlus color="white" size={20} /> : <ArrowRight color="white" size={20} />}</>
-                        )}
-                    </TouchableOpacity>
+                        <View style={styles.heroRight}>
+                            <View style={styles.heroImageContainer}>
+                                <Image source={FriendlyHero} style={styles.heroImage} resizeMode="cover" />
+                                <View style={styles.heroImageOverlay} />
+                            </View>
+                        </View>
+                    </View>
+                </View>
 
-                    {!isRegistering && (
-                        <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
-                            <HelpCircle size={14} color="#3b82f6" style={{ marginRight: 5 }} />
-                            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-                        </TouchableOpacity>
-                    )}
+                {/* AI FEATURE SHOWCASE */}
+                <View style={styles.aiSection}>
+                    <View style={styles.twoColumnSection}>
+                        <View style={styles.aiImageContainer}>
+                            <Image source={SuccessMoment} style={styles.aiImage} resizeMode="contain" />
+                        </View>
+                        <View style={styles.aiContent}>
+                            <Text style={styles.aiTitle}>¡Prepárate como un pro!</Text>
+                            <Text style={styles.aiDescription}>
+                                Imagina saber exactamente qué tan bien encajas ANTES de postular. Eso es lo que hacemos: analizamos tu CV con la IA, te decimos tu % de match, qué te falta, y si eres buen candidato, te damos las preguntas clave para esa entrevista.
+                            </Text>
+                        </View>
+                    </View>
+                </View>
 
-                    <View style={styles.divider}><View style={styles.line} /><Text style={styles.orText}>O</Text><View style={styles.line} /></View>
-                    <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} disabled={loading}><Text style={styles.googleText}>🔵  Google</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.switchButton} onPress={() => setIsRegistering(!isRegistering)}>
-                        <Text style={styles.switchText}>{isRegistering ? `¿Ya tienes cuenta en ${AppConfig.name}? Inicia Sesión` : `¿Nuevo en ${AppConfig.name}? Crea una cuenta`}</Text>
+                {/* FEATURES GRID */}
+                <View style={styles.features}>
+                    <Text style={styles.sectionTitle}>Cómo funciona (es súper simple)</Text>
+                    <View style={styles.featureGrid}>
+                        {features.map((feature, index) => {
+                            const Icon = feature.icon;
+                            return (
+                                <View key={index} style={styles.featureCard}>
+                                    <View style={styles.featureIconContainer}>
+                                        <Icon color="#3b82f6" size={28} />
+                                    </View>
+                                    <Text style={styles.featureTitle}>{feature.title}</Text>
+                                    <Text style={styles.featureDescription}>{feature.description}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                {/* CTA SECTION */}
+                <View style={styles.ctaSection}>
+                    <Text style={styles.ctaTitle}>¿Listo para llegar mejor preparado a tus entrevistas?</Text>
+                    <Text style={styles.ctaSubtitle}>Miles de personas ya usan Veritly para saber exactamente dónde están parados antes de postular</Text>
+                    <TouchableOpacity
+                        style={styles.ctaButton}
+                        onPress={() => router.push('/(tabs)/profile')}
+                    >
+                        <Text style={styles.ctaButtonText}>Crear cuenta gratis</Text>
+                        <Zap color="white" size={20} />
                     </TouchableOpacity>
                 </View>
-                <Text style={styles.footerText}>¿Eres empresa? <Text onPress={() => router.push('/empresa/signin')} style={{ color: '#38bdf8', fontWeight: 'bold' }}>Entrar aquí</Text></Text>
-            </View>
+
+                {/* COMPANY LINK */}
+                <View style={styles.footer}>
+                    <View style={styles.divider} />
+                    <TouchableOpacity
+                        style={styles.companyLink}
+                        onPress={() => router.push('/empresa')}
+                    >
+                        <Briefcase color="#10b981" size={20} />
+                        <Text style={styles.companyLinkText}>
+                            ¿Eres empresa? Descubre Veritly para Reclutadores
+                        </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.copyright}>© 2024 Veritly. Todos los derechos reservados.</Text>
+                </View>
+
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    content: { flex: 1, padding: 30, justifyContent: 'center' },
-    header: { alignItems: 'center', marginBottom: 40 },
-    logoContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
-    logoImage: { width: 60, height: 60 },
-    title: { fontSize: 28, fontWeight: '900', color: 'white', letterSpacing: 2, marginBottom: 5 },
-    subtitle: { fontSize: 14, color: '#94a3b8', letterSpacing: 0.5 },
-    form: { width: '100%' },
-    inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, paddingHorizontal: 15, height: 55, marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
-    input: { flex: 1, color: 'white', fontSize: 16 },
-    loginButton: { backgroundColor: '#3b82f6', flexDirection: 'row', height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 15, gap: 10 },
-    loginText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 10 },
-    line: { flex: 1, height: 1, backgroundColor: '#334155' },
-    orText: { color: '#64748b', marginHorizontal: 10, fontSize: 12 },
-    googleButton: { backgroundColor: 'white', height: 55, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-    googleText: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
-    switchButton: { alignItems: 'center', padding: 10 },
-    switchText: { color: '#cbd5e1', fontSize: 14, textDecorationLine: 'underline' },
-    forgotButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 5, marginBottom: 10 },
-    forgotText: { color: '#3b82f6', fontSize: 14 },
-    footerText: { textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 14 }
+    container: { flex: 1, backgroundColor: '#0a0f1e' },
+    content: { paddingBottom: 40 },
+
+    // Navigation
+    navbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 30, paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+    navLogo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    navLogoImage: { width: 32, height: 32 },
+    navBrand: { fontSize: 24, fontWeight: '900', color: 'white', letterSpacing: -0.5 },
+    navLink: { color: '#3b82f6', fontSize: 16, fontWeight: '600' },
+
+    // Hero Section
+    hero: { paddingHorizontal: 30, paddingTop: 40, paddingBottom: 60 },
+    heroContent: { flexDirection: 'row', gap: 30, alignItems: 'center' },
+    heroLeft: { flex: 1 },
+    badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6, alignSelf: 'flex-start', marginBottom: 20 },
+    badgeText: { color: '#3b82f6', fontWeight: '700', fontSize: 12 },
+    heroTitle: { fontSize: 48, fontWeight: '900', color: 'white', marginBottom: 20, lineHeight: 56, letterSpacing: -1.5 },
+    heroTitleHighlight: { color: '#3b82f6' },
+    heroSubtitle: { fontSize: 18, color: '#94a3b8', lineHeight: 28, marginBottom: 30 },
+    heroRight: { flex: 1, display: 'none' }, // Hidden on mobile
+    heroImageContainer: { position: 'relative', borderRadius: 24, overflow: 'hidden', elevation: 10 },
+    heroImage: { width: '100%', height: 400 },
+    heroImageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(59, 130, 246, 0.1)' },
+
+    // CTA Buttons
+    ctaContainer: { flexDirection: 'row', gap: 12, marginBottom: 40 },
+    primaryButton: { backgroundColor: '#3b82f6', flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 12, alignItems: 'center', gap: 8, elevation: 5, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+    primaryButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    secondaryButton: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#3b82f6', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    secondaryButtonText: { color: '#3b82f6', fontWeight: 'bold', fontSize: 16 },
+
+    // Stats
+    stats: { flexDirection: 'row', gap: 20 },
+    statItem: { flex: 1 },
+    statNumber: { fontSize: 24, fontWeight: '900', color: '#3b82f6', marginBottom: 4 },
+    statLabel: { fontSize: 12, color: '#64748b' },
+
+    // AI Section
+    aiSection: { paddingHorizontal: 30, paddingVertical: 60, backgroundColor: '#111827', marginBottom: 40 },
+    aiImageContainer: { width: '100%', height: 200, marginBottom: 30 },
+    aiImage: { width: '100%', height: '100%' },
+    aiContent: { alignItems: 'center' },
+    aiTitle: { fontSize: 32, fontWeight: '900', color: 'white', textAlign: 'center', marginBottom: 16 },
+    aiDescription: { fontSize: 16, color: '#94a3b8', textAlign: 'center', lineHeight: 24 },
+
+    // Features
+    features: { paddingHorizontal: 30, marginBottom: 60 },
+    sectionTitle: { fontSize: 36, fontWeight: '900', color: 'white', textAlign: 'center', marginBottom: 40 },
+    featureGrid: { gap: 16 },
+    featureCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#334155' },
+    featureIconContainer: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(59, 130, 246, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    featureTitle: { fontSize: 20, fontWeight: 'bold', color: 'white', marginBottom: 10 },
+    featureDescription: { fontSize: 15, color: '#94a3b8', lineHeight: 22 },
+
+    // CTA Section
+    ctaSection: { paddingHorizontal: 30, paddingVertical: 60, backgroundColor: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)', alignItems: 'center', marginBottom: 40 },
+    ctaTitle: { fontSize: 36, fontWeight: '900', color: 'white', textAlign: 'center', marginBottom: 16 },
+    ctaSubtitle: { fontSize: 18, color: '#cbd5e1', textAlign: 'center', marginBottom: 30 },
+    ctaButton: { backgroundColor: '#10b981', flexDirection: 'row', paddingHorizontal: 32, paddingVertical: 18, borderRadius: 12, alignItems: 'center', gap: 10, elevation: 8, shadowColor: '#10b981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12 },
+    ctaButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+
+    // Footer
+    footer: { paddingHorizontal: 30, paddingTop: 40 },
+    divider: { height: 1, backgroundColor: '#334155', marginBottom: 30 },
+    companyLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 12, borderWidth: 1, borderColor: '#10b981', gap: 10, marginBottom: 20 },
+    companyLinkText: { color: '#10b981', fontSize: 16, fontWeight: '600' },
+    copyright: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingVertical: 20 }
 });
