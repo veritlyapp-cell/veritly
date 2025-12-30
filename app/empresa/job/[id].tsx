@@ -1,22 +1,26 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore'; // Added import
+import { doc, getDoc } from 'firebase/firestore';
+import { Mail, MessageSquare, Sparkles, Upload, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert,
+    ActivityIndicator,
+    Alert,
     FlatList,
     Linking,
     Modal,
     Platform,
+    SafeAreaView,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
 
-// Lógica
+import CircularProgress from '../../../components/CircularProgress';
 import { auth, db } from '../../../config/firebase';
 import {
     getCandidateHistoryForCompany,
@@ -24,41 +28,37 @@ import {
     saveCandidateAnalysis,
     updateCandidateStatus
 } from '../../../services/storage';
-import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
+import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany } from '../../../utils/gemini-company';
 
-// Colores del semáforo
-const getStatusColor = (status: MatchStatus) => {
+const STATUS_OPTIONS: RecruitmentStatus[] = ['screening', 'interview', 'offer', 'hired', 'rejected'];
+
+const getStatusColor = (status: RecruitmentStatus) => {
     switch (status) {
-        case 'green': return '#4CAF50';
-        case 'yellow': return '#FFC107';
-        case 'red': return '#F44336';
-        default: return '#ccc';
+        case 'hired': return '#10b981';
+        case 'offer': return '#3b82f6';
+        case 'interview': return '#f59e0b';
+        case 'screening': return '#94a3b8';
+        case 'rejected': return '#ef4444';
+        default: return '#64748b';
     }
 };
 
-const STATUS_OPTIONS: RecruitmentStatus[] = ['screening', 'interview', 'offer', 'hired', 'rejected'];
-
 export default function JobDetailScreen() {
-    const { id, title, description } = useLocalSearchParams(); // Recibimos datos de la vacante
+    const { id, title, description } = useLocalSearchParams();
     const router = useRouter();
 
     const [candidates, setCandidates] = useState<CandidateAnalysis[]>([]);
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
-
-    // Estado para el Modal
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAnalysis | null>(null);
     const [candidateHistory, setCandidateHistory] = useState<CandidateAnalysis[]>([]);
-
-    // State for job details (since params might be missing)
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || ''
     });
 
-    // 1. Cargar candidatos existentes al entrar
     useEffect(() => {
         loadJobAndCandidates();
     }, [id]);
@@ -66,9 +66,7 @@ export default function JobDetailScreen() {
     const loadJobAndCandidates = async () => {
         setLoading(true);
         try {
-            // A. Fetch Job Details if missing
             if (!jobDetails.description) {
-                console.log("Fetching job details from Firestore...");
                 const jobDoc = await getDoc(doc(db, 'jobs', id as string));
                 if (jobDoc.exists()) {
                     const data = jobDoc.data();
@@ -81,7 +79,6 @@ export default function JobDetailScreen() {
                 }
             }
 
-            // B. Fetch Candidates
             const data = await getJobCandidates(id as string);
             setCandidates(data);
         } catch (error) {
@@ -92,7 +89,6 @@ export default function JobDetailScreen() {
         }
     };
 
-    // Helper para alertas universales
     const showAlert = (title: string, msg: string) => {
         if (Platform.OS === 'web') {
             window.alert(`${title}: ${msg}`);
@@ -101,14 +97,8 @@ export default function JobDetailScreen() {
         }
     };
 
-    // 2. Subir y Procesar CVs
     const handlePickDocuments = async () => {
-        // DEBUG: Confirmar inicio
-        showAlert("Iniciando", "Abriendo selector...");
-
         setProcessing(true);
-        console.log("Iniciando selección...");
-
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'],
@@ -116,46 +106,30 @@ export default function JobDetailScreen() {
                 copyToCacheDirectory: true
             });
 
-            if (result.canceled) {
-                console.log("Selección cancelada");
-                showAlert("Cancelado", "No seleccionaste archivos.");
+            if (result.canceled || !result.assets || result.assets.length === 0) {
                 setProcessing(false);
                 return;
             }
 
-            if (!result.assets || result.assets.length === 0) {
-                console.error("Assets vacíos o nulos");
-                showAlert("Error", "La lista de archivos retornada está vacía.");
-                setProcessing(false);
-                return;
-            }
-
-            console.log(`Seleccionados ${result.assets.length} archivos`);
             const filesToProcess = result.assets.slice(0, 10);
-
             let processedCount = 0;
             let errors: string[] = [];
 
             for (const file of filesToProcess) {
-                console.log(`Procesando: ${file.name}`);
                 try {
-                    // A. Extraer Texto
                     let webFile;
                     if (Platform.OS === 'web') {
-                        // @ts-ignore
-                        webFile = file.file || file.output;
+                        webFile = (file as any).file || (file as any).output;
                     }
 
                     const text = await extractTextFromDocument(file.uri, file.mimeType, webFile);
 
                     if (!text || text.length < 50) {
-                        throw new Error("Texto insuficiente extraído (pdf/doc vacío o encriptado)");
+                        throw new Error("Texto insuficiente extraído");
                     }
 
-                    // B. Analizar con Gemini
                     const aiResult = await analyzeCandidateForCompany(text, jobDetails.description);
 
-                    // C. Guardar Candidato
                     const newCandidate: CandidateAnalysis = {
                         id: Math.random().toString(36).substring(7),
                         jobId: id as string,
@@ -175,45 +149,33 @@ export default function JobDetailScreen() {
                     await saveCandidateAnalysis(id as string, newCandidate);
                     processedCount++;
 
-                    // Delay de 2 segundos entre cada CV para evitar límite de cuota
                     if (filesToProcess.indexOf(file) < filesToProcess.length - 1) {
-                        console.log("⏳ Esperando 2 segundos antes del siguiente CV...");
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     }
 
                 } catch (e: any) {
-                    console.error(`Error en ${file.name}:`, e);
                     errors.push(`${file.name}: ${e.message}`);
                 }
             }
 
             if (processedCount > 0) {
-                if (errors.length > 0) {
-                    showAlert("Parcial", `Éxito: ${processedCount}. Errores:\n${errors.join('\n')}`);
-                } else {
-                    showAlert("Éxito", `${processedCount} archivos analizados correctamente.`);
-                }
+                showAlert("Éxito", `${processedCount} archivos analizados correctamente.`);
                 loadJobAndCandidates();
             } else if (errors.length > 0) {
-                showAlert("Error Total", `Fallo total:\n${errors.join('\n')}`);
-            } else {
-                showAlert("Aviso", "No se procesó ningún archivo (¿Bucle vacío?)");
+                showAlert("Error", `Errores:\n${errors.join('\n')}`);
             }
 
         } catch (error: any) {
-            console.error("Crash General:", error);
-            showAlert("Crash", error.message);
+            showAlert("Error", error.message);
         } finally {
             setProcessing(false);
         }
     };
 
-    // 3. Lógica del Modal (Historial y Estatus)
     const openCandidateModal = async (candidate: CandidateAnalysis) => {
         setSelectedCandidate(candidate);
-        setCandidateHistory([]); // Limpiar previo
+        setCandidateHistory([]);
 
-        // Buscar historial si tiene email
         if (candidate.email && auth.currentUser) {
             const history = await getCandidateHistoryForCompany(auth.currentUser.uid, candidate.email, id as string);
             setCandidateHistory(history);
@@ -223,13 +185,8 @@ export default function JobDetailScreen() {
     const handleStatusChange = async (newStatus: RecruitmentStatus) => {
         if (!selectedCandidate) return;
 
-        // Actualizar local visualmente
         setSelectedCandidate({ ...selectedCandidate, recruitmentStatus: newStatus });
-
-        // Actualizar en BD
         await updateCandidateStatus(id as string, selectedCandidate.id, newStatus);
-
-        // Actualizar lista de fondo
         setCandidates(prev => prev.map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
     };
 
@@ -249,174 +206,540 @@ export default function JobDetailScreen() {
         }
     };
 
-    // --- RENDER ---
+    const openEmail = (email?: string) => {
+        if (!email) {
+            return showAlert("Sin email", "No hay email disponible.");
+        }
+        Linking.openURL(`mailto:${email}`);
+    };
+
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color="#333" />
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Arrow Left size={24} color="white" />
                 </TouchableOpacity>
-                <Text style={styles.title}>{jobDetails.title || 'Detalle de Vacante'}</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.headerTitle}>{jobDetails.title || 'Candidatos'}</Text>
+                    <Text style={styles.headerSubtitle}>{candidates.length} análisis realizados</Text>
+                </View>
             </View>
 
+            {/* Upload Button */}
             <TouchableOpacity
-                style={[styles.uploadBtn, processing && styles.btnDisabled]}
+                style={styles.uploadButton}
                 onPress={handlePickDocuments}
                 disabled={processing}
             >
-                {processing ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <ActivityIndicator color="white" style={{ marginRight: 10 }} />
-                        <Text style={styles.uploadText}>Analizando con IA...</Text>
-                    </View>
-                ) : (
-                    <Text style={styles.uploadText}>+ Subir Carpeta de CVs (PDF)</Text>
-                )}
+                <LinearGradient
+                    colors={processing ? ['#64748b', '#64748b'] : ['#3b82f6', '#8b5cf6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.uploadGradient}
+                >
+                    {processing ? (
+                        <>
+                            <ActivityIndicator color="white" />
+                            <Text style={styles.uploadText}>Analizando con IA...</Text>
+                        </>
+                    ) : (
+                        <>
+                            <Upload size={20} color="white" />
+                            <Text style={styles.uploadText}>Subir CVs (PDF)</Text>
+                        </>
+                    )}
+                </LinearGradient>
             </TouchableOpacity>
 
-            {/* Lista de Candidatos */}
+            {/* Candidates List */}
             <FlatList
                 data={candidates}
                 keyExtractor={item => item.id}
-                contentContainerStyle={{ paddingBottom: 50 }}
+                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
                 renderItem={({ item }) => (
                     <TouchableOpacity
-                        style={[styles.card, { borderLeftColor: getStatusColor(item.matchStatus), borderLeftWidth: 6 }]}
+                        style={styles.candidateCard}
                         onPress={() => openCandidateModal(item)}
                     >
-                        <View style={styles.row}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.name}>{item.name}</Text>
-                                <Text style={styles.subText}>
-                                    Match: <Text style={{ fontWeight: 'bold', color: getStatusColor(item.matchStatus) }}>{item.matchScore}%</Text>
-                                    {' • '}{new Date(item.analyzedAt).toLocaleDateString()}
-                                </Text>
+                        <View style={styles.cardContent}>
+                            {/* Left: Circular Progress */}
+                            <View style={styles.progressContainer}>
+                                <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
                             </View>
-                            <View style={styles.statusBadge}>
-                                <Text style={styles.statusBadgeText}>{item.recruitmentStatus.toUpperCase()}</Text>
+
+                            {/* Center: Info */}
+                            <View style={styles.cardInfo}>
+                                <Text style={styles.candidateName}>{item.name}</Text>
+                                <Text style={styles.candidateDate}>
+                                    {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
+                                        day: 'numeric',
+                                        month: 'short'
+                                    })}
+                                </Text>
+                                <View style={[styles.statusPill, { backgroundColor: `${getStatusColor(item.recruitmentStatus)}20` }]}>
+                                    <Text style={[styles.statusPillText, { color: getStatusColor(item.recruitmentStatus) }]}>
+                                        {item.recruitmentStatus.toUpperCase()}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* Right: Quick Actions */}
+                            <View style={styles.quickActions}>
+                                {item.phoneNumber && (
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            openWhatsApp(item.phoneNumber);
+                                        }}
+                                    >
+                                        <MessageSquare size={18} color="#10b981" />
+                                    </TouchableOpacity>
+                                )}
+                                {item.email && (
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            openEmail(item.email);
+                                        }}
+                                    >
+                                        <Mail size={18} color="#3b82f6" />
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </View>
                     </TouchableOpacity>
                 )}
-                ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No hay candidatos analizados aún.</Text> : null}
+                ListEmptyComponent={
+                    !loading ? (
+                        <View style={styles.emptyState}>
+                            <Upload size={48} color="#64748b" />
+                            <Text style={styles.emptyText}>No hay candidatos analizados</Text>
+                            <Text style={styles.emptySubtext}>Sube CVs para comenzar el análisis con IA</Text>
+                        </View>
+                    ) : null
+                }
             />
 
-            {/* MODAL DE DETALLE */}
+            {/* MODAL */}
             <Modal visible={!!selectedCandidate} animationType="slide" presentationStyle="pageSheet">
                 {selectedCandidate && (
-                    <ScrollView style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{selectedCandidate.name}</Text>
-                            <TouchableOpacity onPress={() => setSelectedCandidate(null)}>
-                                <Ionicons name="close-circle" size={30} color="#ccc" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.matchScoreBig}><Text style={{ color: getStatusColor(selectedCandidate.matchStatus) }}>{selectedCandidate.matchScore}%</Text> Coincidencia</Text>
-                        {selectedCandidate.email && <Text style={styles.email}>{selectedCandidate.email}</Text>}
-
-                        {/* Botones de Estatus */}
-                        <Text style={styles.sectionTitle}>Estatus del Proceso:</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
-                            {STATUS_OPTIONS.map(status => (
-                                <TouchableOpacity
-                                    key={status}
-                                    style={[
-                                        styles.statusBtn,
-                                        selectedCandidate.recruitmentStatus === status && styles.statusBtnActive
-                                    ]}
-                                    onPress={() => handleStatusChange(status)}
-                                >
-                                    <Text style={[styles.statusText, selectedCandidate.recruitmentStatus === status && { color: 'white' }]}>
-                                        {status.toUpperCase()}
-                                    </Text>
+                    <View style={styles.modalContainer}>
+                        <StatusBar barStyle="light-content" />
+                        <ScrollView style={styles.modalContent}>
+                            {/* Modal Header */}
+                            <View style={styles.modalHeader}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.modalName}>{selectedCandidate.name}</Text>
+                                    {selectedCandidate.email && (
+                                        <Text style={styles.modalEmail}>{selectedCandidate.email}</Text>
+                                    )}
+                                </View>
+                                <TouchableOpacity onPress={() => setSelectedCandidate(null)} style={styles.closeButton}>
+                                    <X size={28} color="white" />
                                 </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                            </View>
 
-                        {/* Historial */}
-                        <Text style={styles.sectionTitle}>Historial en la Empresa:</Text>
-                        <View style={styles.historyBox}>
-                            {candidateHistory.length > 0 ? (
-                                candidateHistory.map((h, i) => (
-                                    <View key={i} style={styles.historyRow}>
-                                        <Text style={{ fontWeight: 'bold' }}>{h.originalJobTitle || 'Otro puesto'}</Text>
-                                        <Text style={{ color: getStatusColor(h.matchStatus) }}>{h.matchScore}% ({h.recruitmentStatus})</Text>
+                            {/* Match Score Large */}
+                            <View style={styles.matchSection}>
+                                <CircularProgress percentage={selectedCandidate.matchScore} size={140} strokeWidth={10} />
+                                <Text style={styles.matchLabel}>Coincidencia</Text>
+                            </View>
+
+                            {/* AI Analysis Card */}
+                            <View style={styles.aiCard}>
+                                <View style={styles.aiCardHeader}>
+                                    <Sparkles size={24} color="#f59e0b" />
+                                    <Text style={styles.aiCardTitle}>Análisis IA</Text>
+                                </View>
+                                <Text style={styles.aiSummary}>{selectedCandidate.summary}</Text>
+
+                                <Text style={styles.subsectionTitle}>✅ Puntos Fuertes</Text>
+                                {selectedCandidate.pros.map((p, i) => (
+                                    <Text key={i} style={styles.proText}>• {p}</Text>
+                                ))}
+
+                                <Text style={[styles.subsectionTitle, { marginTop: 16 }]}>⚠️ A Considerar</Text>
+                                {selectedCandidate.cons.map((c, i) => (
+                                    <Text key={i} style={styles.conText}>• {c}</Text>
+                                ))}
+                            </View>
+
+                            {/* Status Buttons */}
+                            <Text style={styles.sectionTitle}>Estado del Proceso</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
+                                {STATUS_OPTIONS.map(status => (
+                                    <TouchableOpacity
+                                        key={status}
+                                        style={[
+                                            styles.statusButton,
+                                            selectedCandidate.recruitmentStatus === status && {
+                                                backgroundColor: getStatusColor(status)
+                                            }
+                                        ]}
+                                        onPress={() => handleStatusChange(status)}
+                                    >
+                                        <Text style={[
+                                            styles.statusButtonText,
+                                            selectedCandidate.recruitmentStatus === status && styles.statusButtonTextActive
+                                        ]}>
+                                            {status.toUpperCase()}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            {/* History */}
+                            {candidateHistory.length > 0 && (
+                                <>
+                                    <Text style={styles.sectionTitle}>Historial en la Empresa</Text>
+                                    <View style={styles.historyContainer}>
+                                        {candidateHistory.map((h, i) => (
+                                            <View key={i} style={styles.historyItem}>
+                                                <Text style={styles.historyTitle}>{h.originalJobTitle || 'Otro puesto'}</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Text style={styles.historyScore}>{h.matchScore}%</Text>
+                                                    <View style={[styles.historyStatus, { backgroundColor: `${getStatusColor(h.recruitmentStatus)}20` }]}>
+                                                        <Text style={[styles.historyStatusText, { color: getStatusColor(h.recruitmentStatus) }]}>
+                                                            {h.recruitmentStatus}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        ))}
                                     </View>
-                                ))
-                            ) : (
-                                <Text style={{ color: '#999', fontStyle: 'italic' }}>No hay postulaciones previas registradas.</Text>
+                                </>
                             )}
-                        </View>
 
-                        {/* Resumen IA */}
-                        <View style={styles.aiBox}>
-                            <Text style={styles.sectionTitle}>🧠 Análisis de IA:</Text>
-                            <Text style={styles.bodyText}>{selectedCandidate.summary}</Text>
+                            {/* Contact Actions */}
+                            <View style={styles.contactActions}>
+                                <TouchableOpacity
+                                    style={styles.contactButton}
+                                    onPress={() => openWhatsApp(selectedCandidate.phoneNumber)}
+                                >
+                                    <MessageSquare size={22} color="white" />
+                                    <Text style={styles.contactButtonText}>WhatsApp</Text>
+                                </TouchableOpacity>
 
-                            <Text style={[styles.sectionTitle, { marginTop: 15 }]}>✅ Puntos Fuertes:</Text>
-                            {selectedCandidate.pros.map((p, i) => <Text key={i} style={styles.bullet}>• {p}</Text>)}
+                                <TouchableOpacity
+                                    style={[styles.contactButton, { backgroundColor: '#3b82f6' }]}
+                                    onPress={() => openEmail(selectedCandidate.email)}
+                                >
+                                    <Mail size={22} color="white" />
+                                    <Text style={styles.contactButtonText}>Email</Text>
+                                </TouchableOpacity>
+                            </View>
 
-                            <Text style={[styles.sectionTitle, { marginTop: 15 }]}>⚠️ A Considerar:</Text>
-                            {selectedCandidate.cons.map((c, i) => <Text key={i} style={styles.bullet}>• {c}</Text>)}
-                        </View>
-
-                        {/* Acciones Finales */}
-                        <TouchableOpacity
-                            style={styles.whatsappBtn}
-                            onPress={() => openWhatsApp(selectedCandidate.phoneNumber)}
-                        >
-                            <Ionicons name="logo-whatsapp" size={24} color="white" />
-                            <Text style={styles.whatsappText}> Contactar por WhatsApp</Text>
-                        </TouchableOpacity>
-
-                        <View style={{ height: 50 }} />
-                    </ScrollView>
+                            <View style={{ height: 40 }} />
+                        </ScrollView>
+                    </View>
                 )}
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F4F6F8', padding: 20 },
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 40 },
-    title: { fontSize: 22, fontWeight: 'bold', marginLeft: 10, flex: 1, color: '#1A1A1A' },
-
-    uploadBtn: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 20, elevation: 3 },
-    btnDisabled: { backgroundColor: '#A0A0A0' },
-    uploadText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-
-    card: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 10, elevation: 2, flexDirection: 'row', alignItems: 'center' },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 },
-    name: { fontWeight: 'bold', fontSize: 16, color: '#333' },
-    subText: { color: '#666', fontSize: 12, marginTop: 4 },
-    statusBadge: { backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5 },
-    statusBadgeText: { fontSize: 10, color: '#555', fontWeight: 'bold' },
-    emptyText: { textAlign: 'center', marginTop: 30, color: '#999' },
-
-    // Modal Styles
-    modalContent: { flex: 1, padding: 20, backgroundColor: 'white' },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-    modalTitle: { fontSize: 24, fontWeight: 'bold', flex: 1 },
-    matchScoreBig: { fontSize: 18, color: '#555', marginBottom: 5 },
-    email: { color: '#007AFF', marginBottom: 20 },
-
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginTop: 15, marginBottom: 8, color: '#333' },
-
-    statusScroll: { flexDirection: 'row', marginBottom: 10, height: 50 },
-    statusBtn: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#DDD', marginRight: 10, height: 36, justifyContent: 'center' },
-    statusBtnActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-    statusText: { fontSize: 12, fontWeight: '600', color: '#666' },
-
-    historyBox: { backgroundColor: '#F9F9F9', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#EEE' },
-    historyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#EEE' },
-
-    aiBox: { marginTop: 20, backgroundColor: '#F0F7FF', padding: 15, borderRadius: 10 },
-    bodyText: { fontSize: 14, lineHeight: 20, color: '#444' },
-    bullet: { fontSize: 14, color: '#555', marginLeft: 10, marginBottom: 2 },
-
-    whatsappBtn: { flexDirection: 'row', backgroundColor: '#25D366', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 30 },
-    whatsappText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 }
+    container: {
+        flex: 1,
+        backgroundColor: '#0F172A'
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        paddingTop: Platform.OS === 'ios' ? 10 : 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1e293b'
+    },
+    backButton: {
+        marginRight: 15,
+        padding: 5
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: 'white',
+        letterSpacing: -0.5
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: '#94a3b8',
+        marginTop: 2
+    },
+    uploadButton: {
+        margin: 20,
+        marginTop: 15,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 5,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8
+    },
+    uploadGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        gap: 10
+    },
+    uploadText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800'
+    },
+    candidateCard: {
+        backgroundColor: 'rgba(30, 41, 59, 0.6)',
+        borderRadius: 16,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        overflow: 'hidden'
+    },
+    cardContent: {
+        flexDirection: 'row',
+        padding: 16,
+        alignItems: 'center'
+    },
+    progressContainer: {
+        marginRight: 16
+    },
+    cardInfo: {
+        flex: 1
+    },
+    candidateName: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#F8FAFC',
+        marginBottom: 4,
+        letterSpacing: -0.3
+    },
+    candidateDate: {
+        fontSize: 12,
+        color: '#94a3b8',
+        marginBottom: 8
+    },
+    statusPill: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12
+    },
+    statusPillText: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5
+    },
+    quickActions: {
+        flexDirection: 'row',
+        gap: 8
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(100, 116, 139, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.3)'
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 60
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: 'white',
+        marginTop: 16
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: '#64748b',
+        marginTop: 8
+    },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: '#0F172A'
+    },
+    modalContent: {
+        flex: 1
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1e293b'
+    },
+    modalName: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: 'white'
+    },
+    modalEmail: {
+        fontSize: 14,
+        color: '#3b82f6',
+        marginTop: 4
+    },
+    closeButton: {
+        padding: 5
+    },
+    matchSection: {
+        alignItems: 'center',
+        paddingVertical: 30
+    },
+    matchLabel: {
+        fontSize: 14,
+        color: '#94a3b8',
+        fontWeight: '600',
+        marginTop: 12,
+        letterSpacing: 2,
+        textTransform: 'uppercase'
+    },
+    aiCard: {
+        margin: 20,
+        marginTop: 10,
+        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+        borderRadius: 16,
+        padding: 20,
+        borderWidth: 2,
+        borderColor: 'rgba(251, 191, 36, 0.3)'
+    },
+    aiCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 16
+    },
+    aiCardTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#f59e0b'
+    },
+    aiSummary: {
+        fontSize: 15,
+        color: '#cbd5e1',
+        lineHeight: 24,
+        marginBottom: 16
+    },
+    subsectionTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#94a3b8',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5
+    },
+    proText: {
+        fontSize: 14,
+        color: '#10b981',
+        marginBottom: 4,
+        lineHeight: 20
+    },
+    conText: {
+        fontSize: 14,
+        color: '#f59e0b',
+        marginBottom: 4,
+        lineHeight: 20
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: 'white',
+        marginHorizontal: 20,
+        marginTop: 20,
+        marginBottom: 12
+    },
+    statusScroll: {
+        paddingHorizontal: 20,
+        marginBottom: 10
+    },
+    statusButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: 'rgba(100, 116, 139, 0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        marginRight: 10
+    },
+    statusButtonText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#94a3b8'
+    },
+    statusButtonTextActive: {
+        color: 'white'
+    },
+    historyContainer: {
+        marginHorizontal: 20,
+        marginBottom: 20
+    },
+    historyItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: 'rgba(30, 41, 59, 0.6)',
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.2)'
+    },
+    historyTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: 'white'
+    },
+    historyScore: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#38bdf8'
+    },
+    historyStatus: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10
+    },
+    historyStatusText: {
+        fontSize: 10,
+        fontWeight: '700'
+    },
+    contactActions: {
+        flexDirection: 'row',
+        gap: 12,
+        margin: 20,
+        marginTop: 30
+    },
+    contactButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#10b981',
+        padding: 16,
+        borderRadius: 12,
+        gap: 10,
+        elevation: 5,
+        shadowColor: '#10b981',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8
+    },
+    contactButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800'
+    }
 });

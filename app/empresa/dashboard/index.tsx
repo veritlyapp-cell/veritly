@@ -21,19 +21,31 @@ export default function CompanyDashboard() {
             setLoading(false);
             return;
         }
+
+        // DEBUG: Mostrar info del usuario actual
+        console.log("🔍 DEBUG - Usuario actual:");
+        console.log("  Email:", auth.currentUser.email);
+        console.log("  UID:", auth.currentUser.uid);
+
         setLoading(true);
         try {
             // 1. Verificar Perfil (nueva colección con fallback)
             let userDoc = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
 
+            console.log("  users_empresas existe?", userDoc.exists());
+
             // Fallback a colección antigua
             if (!userDoc.exists()) {
                 userDoc = await getDoc(doc(db, 'companies', auth.currentUser.uid));
+                console.log("  companies existe?", userDoc.exists());
             }
 
             if (!userDoc.exists() || !userDoc.data().profileCompleted) {
+                console.log("  ⚠️ Perfil no completado, redirigiendo a onboarding");
                 return router.replace('/empresa/dashboard/onboarding');
             }
+
+            console.log("  ✅ Perfil encontrado:", userDoc.data());
             setCheckingProfile(false);
 
             // 2. Cargar Puestos
@@ -42,8 +54,16 @@ export default function CompanyDashboard() {
                 collection(db, 'jobs'),
                 where('companyId', '==', auth.currentUser.uid)
             );
+
+            console.log("  🔎 Buscando jobs con companyId:", auth.currentUser.uid);
+
             const querySnapshot = await getDocs(q);
             const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            console.log("  📊 Jobs encontrados:", jobsList.length);
+            if (jobsList.length > 0) {
+                console.log("  Primer job:", jobsList[0]);
+            }
 
             // Ordenamos en cliente (más seguro por ahora)
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

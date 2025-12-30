@@ -192,3 +192,54 @@ export const generateCareerAdvice = async (historyJson: string) => {
         return { advice: "Sigue guardando análisis." };
     }
 };
+
+// 5. OPTIMIZAR PERFIL - Sugerencias para mejorar el CV
+export const generateProfileOptimization = async (cvText: string, userInfo: string = "") => {
+    const prompt = `
+    Actúa como un **Experto en Optimización de CVs y LinkedIn**.
+    
+    DATOS DEL CV ACTUAL:
+    "${cvText}"
+    
+    INFORMACIÓN ADICIONAL DEL USUARIO:
+    "${userInfo}"
+    
+    INSTRUCCIONES:
+    1. Analiza el CV y detecta:
+       - Puntos fuertes (qué está bien)
+       - Debilidades (qué falta o está mal presentado)
+       - Keywords importantes que faltan
+       - Errores comunes (buzzwords sin sustento, falta de métricas, etc.)
+    
+    2. Genera:
+       - Un "Perfil Profesional" optimizado (2-3 líneas) listo para copiar
+       - 3-5 sugerencias específicas de mejora
+       - Lista de keywords que debería incluir
+       - Un título profesional sugerido
+    
+    3. IMPORTANTE: El perfil debe ser:
+       - Conciso y poderoso
+       - Basado en los logros REALES del CV
+       - Con lenguaje orientado a resultados
+       - Sin exageraciones
+    
+    RESPONDE SOLO JSON:
+    {
+      "suggestedTitle": "Título profesional optimizado",
+      "optimizedProfile": "Perfil profesional de 2-3 líneas listo para usar",
+      "strengths": ["Fortaleza 1", "Fortaleza 2"],
+      "weaknesses": ["Debilidad 1", "Debilidad 2"],
+      "improvements": ["Mejora específica 1", "Mejora específica 2", "Mejora específica 3"],
+      "missingKeywords": ["keyword1", "keyword2", "keyword3"],
+      "overallScore": 75
+    }
+    `;
+
+    try {
+        const data = await fetchWithFallback({ contents: [{ parts: [{ text: prompt }] }] });
+        const cleanJson = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanJson);
+    } catch (error: any) {
+        throw new Error(`Error optimizando perfil: ${error.message}`);
+    }
+};

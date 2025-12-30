@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { auth } from '../config/firebase';
 import { getCurrentUserRole, UserRole } from '../services/auth-service';
@@ -12,6 +12,7 @@ import { getCurrentUserRole, UserRole } from '../services/auth-service';
  */
 export function useRequireRole(requiredRole: UserRole) {
     const router = useRouter();
+    const pathname = usePathname();
     const [loading, setLoading] = useState(true);
     const [authorized, setAuthorized] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
@@ -25,72 +26,85 @@ export function useRequireRole(requiredRole: UserRole) {
     useEffect(() => {
         if (!isMounted) return;
 
-        const checkAuthorization = async () => {
+        const checkAuthorization = async (retryCount = 0) => {
+            const MAX_RETRIES = 12; // 12 seconds total
+            const RETRY_DELAY = 1000;
+
             try {
                 const user = auth.currentUser;
 
-                // Not authenticated at all - redirect to signin
+                // 1. Verificar Autenticación
                 if (!user) {
-                    console.log('❌ No authenticated user, redirecting to signin');
-                    // Small delay to ensure router is ready
+                    // Si no hay usuario, esperamos un poco (a veces Auth tarda en inicializar)
+                    if (retryCount < 3) {
+                        console.log(`⏳ [useRequireRole] Waiting for Firebase Auth (Attempt ${retryCount + 1})...`);
+                        setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, 500);
+                        return;
+                    }
+
+                    console.log('↩️ [useRequireRole] Redirecting to empresa signin (No user)');
                     setTimeout(() => {
-                        if (isMounted) {
-                            router.replace('/empresa/signin');
-                        }
+                        if (isMounted) router.replace('/empresa/signin');
                     }, 100);
                     setLoading(false);
-                    setAuthorized(false);
                     return;
                 }
 
-                // Get user role from Firestore
+                console.log(`🔍 [useRequireRole] Checking Role for ${user.email} (UID: ${user.uid.substring(0, 5)}...)`);
+
+                // 2. Verificar Rol en Firestore (Forzando servidor en auth-service)
                 const userRole = await getCurrentUserRole(user.uid);
+                console.log(`🎭 [useRequireRole] Role found: ${userRole || 'NONE'}`);
 
-                // No role found (shouldn't happen if signup is correct)
                 if (!userRole) {
-                    console.error('⚠️ User has no role assigned');
+                    if (retryCount < MAX_RETRIES) {
+                        console.log(`⏳ [useRequireRole] Role NOT found yet. Retrying in ${RETRY_DELAY}ms... (${retryCount + 1}/${MAX_RETRIES})`);
+                        setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
+                        return;
+                    }
+
+                    console.error('❌ [useRequireRole] Role check FAILED after all retries.');
+
+                    // EXCEPCIÓN CRÍTICA: Si el usuario está en Onboarding, lo dejamos quedarse
+                    // Esto evita que el loop de redirección lo expulse mientras intenta completar su perfil
+                    if (pathname && pathname.includes('onboarding')) {
+                        console.warn('⚠️ [useRequireRole] Role missing but on onboarding page. Granting temporary access.');
+                        setAuthorized(true);
+                        setLoading(false);
+                        return;
+                    }
+
+                    // En lugar de botar a /, intentamos ir al signin por si la sesión expiró o es inválida
                     setTimeout(() => {
-                        if (isMounted) {
-                            router.replace('/');
-                        }
+                        if (isMounted) router.replace('/empresa/signin');
                     }, 100);
                     setLoading(false);
-                    setAuthorized(false);
                     return;
                 }
 
-                // Check if role matches
+                // 3. Verificar si el rol coincide
                 if (userRole !== requiredRole) {
-                    console.log(`❌ Wrong role: has ${userRole}, needs ${requiredRole}`);
-
-                    // Redirect to appropriate dashboard based on actual role
+                    console.log(`❌ [useRequireRole] Wrong role: has ${userRole}, needs ${requiredRole}`);
                     setTimeout(() => {
                         if (!isMounted) return;
-                        if (userRole === 'candidato') {
-                            router.replace('/(tabs)');
-                        } else {
-                            router.replace('/empresa/dashboard');
-                        }
+                        router.replace(userRole === 'candidato' ? '/(tabs)' : '/empresa/dashboard');
                     }, 100);
                     setLoading(false);
-                    setAuthorized(false);
                     return;
                 }
 
-                // All checks passed
-                console.log(`✅ Authorized as ${requiredRole}`);
+                // Éxito
+                console.log(`✅ [useRequireRole] Authorized as ${requiredRole}`);
                 setAuthorized(true);
                 setLoading(false);
 
             } catch (error) {
-                console.error('Error checking authorization:', error);
-                setTimeout(() => {
-                    if (isMounted) {
-                        router.replace('/');
-                    }
-                }, 100);
-                setLoading(false);
-                setAuthorized(false);
+                console.error('❌ [useRequireRole] Fatal Error:', error);
+                if (retryCount < MAX_RETRIES) {
+                    setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
+                } else {
+                    setLoading(false);
+                }
             }
         };
 

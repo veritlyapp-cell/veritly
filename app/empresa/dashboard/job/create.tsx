@@ -24,6 +24,9 @@ export default function CreateJob() {
     const [jobData, setJobData] = useState<any>(null);
     const [optimizedDescription, setOptimizedDescription] = useState('');
 
+    // SUGERENCIAS DE LA IA
+    const [postingSuggestions, setPostingSuggestions] = useState<any>(null);
+
     // Limpiar estado cuando vuelves a "Nuevo Perfil" (sin ID)
     useFocusEffect(
         useCallback(() => {
@@ -129,14 +132,16 @@ export default function CreateJob() {
         setLoading(true);
 
         try {
-            console.log("📡 Llamando a extractJobData y optimizeJobDescription...");
-            const [extracted, optimized] = await Promise.all([
+            console.log("📡 Llamando a extractJobData, optimizeJobDescription y analyzeJobPosting...");
+            const [extracted, optimized, suggestions] = await Promise.all([
                 extractJobData(rawText),
-                optimizeJobDescription(rawText)
+                optimizeJobDescription(rawText),
+                analyzeJobPosting(rawText)
             ]);
 
             console.log("✅ Análisis completado. Datos extraídos:", extracted);
             console.log("📝 Descripción optimizada length:", optimized?.length);
+            console.log("💡 Sugerencias:", suggestions);
 
             if (!extracted) {
                 throw new Error("La IA no devolvió datos estructurados.");
@@ -145,12 +150,18 @@ export default function CreateJob() {
             console.log("💾 Guardando datos en state...");
             setJobData(extracted);
             setOptimizedDescription(optimized);
+            setPostingSuggestions(suggestions);
 
             console.log("🎯 Ejecutando setStep(2)...");
             setStep(2);
             console.log("✅ Step cambiado a 2");
 
-            Alert.alert("¡Éxito!", "Análisis completado. Revisa los datos antes de guardar.");
+            // Mostrar resumen de sugerencias
+            const scoreColor = suggestions.qualityScore >= 70 ? "✅" : suggestions.qualityScore >= 50 ? "⚠️" : "❌";
+            Alert.alert(
+                "¡Análisis Completado!",
+                `${scoreColor} Score de Calidad: ${suggestions.qualityScore}/100\n\n💡 ${suggestions.mainAdvice}\n\nRevisa las sugerencias detalladas en pantalla.`
+            );
 
         } catch (e: any) {
             console.error("❌ Error en handleProcessAI:", e);
@@ -273,6 +284,60 @@ export default function CreateJob() {
                         </>
                     ) : (
                         <>
+                            {/* SUGERENCIAS DE LA IA */}
+                            {postingSuggestions && (
+                                <View style={styles.suggestionsCard}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                                        <Text style={styles.suggestionsTitle}>💡 Análisis de tu Publicación</Text>
+                                        <View style={styles.scoreBadge}>
+                                            <Text style={styles.scoreText}>{postingSuggestions.qualityScore}/100</Text>
+                                        </View>
+                                    </View>
+
+                                    <Text style={{ color: '#38bdf8', fontStyle: 'italic', marginBottom: 15 }}>"{postingSuggestions.mainAdvice}"</Text>
+
+                                    {postingSuggestions.strengths && postingSuggestions.strengths.length > 0 && (
+                                        <View style={{ marginBottom: 12 }}>
+                                            <Text style={styles.suggestionSubtitle}>✅ Puntos Fuertes:</Text>
+                                            {postingSuggestions.strengths.map((strength: string, i: number) => (
+                                                <Text key={i} style={styles.strengthText}>• {strength}</Text>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {postingSuggestions.weaknesses && postingSuggestions.weaknesses.length > 0 && (
+                                        <View style={{ marginBottom: 12 }}>
+                                            <Text style={styles.suggestionSubtitle}>⚠️ Para Mejorar:</Text>
+                                            {postingSuggestions.weaknesses.map((weakness: string, i: number) => (
+                                                <Text key={i} style={styles.weaknessText}>• {weakness}</Text>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {postingSuggestions.improvements && postingSuggestions.improvements.length > 0 && (
+                                        <View style={{ marginBottom: 12 }}>
+                                            <Text style={styles.suggestionSubtitle}>💡 Sugerencias:</Text>
+                                            {postingSuggestions.improvements.map((improvement: string, i: number) => (
+                                                <Text key={i} style={styles.improvementText}>• {improvement}</Text>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {postingSuggestions.missingKeywords && postingSuggestions.missingKeywords.length > 0 && (
+                                        <View>
+                                            <Text style={styles.suggestionSubtitle}>🔑 Keywords Recomendadas:</Text>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+                                                {postingSuggestions.missingKeywords.map((keyword: string, i: number) => (
+                                                    <View key={i} style={styles.keywordTag}>
+                                                        <Text style={styles.keywordTagText}>{keyword}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
                             <View style={styles.resultCard}>
                                 <Text style={styles.label}>TÍTULO DETECTADO</Text>
                                 <TextInput
@@ -324,8 +389,9 @@ export default function CreateJob() {
                         </>
                     )}
                 </ScrollView>
-            )}
-        </SafeAreaView>
+            )
+            }
+        </SafeAreaView >
     );
 }
 
@@ -351,5 +417,17 @@ const styles = StyleSheet.create({
     tagText: { color: '#38bdf8', fontSize: 12 },
     // Changed optimizedBox to optimizedInput, removed fixed height
     optimizedInput: { backgroundColor: '#0f172a', color: '#cbd5e1', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#334155', minHeight: 150, textAlignVertical: 'top', lineHeight: 22 },
-    saveButton: { backgroundColor: '#10b981', flexDirection: 'row', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 50, elevation: 5, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }
+    saveButton: { backgroundColor: '#10b981', flexDirection: 'row', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 50, elevation: 5, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+
+    // Styles for Suggestions Section
+    suggestionsCard: { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderWidth: 2, borderColor: '#f59e0b', borderRadius: 12, padding: 20, marginBottom: 20 },
+    suggestionsTitle: { color: '#f59e0b', fontWeight: 'bold', fontSize: 16 },
+    scoreBadge: { backgroundColor: '#10b981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+    scoreText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+    suggestionSubtitle: { color: '#94a3b8', fontWeight: 'bold', fontSize: 13, marginBottom: 5 },
+    strengthText: { color: '#10b981', fontSize: 12, marginLeft: 10, marginBottom: 3 },
+    weaknessText: { color: '#ef4444', fontSize: 12, marginLeft: 10, marginBottom: 3 },
+    improvementText: { color: '#38bdf8', fontSize: 12, marginLeft: 10, marginBottom: 3 },
+    keywordTag: { backgroundColor: '#3b82f6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15 },
+    keywordTagText: { color: 'white', fontSize: 11, fontWeight: 'bold' }
 });

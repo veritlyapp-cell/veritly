@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 export type UserRole = 'candidato' | 'empresa';
@@ -114,11 +114,13 @@ export async function createCompanyUser(
             updatedAt: new Date()
         };
 
+        console.log(`📡 [auth-service] Creating Firestore document for company: ${user.uid}`);
         await setDoc(doc(db, 'users_empresas', user.uid), companyData);
+        console.log('✅ [auth-service] Firestore document created successfully');
 
         return user;
     } catch (error: any) {
-        console.error('Error creating company user:', error);
+        console.error('❌ [auth-service] Error creating company user:', error);
         throw error;
     }
 }
@@ -130,36 +132,35 @@ export async function createCompanyUser(
 export async function getCurrentUserRole(uid: string): Promise<UserRole | null> {
     try {
         console.log('🔍 [getCurrentUserRole] Checking role for UID:', uid);
-        // Check in candidatos collection
-        console.log('📂 [getCurrentUserRole] Checking users_candidatos...');
-        const candidateDoc = await getDoc(doc(db, 'users_candidatos', uid));
-        console.log('   Result:', candidateDoc.exists() ? 'FOUND ✅' : 'Not found');
-        if (candidateDoc.exists()) {
+
+        // Parallel checks for better performance - and BYPASSING CACHE
+        // We use getDocFromServer to ensure we don't get a "null" result from local cache 
+        // right after account creation.
+        const [candidateSnap, companySnap, legacySnap] = await Promise.all([
+            getDocFromServer(doc(db, 'users_candidatos', uid)).catch(() => getDoc(doc(db, 'users_candidatos', uid))),
+            getDocFromServer(doc(db, 'users_empresas', uid)).catch(() => getDoc(doc(db, 'users_empresas', uid))),
+            getDocFromServer(doc(db, 'companies', uid)).catch(() => getDoc(doc(db, 'companies', uid)))
+        ]);
+
+        if (candidateSnap.exists()) {
+            console.log('✅ [getCurrentUserRole] Found in users_candidatos');
             return 'candidato';
         }
 
-        // Check in empresas collection (new)
-        console.log('📂 [getCurrentUserRole] Checking users_empresas...');
-        const companyDoc = await getDoc(doc(db, 'users_empresas', uid));
-        console.log('   Result:', companyDoc.exists() ? 'FOUND ✅' : 'Not found');
-        if (companyDoc.exists()) {
+        if (companySnap.exists()) {
+            console.log('✅ [getCurrentUserRole] Found in users_empresas');
             return 'empresa';
         }
 
-        // FALLBACK: Check in old 'companies' collection for existing users
-        console.log('📂 [getCurrentUserRole] Checking legacy companies collection...');
-        const legacyCompanyDoc = await getDoc(doc(db, 'companies', uid));
-        console.log('   Result:', legacyCompanyDoc.exists() ? 'FOUND ✅' : 'Not found');
-        if (legacyCompanyDoc.exists()) {
-            console.log('⚠️ User found in legacy companies collection, treating as empresa');
-            console.log('   Data sample:', { email: legacyCompanyDoc.data()?.email, profileCompleted: legacyCompanyDoc.data()?.profileCompleted });
+        if (legacySnap.exists()) {
+            console.log('⚠️ [getCurrentUserRole] Found in legacy companies collection');
             return 'empresa';
         }
 
         console.error('❌ [getCurrentUserRole] User not found in any collection!');
         return null;
     } catch (error) {
-        console.error('Error getting user role:', error);
+        console.error('❌ [getCurrentUserRole] Error:', error);
         return null;
     }
 }

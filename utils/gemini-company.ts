@@ -1,9 +1,11 @@
 
 
-const API_KEY = process.env.EXPO_PUBLIC_COMPANY_API_KEY;
+
+
+const API_KEY = process.env.EXPO_PUBLIC_COMPANY_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 if (!API_KEY) {
-    console.warn("⚠️ EXPO_PUBLIC_COMPANY_API_KEY no está definido en .env");
+    console.warn("⚠️ No hay API KEY configurada para empresa. Configura EXPO_PUBLIC_COMPANY_API_KEY o EXPO_PUBLIC_GEMINI_API_KEY en .env");
 }
 
 // 🔄 Modelos para EMPRESA (Priorizamos capacidad sobre velocidad si es necesario)
@@ -155,5 +157,55 @@ export const analyzeCandidateForCompany = async (cvText: string, jobDescription:
     } catch (e) {
         console.error("Error al analizar candidato:", e);
         throw new Error(`Análisis IA falló: ${(e as any)?.message || String(e)}`);
+    }
+};
+
+// 4. ANALIZAR Y DAR SUGERENCIAS SOBRE LA PUBLICACIÓN DEL PUESTO
+export const analyzeJobPosting = async (text: string) => {
+    const prompt = `
+    Actúa como un **Experto en Reclutamiento y Employer Branding**.
+    
+    Analiza esta descripción de puesto:
+    """
+    ${text}
+    """
+    
+    TAREA:
+    1. Evalúa la CALIDAD de esta publicación (0-100) considerando:
+       - Claridad de responsabilidades
+       - Especificidad de requisitos
+       - Atractivo para candidatos
+       - Estructura y formato
+       - Inclusividad del lenguaje
+    
+    2. Identifica:
+       - PUNTOS FUERTES: Qué está bien en la publicación
+       - DEBILIDADES: Qué falta o está mal
+       - SUGERENCIAS: 3-5 recomendaciones específicas de mejora
+       - KEYWORDS IMPORTANTES: Términos clave que deberían estar presentes
+    
+    3. Da un CONSEJO PRINCIPAL para mejorar el atractivo de la oferta
+    
+    RESPONDE SOLO JSON:
+    {
+      "qualityScore": (0-100),
+      "strengths": ["Punto fuerte 1", "Punto fuerte 2"],
+      "weaknesses": ["Debilidad 1", "Debilidad 2"],
+      "improvements": ["Mejora específica 1", "Mejora específica 2", "Mejora específica 3"],
+      "missingKeywords": ["keyword1", "keyword2", "keyword3"],
+      "mainAdvice": "Consejo principal en 1-2 líneas"
+    }
+    `;
+
+    try {
+        const response = await fetchWithFallback({
+            contents: [{ parts: [{ text: prompt }] }]
+        });
+        const candidate = response.candidates[0].content.parts[0].text;
+        const jsonString = candidate.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.error("Error al analizar publicación:", e);
+        throw new Error(`Análisis de publicación falló: ${(e as any)?.message || String(e)}`);
     }
 };

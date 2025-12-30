@@ -22,7 +22,11 @@ const app = initializeApp(firebaseConfig);
 // 2. Inicializar Auth con Persistencia
 let auth: Auth;
 if (Platform.OS === 'web') {
+    // Importamos dinámicamente si es necesario o usamos la referencia directa
+    const { browserSessionPersistence, setPersistence } = require('firebase/auth');
     auth = getAuth(app);
+    // Establecemos persistencia de sesión (se borra al cerrar pestaña)
+    setPersistence(auth, browserSessionPersistence);
 } else {
     // En móvil usamos AsyncStorage para recordar al usuario
     auth = initializeAuth(app, {
@@ -33,6 +37,9 @@ if (Platform.OS === 'web') {
 // 3. Inicializar Servicios
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// 4. Configurar Idioma (Email Templates en Español)
+auth.languageCode = 'es';
 
 export { auth, db, storage };
 

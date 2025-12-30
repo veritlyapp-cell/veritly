@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Briefcase, CheckCircle, Sparkles, Target, Zap } from 'lucide-react-native';
+import { Briefcase, CheckCircle, Database, Lock, Scale, Sparkles, Target, Zap } from 'lucide-react-native';
 import React from 'react';
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -70,7 +70,7 @@ export default function VeritlyLandingPage() {
                             <View style={styles.ctaContainer}>
                                 <TouchableOpacity
                                     style={styles.primaryButton}
-                                    onPress={() => router.push('/(tabs)/profile')}
+                                    onPress={() => router.push('/signin?register=true')}
                                 >
                                     <Text style={styles.primaryButtonText}>Comenzar Gratis</Text>
                                     <Zap color="white" size={20} />
@@ -150,26 +150,48 @@ export default function VeritlyLandingPage() {
                     <Text style={styles.ctaSubtitle}>Miles de personas ya usan Veritly para saber exactamente dónde están parados antes de postular</Text>
                     <TouchableOpacity
                         style={styles.ctaButton}
-                        onPress={() => router.push('/(tabs)/profile')}
+                        onPress={() => router.push('/signin?register=true')}
                     >
                         <Text style={styles.ctaButtonText}>Crear cuenta gratis</Text>
                         <Zap color="white" size={20} />
                     </TouchableOpacity>
                 </View>
 
+                {/* TRUST SECTION */}
+                <View style={styles.trustSection}>
+                    <Text style={styles.trustTitle}>Tu Privacidad es nuestra Prioridad</Text>
+                    <View style={styles.trustGrid}>
+                        <View style={styles.trustItem}>
+                            <Lock color="#10b981" size={32} style={{ marginBottom: 15 }} />
+                            <Text style={styles.trustItemTitle}>Privacidad por Diseño</Text>
+                            <Text style={styles.trustItemDesc}>Tus datos se encriptan desde el momento en que los subes. Solo los reclutadores autorizados ven tu información.</Text>
+                        </View>
+                        <View style={styles.trustItem}>
+                            <Database color="#3b82f6" size={32} style={{ marginBottom: 15 }} />
+                            <Text style={styles.trustItemTitle}>Tus Datos son Tuyos</Text>
+                            <Text style={styles.trustItemDesc}>Tu CV es tuyo. No lo usamos para entrenar IAs de terceros sin tu consentimiento explícito.</Text>
+                        </View>
+                        <View style={styles.trustItem}>
+                            <Scale color="#8b5cf6" size={32} style={{ marginBottom: 15 }} />
+                            <Text style={styles.trustItemTitle}>Neutralidad Algorítmica</Text>
+                            <Text style={styles.trustItemDesc}>Nuestra IA está entrenada para evitar sesgos por género, edad o nacionalidad, enfocándose 100% en tus competencias.</Text>
+                        </View>
+                    </View>
+                </View>
+
                 {/* COMPANY LINK */}
                 <View style={styles.footer}>
                     <View style={styles.divider} />
                     <TouchableOpacity
-                        style={styles.companyLink}
-                        onPress={() => router.push('/empresa')}
+                        style={[styles.companyLink, { opacity: 0.7 }]}
+                        onPress={() => alert('Próximamente: El portal para empresas estará disponible muy pronto.')}
                     >
                         <Briefcase color="#10b981" size={20} />
                         <Text style={styles.companyLinkText}>
-                            ¿Eres empresa? Descubre Veritly para Reclutadores
+                            ¿Empresa? Muy Pronto: Antes de contratar, Veritly
                         </Text>
                     </TouchableOpacity>
-                    <Text style={styles.copyright}>© 2024 Veritly. Todos los derechos reservados.</Text>
+                    <Text style={styles.copyright}>© 2025 Veritly. Todos los derechos reservados.</Text>
                 </View>
 
             </ScrollView>
@@ -238,6 +260,14 @@ const styles = StyleSheet.create({
     ctaSubtitle: { fontSize: 18, color: '#cbd5e1', textAlign: 'center', marginBottom: 30 },
     ctaButton: { backgroundColor: '#10b981', flexDirection: 'row', paddingHorizontal: 32, paddingVertical: 18, borderRadius: 12, alignItems: 'center', gap: 10, elevation: 8, shadowColor: '#10b981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12 },
     ctaButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+
+    // Trust Section
+    trustSection: { paddingHorizontal: 30, paddingVertical: 60, backgroundColor: '#0f172a' },
+    trustTitle: { fontSize: 28, fontWeight: '900', color: 'white', textAlign: 'center', marginBottom: 40 },
+    trustGrid: { gap: 30 },
+    trustItem: { alignItems: 'center', backgroundColor: 'rgba(30, 41, 59, 0.5)', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#334155' },
+    trustItemTitle: { color: 'white', fontWeight: 'bold', fontSize: 18, marginBottom: 8, textAlign: 'center' },
+    trustItemDesc: { color: '#94a3b8', textAlign: 'center', lineHeight: 22, fontSize: 14 },
 
     // Footer
     footer: { paddingHorizontal: 30, paddingTop: 40 },

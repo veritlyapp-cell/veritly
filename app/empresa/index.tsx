@@ -77,7 +77,7 @@ export default function VeritlyCompanyLandingPage() {
                             <View style={styles.ctaContainer}>
                                 <TouchableOpacity
                                     style={styles.primaryButton}
-                                    onPress={() => router.push('/empresa/dashboard/onboarding')}
+                                    onPress={() => router.push('/empresa/signin?register=true')}
                                 >
                                     <Text style={styles.primaryButtonText}>Comenzar Gratis</Text>
                                     <Zap color="white" size={20} />

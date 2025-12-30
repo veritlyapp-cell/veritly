@@ -2,9 +2,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Briefcase, Calendar, CheckCircle2, ChevronDown, DollarSign, Globe, Mail, Map, Phone, Trash2, UploadCloud, User, XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
 import { getUserProfileFromCloud, saveUserProfileToCloud } from '../../services/storage';
-import { extractTextFromPDF } from '../../utils/gemini';
+import { extractTextFromPDF, generateProfileOptimization } from '../../utils/gemini';
 
 // DATOS DE PERÚ (Abreviados para el ejemplo, usa tu lista completa si la tienes a mano)
 const DATA_PERU: any = {
@@ -138,7 +139,11 @@ export default function ProfileScreen() {
     const [extracting, setExtracting] = useState(false);
     const [saving, setSaving] = useState(false); // Estado de guardado
 
-    const [modalType, setModalType] = useState<'none' | 'dept' | 'prov' | 'dist' | 'date'>('none');
+    // Estados para optimización de perfil
+    const [optimizingSuggestions, setOptimizingSuggestions] = useState(false);
+    const [profileSuggestions, setProfileSuggestions] = useState<any>(null);
+
+    const [modalType, setModalType] = useState<'none' | 'dept' | 'prov' | 'dist' | 'date' | 'suggestions'>('none');
     const [tempDay, setTempDay] = useState(DAYS[0]);
     const [tempMonth, setTempMonth] = useState(MONTHS[0]);
     const [tempYear, setTempYear] = useState(YEARS[10]);
@@ -220,10 +225,28 @@ export default function ProfileScreen() {
                 const webFile = Platform.OS === 'web' ? (file as any).file : undefined;
                 const text = await extractTextFromPDF(file.uri, webFile);
                 setBio(text);
-                showAlert("✨ Éxito", "CV leído.");
+                showAlert("✨ Éxito", "CV leído correctamente.");
             } catch (e: any) { showAlert("Error IA", e.message); }
             finally { setExtracting(false); }
         } catch (err: any) { showAlert("Error", err.message); setExtracting(false); }
+    };
+
+    const optimizeProfile = async () => {
+        if (!bio || bio.length < 50) {
+            return showAlert("Falta CV", "Primero debes subir y extraer tu CV para optimizar tu perfil.");
+        }
+
+        setOptimizingSuggestions(true);
+        try {
+            const userInfo = `Nombre: ${fullName}, Ubicación: ${district}, ${department}, Intereses: ${interests}`;
+            const suggestions = await generateProfileOptimization(bio, userInfo);
+            setProfileSuggestions(suggestions);
+            setModalType('suggestions');
+        } catch (e: any) {
+            showAlert("Error", "No se pudieron generar sugerencias: " + e.message);
+        } finally {
+            setOptimizingSuggestions(false);
+        }
     };
 
     const handleSelectDepartment = (d: string) => { setDepartment(d); setProvince(''); setDistrict(''); setModalType('none'); };
@@ -233,6 +256,7 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <AppHeader title="MI PERFIL" />
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.headerRow}>
                     <Text style={styles.header}>Mi Perfil</Text>
@@ -346,9 +370,42 @@ export default function ProfileScreen() {
                     <TextInput style={[styles.inputField, { height: 120, textAlignVertical: 'top' }]} multiline value={bio} onChangeText={setBio} placeholder="Resumen..." placeholderTextColor="#64748b" />
                 </View>
 
-                <TouchableOpacity style={styles.saveButton} onPress={saveProfile} disabled={saving}>
-                    {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveText}>GUARDAR PERFIL</Text>}
+                <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={saveProfile} // Assuming saveProfile is the correct handler, as handleSave is not defined in the original code.
+                >
+                    {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveText}>Guardar Cambios</Text>}
                 </TouchableOpacity>
+
+                {/* --- SUPPORT SECTION --- */}
+                <View style={{ alignItems: 'center', marginBottom: 40, gap: 5 }}>
+                    <Text style={{ color: '#64748b', fontSize: 13 }}>¿Necesitas ayuda o tienes dudas?</Text>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (Platform.OS === 'web') {
+                                window.open('mailto:hola@veritlyapp.com');
+                            }
+
+                            // SECRET DOOR LOGIC 🕵️‍♂️
+                            setSecretCount(prev => {
+                                const newCount = prev + 1;
+                                if (newCount >= 5) {
+                                    if (auth.currentUser?.email === 'test+1@gmail.com' || auth.currentUser?.email === 'oscar@veritlyapp.com') {
+                                        router.push('/admin/dashboard');
+                                        return 0;
+                                    } else {
+                                        Alert.alert("Acceso Denegado", "No tienes permisos de Super Admin.");
+                                        return 0;
+                                    }
+                                }
+                                return newCount;
+                            });
+                        }}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={{ color: '#3b82f6', fontWeight: '600' }}>Consultas: hola@veritlyapp.com</Text>
+                    </TouchableOpacity>
+                </View>
                 <View style={{ height: 40 }} />
             </ScrollView>
 

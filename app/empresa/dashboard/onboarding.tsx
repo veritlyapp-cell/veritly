@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Building2, ChevronDown, MapPin, User, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AppHeader from '../../../components/AppHeader';
 import { auth, db } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
 
@@ -167,10 +168,12 @@ export default function CompanyOnboarding() {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Perfil de Empresa</Text>
-                <Text style={{ color: '#64748b', fontSize: 12 }}>Completa todos los campos (*)</Text>
-            </View>
+            <AppHeader
+                showAuthButtons={true}
+                showBackButton={true}
+                title="PERFIL EMPRESA"
+                homeRoute="/empresa"
+            />
 
             <ScrollView contentContainerStyle={styles.form}>
 
@@ -246,9 +249,9 @@ export default function CompanyOnboarding() {
                         <TextInput style={styles.input} placeholder="999..." placeholderTextColor="#64748b" value={celular} onChangeText={setCelular} keyboardType="phone-pad" />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.label}>Email (Registrado) *</Text>
+                        <Text style={styles.label}>Email de Referencia *</Text>
                         <TextInput
-                            style={[styles.input, { backgroundColor: '#1a2332', opacity: 0.7 }]}
+                            style={[styles.input, { backgroundColor: '#1a2332', opacity: 0.8 }]}
                             placeholder="juan@empresa.com"
                             placeholderTextColor="#64748b"
                             value={emailResponsable}

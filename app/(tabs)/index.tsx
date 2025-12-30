@@ -3,12 +3,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { AlertTriangle, Ban, CheckCircle2, ChevronDown, ChevronUp, Clock, FileType2, History, Image as ImageIcon, Info, Lightbulb, Link as LinkIcon, MessageCircleQuestion, Save, Sparkles, Trash2, X, XCircle } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { AppConfig } from '../../constants/Config';
 import { analyzeWithGemini, generateCareerAdvice, generateInterviewQuestions } from '../../utils/gemini';
 
 // --- IMPORTACIONES DE NUBE (CRUCIAL PARA SINCRONIZAR) ---
+import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
 import { getHistoryFromCloud, getUserProfileFromCloud, saveAnalysisToCloud, updateHistoryInCloud } from '../../services/storage';
+import { logError, trackStat } from '../../utils/analytics';
 
 // --- LOGO LOCAL ---
 const LocalLogo = require('../../assets/images/veritly3.png');
@@ -28,18 +29,39 @@ export default function VeritlyScanner() {
   const [history, setHistory] = useState<any[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<any>(null);
   const [careerAdvice, setCareerAdvice] = useState<string>('');
-  const [logoError, setLogoError] = useState(false);
 
   // Estado para instrucciones
   const [showInstructions, setShowInstructions] = useState(true);
 
+  // Estado de autenticación
+  const [authChecking, setAuthChecking] = useState(true);
+  const [user, setUser] = useState<any>(null);
+
   const router = useRouter();
+
+  // MONITOR DE AUTENTICACIÓN
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      console.log("🔐 Auth state changed:", currentUser ? currentUser.email : "No user");
+      setUser(currentUser);
+      setAuthChecking(false);
+
+      if (currentUser) {
+        loadHistoryAndAdvice();
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // CARGAR HISTORIAL DE LA NUBE AL ENTRAR
   useFocusEffect(
     useCallback(() => {
-      loadHistoryAndAdvice();
-    }, [])
+      if (user) {
+        console.log("📱 Focus effect - Loading history for:", user.email);
+        loadHistoryAndAdvice();
+      }
+    }, [user])
   );
 
   // --- MAGIA WEB (Pegar Imagen) ---
@@ -83,15 +105,20 @@ export default function VeritlyScanner() {
 
   // --- LÓGICA DE NUBE ---
   const loadHistoryAndAdvice = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.log("⚠️ No user logged in, unable to load history");
+      return;
+    }
 
+    console.log("📥 Loading history for user:", currentUser.email);
     try {
-      const cloudHistory = await getHistoryFromCloud(user.uid);
+      const cloudHistory = await getHistoryFromCloud(currentUser.uid);
+      console.log("✅ History loaded:", cloudHistory.length, "items");
       setHistory(cloudHistory);
       updateCoachAdvice(cloudHistory);
     } catch (e) {
-      console.log("Error cargando historial nube", e);
+      console.error("❌ Error cargando historial nube", e);
     }
   };
 
@@ -197,6 +224,18 @@ export default function VeritlyScanner() {
 
   // --- ANALIZAR CON VALIDACIÓN ESTRICTA ---
   const handleAnalyze = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      router.push('/signin');
+      return;
+    }
+
+    await user.reload();
+    if (!user.emailVerified) {
+      showAlert("Cuenta no verificada", "Por favor revisa tu correo y valida tu cuenta para poder usar el escáner.");
+      return;
+    }
+
     let dataToAnalyze: any = null;
     if (mode === 'text') {
       if (!textValue || textValue.length < 20) return showAlert("Falta Vacante", "Por favor, pega el texto de la vacante para analizar tu perfil.");
@@ -209,12 +248,6 @@ export default function VeritlyScanner() {
     setLoading(true);
     setInterviewQuestions(null);
 
-    const user = auth.currentUser;
-    if (!user) {
-      setLoading(false);
-      return showAlert("Error", "Inicia sesión.");
-    }
-
     try {
       // LEER PERFIL DE NUBE
       const profileData = await getUserProfileFromCloud(user.uid);
@@ -222,14 +255,23 @@ export default function VeritlyScanner() {
       // VALIDACIÓN: ¿Tiene los datos obligatorios?
       if (!profileData || !profileData.fullName || !profileData.birthDate || !profileData.district || !profileData.bio) {
         setLoading(false);
-        Alert.alert(
-          "⚠️ Perfil Incompleto",
-          "Para usar la IA, necesitamos que completes tu perfil:\n- Nombre\n- Fecha de Nacimiento\n- Ubicación\n- CV",
-          [
-            { text: "Ir a Completar", onPress: () => router.push('/(tabs)/profile') },
-            { text: "Cancelar", style: "cancel" }
-          ]
-        );
+        const title = "⚠️ Perfil Incompleto";
+        const msg = "Para usar la IA, necesitamos que completes tu perfil:\n- Nombre\n- Fecha de Nacimiento\n- Ubicación\n- CV";
+
+        if (Platform.OS === 'web') {
+          if (window.confirm(`${title}\n\n${msg}\n\n¿Quieres ir a completarlo ahora?`)) {
+            router.push('/(tabs)/profile');
+          }
+        } else {
+          Alert.alert(
+            title,
+            msg,
+            [
+              { text: "Ir a Completar", onPress: () => router.push('/(tabs)/profile') },
+              { text: "Cancelar", style: "cancel" }
+            ]
+          );
+        }
         return;
       }
 
@@ -247,10 +289,12 @@ export default function VeritlyScanner() {
       if (aiResponse) {
         setResult(aiResponse);
         setShowInstructions(false); // Ocultar instrucciones al tener resultado
+        trackStat('totalScans'); // <--- METRIC
       } else {
         throw new Error("Error IA");
       }
     } catch (e: any) {
+      logError("Scanner Analysis Failed", e, 'CRITICAL');
       console.error(e);
       showAlert("Error", e.message);
     } finally {
@@ -435,31 +479,50 @@ export default function VeritlyScanner() {
     );
   }
 
+  // MOSTRAR LOADING MIENTRAS VERIFICA AUTENTICACIÓN
+  if (authChecking) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#38bdf8" />
+          <Text style={{ color: '#94a3b8', marginTop: 20, fontSize: 16 }}>Verificando sesión...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // REDIRIGIR SI NO HAY USUARIO
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+          <Sparkles size={60} color="#38bdf8" />
+          <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold', marginTop: 20, textAlign: 'center' }}>
+            Inicia Sesión
+          </Text>
+          <Text style={{ color: '#94a3b8', fontSize: 16, marginTop: 10, textAlign: 'center', lineHeight: 24 }}>
+            Para usar el scanner y guardar tu historial, necesitas iniciar sesión primero.
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { marginTop: 30, backgroundColor: '#3b82f6' }]}
+            onPress={() => router.push('/signin')}
+          >
+            <Text style={styles.buttonText}>Ir a Iniciar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
-        {/* HEADER CON LOGO LOCAL */}
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {!logoError ? (
-              <Image
-                source={LocalLogo}
-                style={styles.logoImage}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <CheckCircle2 size={45} color="#38bdf8" style={{ marginRight: 10 }} />
-            )}
-            <View>
-              <Text style={styles.logo}>{AppConfig.name.toUpperCase()}</Text>
-              <Text style={{ fontSize: 10, color: '#f59e0b', fontStyle: 'italic', fontWeight: '600' }}>Antes de postular, Veritly</Text>
-            </View>
-          </View>
-          <View style={styles.badge}><Text style={styles.badgeText}>IA 2.5</Text></View>
-        </View>
+        {/* HEADER CON BOTONES DE CERRAR SESIÓN Y COMPARTIR */}
+        <AppHeader />
 
         {/* TITULO */}
         <Text style={styles.hero}>Match Profile</Text>

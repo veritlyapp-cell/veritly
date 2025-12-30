@@ -1,11 +1,26 @@
 import { Tabs } from 'expo-router';
-import { FileText, ScanFace } from 'lucide-react-native';
-import React from 'react';
+import { BarChart2, FileText, ScanFace } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { auth } from '../../config/firebase';
+
+const ADMIN_EMAILS = ['test+1@gmail.com', 'oscar@veritlyapp.com', 'oscar@relielabs.com'];
 
 export default function TabLayout() {
-  // Note: Removed useRequireRole check - candidato pages are accessible without forced auth
-  // Individual pages handle their own authentication as needed
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Escuchar cambios de auth para actualizar el tab en tiempo real
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      console.log("👤 Auth Check:", user?.email);
+      if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <Tabs
@@ -20,7 +35,7 @@ export default function TabLayout() {
         tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold', marginTop: -5 }
       }}>
 
-      {/* 1. SCANNER (Antes Home) - Ahora es la herramienta principal */}
+      {/* 1. SCANNER */}
       <Tabs.Screen
         name="index"
         options={{
@@ -29,7 +44,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 2. MI CV (Antes Profile) - Ahora enfocado en el documento */}
+      {/* 2. MI CV */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -38,11 +53,21 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 3. EXPLORE (Eliminado/Oculto) */}
+      {/* 3. ANALYTICS (Solo Admin) */}
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'Analytics',
+          tabBarIcon: ({ color }) => <BarChart2 size={26} color={color} />,
+          href: isAdmin ? '/(tabs)/analytics' : null,
+        }}
+      />
+
+      {/* 4. EXPLORE (Oculto) */}
       <Tabs.Screen
         name="explore"
         options={{
-          href: null, // Esto lo hace desaparecer por completo
+          href: null,
         }}
       />
     </Tabs>
