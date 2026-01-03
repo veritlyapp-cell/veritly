@@ -9,7 +9,7 @@ import { Platform } from "react-native";
 // ✅ CREDENCIALES EXACTAS (Copiadas de tu texto)
 const firebaseConfig = {
     apiKey: "AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8",
-    authDomain: "vinku-3a3af.firebaseapp.com",
+    authDomain: "auth.veritlyapp.com",
     projectId: "vinku-3a3af",
     storageBucket: "vinku-3a3af.firebasestorage.app",
     messagingSenderId: "1052083063406",
