@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { ArrowRight, CheckSquare, Lock, Mail, Square } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
@@ -11,6 +11,14 @@ import { trackDailyLogin, trackStat } from '../utils/analytics';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroImage = require('../assets/images/friendly_hero.png');
+
+// Helper to detect mobile browser
+const isMobileBrowser = () => {
+  if (Platform.OS !== 'web') return false;
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+};
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -36,6 +44,29 @@ export default function AuthScreen() {
       setIsRegistering(register === 'true');
     }
   }, [register]);
+
+  // Handle Google redirect result (for mobile browsers)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleRedirectResult = async () => {
+        try {
+          const result = await getRedirectResult(auth);
+          if (result?.user) {
+            console.log("✅ Google Redirect Result:", result.user.email);
+            trackDailyLogin();
+            Alert.alert('¡Bienvenido!', `Hola ${result.user.displayName || 'Usuario'}, bienvenido a Veritly.`);
+            router.replace('/(tabs)/profile');
+          }
+        } catch (error: any) {
+          console.error("Google Redirect Error:", error);
+          if (error.code !== 'auth/popup-closed-by-user') {
+            Alert.alert('Error de Google', error.message || 'No se pudo iniciar sesión.');
+          }
+        }
+      };
+      handleRedirectResult();
+    }
+  }, []);
 
   // Effect to animate transition
   useEffect(() => {
@@ -127,12 +158,22 @@ export default function AuthScreen() {
     if (providerName === 'Google') {
       if (Platform.OS === 'web') {
         try {
-          const { GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } = await import('firebase/auth');
           const provider = new GoogleAuthProvider();
+
+          // Use redirect for mobile browsers (popups don't work well)
+          if (isMobileBrowser()) {
+            console.log("📱 Mobile browser detected - using redirect flow");
+            await signInWithRedirect(auth, provider);
+            // The result will be handled by the useEffect with getRedirectResult
+            return;
+          }
+
+          // Use popup for desktop browsers
+          console.log("🖥️ Desktop browser - using popup flow");
           const result = await signInWithPopup(auth, provider);
           if (result.user) {
-            // Force redirect explicitly to PROFILE for everyone (Standardize onboarding)
             console.log("✅ Google Auth Success:", result.user.email);
+            trackDailyLogin();
             Alert.alert('¡Bienvenido!', `Hola ${result.user.displayName || 'Candidato'}, completa tu perfil para comenzar.`);
             router.replace('/(tabs)/profile');
           }
@@ -142,8 +183,8 @@ export default function AuthScreen() {
           Alert.alert('Error de Google', error.message || 'No se pudo iniciar sesión.');
         }
       } else {
-        // Mobile implementation
-        Alert.alert('Pendiente móvil', 'Usa la versión Web para Google Sign-In.');
+        // Native mobile app - not implemented yet
+        Alert.alert('Pendiente', 'Google Sign-In para la app nativa estará disponible pronto.');
       }
       return;
     }

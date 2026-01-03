@@ -22,7 +22,18 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro",
+      "name": "Veritly",
+      "shortName": "Veritly",
+      "description": "Tu coach de carrera con IA - Analiza tu CV vs ofertas de trabajo",
+      "lang": "es",
+      "themeColor": "#0f172a",
+      "backgroundColor": "#0f172a",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "scope": "/"
     },
     "plugins": [
       "expo-router",
