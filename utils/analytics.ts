@@ -42,6 +42,36 @@ export const trackDailyLogin = async () => {
     }
 };
 
+/**
+ * Registra un nuevo usuario con fecha.
+ */
+export const trackNewUser = async () => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        await setDoc(STATS_DOC_REF, {
+            [`dailyNewUsers.${today}`]: increment(1),
+            totalUsers: increment(1)
+        }, { merge: true });
+    } catch (error) {
+        console.error("❌ Error tracking new user:", error);
+    }
+};
+
+/**
+ * Registra un scan con fecha.
+ */
+export const trackDailyScan = async () => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        await setDoc(STATS_DOC_REF, {
+            [`dailyScans.${today}`]: increment(1),
+            totalScans: increment(1)
+        }, { merge: true });
+    } catch (error) {
+        console.error("❌ Error tracking daily scan:", error);
+    }
+};
+
 // --- FUNCIONES DE LOGS (ERRORES CRÍTICOS) ---
 
 /**

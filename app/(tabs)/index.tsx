@@ -8,8 +8,9 @@ import { analyzeWithGemini, generateCareerAdvice, generateInterviewQuestions } f
 // --- IMPORTACIONES DE NUBE (CRUCIAL PARA SINCRONIZAR) ---
 import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
+import { AppConfig, canUserAnalyze, deductCredit, getAppConfig, getAvailableCredits, getUserCredits } from '../../services/credits-service';
 import { getHistoryFromCloud, getUserProfileFromCloud, saveAnalysisToCloud, updateHistoryInCloud } from '../../services/storage';
-import { logError, trackStat } from '../../utils/analytics';
+import { logError, trackDailyScan } from '../../utils/analytics';
 
 // --- LOGO LOCAL ---
 const LocalLogo = require('../../assets/images/veritly3.png');
@@ -37,6 +38,11 @@ export default function VeritlyScanner() {
   const [authChecking, setAuthChecking] = useState(true);
   const [user, setUser] = useState<any>(null);
 
+  // Estado de créditos
+  const [creditsInfo, setCreditsInfo] = useState<{ free: number; paid: number; total: number } | null>(null);
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
+  const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+
   const router = useRouter();
 
   // MONITOR DE AUTENTICACIÓN
@@ -48,6 +54,7 @@ export default function VeritlyScanner() {
 
       if (currentUser) {
         loadHistoryAndAdvice();
+        loadUserCredits(currentUser.uid);
       }
     });
 
@@ -119,6 +126,22 @@ export default function VeritlyScanner() {
       updateCoachAdvice(cloudHistory);
     } catch (e) {
       console.error("❌ Error cargando historial nube", e);
+    }
+  };
+
+  // --- CARGAR CRÉDITOS DEL USUARIO ---
+  const loadUserCredits = async (uid: string) => {
+    try {
+      const [credits, config] = await Promise.all([
+        getUserCredits(uid),
+        getAppConfig()
+      ]);
+      const available = getAvailableCredits(credits, config.freeCreditsPerMonth);
+      setCreditsInfo(available);
+      setAppConfig(config);
+      console.log("💰 Credits & Config loaded:", { available, packagesEnabled: config.packagesEnabled });
+    } catch (e) {
+      console.error("❌ Error loading credits/config:", e);
     }
   };
 
@@ -245,6 +268,13 @@ export default function VeritlyScanner() {
       dataToAnalyze = imageValue;
     }
 
+    // --- VERIFICAR CRÉDITOS ANTES DE ANALIZAR ---
+    const creditCheck = await canUserAnalyze(user.uid);
+    if (!creditCheck.canAnalyze) {
+      setShowBuyCreditsModal(true);
+      return;
+    }
+
     setLoading(true);
     setInterviewQuestions(null);
 
@@ -289,7 +319,11 @@ export default function VeritlyScanner() {
       if (aiResponse) {
         setResult(aiResponse);
         setShowInstructions(false); // Ocultar instrucciones al tener resultado
-        trackStat('totalScans'); // <--- METRIC
+        trackDailyScan(); // <--- METRIC
+
+        // --- DEDUCIR CRÉDITO DESPUÉS DEL ANÁLISIS EXITOSO ---
+        await deductCredit(user.uid);
+        await loadUserCredits(user.uid); // Actualizar balance mostrado
       } else {
         throw new Error("Error IA");
       }
@@ -527,6 +561,37 @@ export default function VeritlyScanner() {
         {/* TITULO */}
         <Text style={styles.hero}>Match Profile</Text>
 
+        {/* BADGE DE CRÉDITOS */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1e293b',
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderRadius: 20,
+            marginBottom: 20,
+            alignSelf: 'center',
+            borderWidth: 1,
+            borderColor: creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'
+          }}
+          onPress={() => setShowBuyCreditsModal(true)}
+        >
+          <Sparkles size={16} color={creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'} />
+          <Text style={{
+            color: 'white',
+            fontWeight: 'bold',
+            marginLeft: 8,
+            fontSize: 14
+          }}>
+            {creditsInfo ? `${creditsInfo.total} créditos` : 'Cargando...'}
+          </Text>
+          <Text style={{ color: '#64748b', marginLeft: 8, fontSize: 12 }}>
+            Ver paquetes →
+          </Text>
+        </TouchableOpacity>
+
         {/* INSTRUCCIONES DESPLEGABLES */}
         <TouchableOpacity style={styles.instructionsContainer} onPress={() => setShowInstructions(!showInstructions)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -693,6 +758,87 @@ export default function VeritlyScanner() {
           </View>
         </Modal>
       )}
+
+      {/* MODAL COMPRAR CRÉDITOS */}
+      <Modal
+        visible={showBuyCreditsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBuyCreditsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>💳 Comprar Créditos</Text>
+              <TouchableOpacity onPress={() => setShowBuyCreditsModal(false)}>
+                <X size={24} color="#334155" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* Balance actual */}
+              <View style={{ backgroundColor: '#f0f9ff', padding: 16, borderRadius: 12, marginBottom: 20, alignItems: 'center' }}>
+                <Text style={{ color: '#0369a1', fontSize: 14, marginBottom: 4 }}>Créditos disponibles</Text>
+                <Text style={{ color: '#0c4a6e', fontSize: 32, fontWeight: 'bold' }}>
+                  {creditsInfo?.total ?? 0}
+                </Text>
+                {creditsInfo && (
+                  <Text style={{ color: '#0369a1', fontSize: 12, marginTop: 4 }}>
+                    {creditsInfo.free > 0 ? `${creditsInfo.free} gratis este mes` : ''}
+                    {creditsInfo.free > 0 && creditsInfo.paid > 0 ? ' + ' : ''}
+                    {creditsInfo.paid > 0 ? `${creditsInfo.paid} comprados` : ''}
+                  </Text>
+                )}
+              </View>
+
+              {/* Info */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 13 }}>
+                  Cada mes tienes <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{appConfig?.freeCreditsPerMonth || 3} análisis gratis</Text>.{'\n'}
+                  {appConfig?.packagesEnabled ? "¿Necesitas más? Compra un paquete:" : "Pronto podrás comprar más créditos."}
+                </Text>
+              </View>
+
+              {/* Paquetes */}
+              {appConfig?.packagesEnabled && appConfig.packages.filter(p => p.active).map((pkg) => (
+                <TouchableOpacity
+                  key={pkg.id}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    borderRadius: 16,
+                    padding: 20,
+                    marginBottom: 12,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderWidth: 2,
+                    borderColor: pkg.id === 'pro' ? '#3b82f6' : '#334155'
+                  }}
+                  onPress={() => {
+                    // TODO: Integrar con Stripe/Mercado Pago
+                    showAlert('Próximamente', `El pago de $${pkg.priceUSD} por ${pkg.credits} créditos estará disponible muy pronto.`);
+                  }}
+                >
+                  <View>
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>{pkg.name}</Text>
+                    <Text style={{ color: '#94a3b8', fontSize: 14 }}>{pkg.credits} análisis</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 24 }}>${pkg.priceUSD}</Text>
+                    <Text style={{ color: '#64748b', fontSize: 12 }}>~S/{pkg.pricePEN}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Nota */}
+              <Text style={{ color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 10 }}>
+                Los créditos comprados no expiran.{'\n'}
+                Pagos seguros con Stripe y Mercado Pago.
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

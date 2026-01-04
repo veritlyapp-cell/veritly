@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { BarChart2, FileText, ScanFace } from 'lucide-react-native';
+import { BarChart2, FileText, ScanFace, Settings } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { auth } from '../../config/firebase';
@@ -60,6 +60,16 @@ export default function TabLayout() {
           title: 'Analytics',
           tabBarIcon: ({ color }) => <BarChart2 size={26} color={color} />,
           href: isAdmin ? '/(tabs)/analytics' : null,
+        }}
+      />
+
+      {/* 4. CONFIG (Solo Admin) */}
+      <Tabs.Screen
+        name="admin_config"
+        options={{
+          title: 'Config',
+          tabBarIcon: ({ color }) => <Settings size={26} color={color} />,
+          href: isAdmin ? '/(tabs)/admin_config' : null,
         }}
       />
 

@@ -7,7 +7,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
 import { auth } from '../config/firebase';
-import { trackDailyLogin, trackStat } from '../utils/analytics';
+import { trackDailyLogin, trackNewUser } from '../utils/analytics';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroImage = require('../assets/images/friendly_hero.png');
@@ -118,7 +118,7 @@ export default function AuthScreen() {
         await sendEmailVerification(userCredential.user);
 
         // --- TRACKING METRICS ---
-        trackStat('totalUsers');
+        trackNewUser();
         // ------------------------
 
         console.log('✅ Cuenta creada y verificación enviada');
