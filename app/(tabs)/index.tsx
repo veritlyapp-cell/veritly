@@ -562,7 +562,7 @@ export default function VeritlyScanner() {
         <Text style={styles.hero}>Match Profile</Text>
 
         {/* BADGE DE CRÉDITOS */}
-        {appConfig?.showCreditsUI !== false && (
+        {appConfig?.showCreditsUI === true && (
           <TouchableOpacity
             style={{
               flexDirection: 'row',

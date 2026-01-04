@@ -42,7 +42,7 @@ export const getAppConfig = async (): Promise<AppConfig> => {
         // Si no existe, creamos la config inicial (desactivada por defecto)
         const initialConfig: AppConfig = {
             packagesEnabled: false,
-            showCreditsUI: true, // Por defecto visible
+            showCreditsUI: false, // Por defecto oculto (Modo Gratis)
             packages: DEFAULT_CREDIT_PACKAGES,
             freeCreditsPerMonth: STATIC_FREE_CREDITS
         };
@@ -52,7 +52,7 @@ export const getAppConfig = async (): Promise<AppConfig> => {
         console.error("❌ Error getting app config:", error);
         return {
             packagesEnabled: false,
-            showCreditsUI: true,
+            showCreditsUI: false,
             packages: DEFAULT_CREDIT_PACKAGES,
             freeCreditsPerMonth: STATIC_FREE_CREDITS
         };
