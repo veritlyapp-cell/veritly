@@ -82,7 +82,23 @@ export default function AdminConfigScreen() {
 
                 {/* GLOBAL SWITCHES */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Módulo de Créditos</Text>
+                    <Text style={styles.sectionTitle}>Módulos y Visibilidad</Text>
+
+                    <TouchableOpacity
+                        style={styles.switchRow}
+                        onPress={() => setConfig(prev => prev ? ({ ...prev, showCreditsUI: !prev.showCreditsUI }) : null)}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.switchLabel}>Sistema de Créditos</Text>
+                            <Text style={styles.switchDesc}>Mostrar balance y límites a los usuarios</Text>
+                        </View>
+                        {config?.showCreditsUI !== false ? (
+                            <ToggleRight size={32} color="#10b981" />
+                        ) : (
+                            <ToggleLeft size={32} color="#64748b" />
+                        )}
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         style={styles.switchRow}
                         onPress={() => setConfig(prev => prev ? ({ ...prev, packagesEnabled: !prev.packagesEnabled }) : null)}

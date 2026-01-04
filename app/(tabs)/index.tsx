@@ -562,35 +562,37 @@ export default function VeritlyScanner() {
         <Text style={styles.hero}>Match Profile</Text>
 
         {/* BADGE DE CRÉDITOS */}
-        <TouchableOpacity
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#1e293b',
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 20,
-            marginBottom: 20,
-            alignSelf: 'center',
-            borderWidth: 1,
-            borderColor: creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'
-          }}
-          onPress={() => setShowBuyCreditsModal(true)}
-        >
-          <Sparkles size={16} color={creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'} />
-          <Text style={{
-            color: 'white',
-            fontWeight: 'bold',
-            marginLeft: 8,
-            fontSize: 14
-          }}>
-            {creditsInfo ? `${creditsInfo.total} créditos` : 'Cargando...'}
-          </Text>
-          <Text style={{ color: '#64748b', marginLeft: 8, fontSize: 12 }}>
-            Ver paquetes →
-          </Text>
-        </TouchableOpacity>
+        {appConfig?.showCreditsUI !== false && (
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#1e293b',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 20,
+              marginBottom: 20,
+              alignSelf: 'center',
+              borderWidth: 1,
+              borderColor: creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'
+            }}
+            onPress={() => setShowBuyCreditsModal(true)}
+          >
+            <Sparkles size={16} color={creditsInfo && creditsInfo.total > 0 ? '#3b82f6' : '#ef4444'} />
+            <Text style={{
+              color: 'white',
+              fontWeight: 'bold',
+              marginLeft: 8,
+              fontSize: 14
+            }}>
+              {creditsInfo ? `${creditsInfo.total} créditos` : 'Cargando...'}
+            </Text>
+            <Text style={{ color: '#64748b', marginLeft: 8, fontSize: 12 }}>
+              Ver paquetes →
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* INSTRUCCIONES DESPLEGABLES */}
         <TouchableOpacity style={styles.instructionsContainer} onPress={() => setShowInstructions(!showInstructions)}>

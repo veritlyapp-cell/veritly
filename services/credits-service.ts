@@ -13,6 +13,7 @@ export interface CreditPackage {
 
 export interface AppConfig {
     packagesEnabled: boolean;
+    showCreditsUI: boolean; // Controla si la UI de créditos es visible y si se aplican límites
     packages: CreditPackage[];
     freeCreditsPerMonth: number;
 }
@@ -41,6 +42,7 @@ export const getAppConfig = async (): Promise<AppConfig> => {
         // Si no existe, creamos la config inicial (desactivada por defecto)
         const initialConfig: AppConfig = {
             packagesEnabled: false,
+            showCreditsUI: true, // Por defecto visible
             packages: DEFAULT_CREDIT_PACKAGES,
             freeCreditsPerMonth: STATIC_FREE_CREDITS
         };
@@ -50,6 +52,7 @@ export const getAppConfig = async (): Promise<AppConfig> => {
         console.error("❌ Error getting app config:", error);
         return {
             packagesEnabled: false,
+            showCreditsUI: true,
             packages: DEFAULT_CREDIT_PACKAGES,
             freeCreditsPerMonth: STATIC_FREE_CREDITS
         };
@@ -149,6 +152,12 @@ export const canUserAnalyze = async (uid: string): Promise<{ canAnalyze: boolean
             getUserCredits(uid),
             getAppConfig()
         ]);
+
+        // MODO GRATUITO: Si la UI está oculta, el análisis es libre
+        if (config.showCreditsUI === false) {
+            return { canAnalyze: true, credits, available: getAvailableCredits(credits, 9999) };
+        }
+
         const available = getAvailableCredits(credits, config.freeCreditsPerMonth);
 
         if (available.total > 0) {
