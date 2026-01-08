@@ -1,6 +1,14 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { initGA } from '../utils/ga';
+import { initSentry } from '../utils/sentry';
 
 export default function RootLayout() {
+  useEffect(() => {
+    initGA();
+    initSentry();
+  }, []);
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {/* MODO AUTOMÁTICO:

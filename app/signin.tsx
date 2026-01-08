@@ -8,6 +8,7 @@ import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
 import { auth } from '../config/firebase';
 import { trackDailyLogin, trackNewUser } from '../utils/analytics';
+import { setUserId, trackLogin, trackSignUp } from '../utils/ga';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroImage = require('../assets/images/friendly_hero.png');
@@ -119,6 +120,8 @@ export default function AuthScreen() {
 
         // --- TRACKING METRICS ---
         trackNewUser();
+        trackSignUp('email');
+        setUserId(userCredential.user.uid);
         // ------------------------
 
         console.log('✅ Cuenta creada y verificación enviada');
@@ -132,6 +135,8 @@ export default function AuthScreen() {
 
         // --- TRACKING METRICS ---
         trackDailyLogin();
+        trackLogin('email');
+        if (auth.currentUser) setUserId(auth.currentUser.uid);
         // ------------------------
 
         console.log('✅ Login exitoso');

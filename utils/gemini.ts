@@ -5,12 +5,13 @@ const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 // 🔄 LISTA DE MODELOS OFICIALES (Actualizada dic 2025)
 // La app probará en este orden hasta que uno funcione.
+// La app probará en este orden hasta que uno funcione.
+// La app probará en este orden hasta que uno funcione.
 const MODELS_TO_TRY = [
     "gemini-2.5-flash",       // 1. Equilibrio ideal
     "gemini-2.5-flash-lite",  // 2. Respaldo rápido y eficiente
     "gemini-2.0-flash",       // 3. Versión anterior estable
-    "gemini-2.5-pro"         // 4. Alta capacidad (si los flash fallan)
-    //"gemini-3-pro"            // 5. Última generación (si está disponible)
+    "gemini-2.5-pro"          // 4. Alta capacidad (si los flash fallan)
 ];
 
 // --- FUNCIÓN INTELIGENTE DE PETICIÓN ---
@@ -19,8 +20,9 @@ const fetchWithFallback = async (body: any) => {
 
     for (const model of MODELS_TO_TRY) {
         try {
-            // console.log(`📡 Probando con modelo: ${model}...`); 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+
+            // console.log(`📡 Llamando a ${model} vía ${apiVersion}...`);
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -62,18 +64,30 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     });
 };
 
-const getBase64 = async (uri: string, webFile?: any) => {
+const getBase64 = async (uri: string, webFile?: any): Promise<string> => {
     // 1. Intento directo con objeto File (optimizado para Web)
-    // IMPORTANT: Check valid Blob instance to prevent parameter errors
-    if (Platform.OS === 'web' && webFile && webFile instanceof Blob) {
-        return await blobToBase64(webFile);
+    if (Platform.OS === 'web' && webFile) {
+        // Verificar que sea un Blob válido
+        if (webFile instanceof Blob) {
+            const result = await blobToBase64(webFile);
+            if (typeof result === 'string' && result.length > 0) {
+                return result;
+            }
+        }
+        // Si webFile existe pero no es Blob, intentamos fetch al URI
+        console.warn("webFile no es Blob válido, intentando fetch...");
     }
 
     // 2. Fallback: Fetch al URI (funciona en Native y en Web con blob: URIs)
     try {
         const response = await fetch(uri);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
-        return await blobToBase64(blob);
+        const result = await blobToBase64(blob);
+        if (typeof result !== 'string' || result.length === 0) {
+            throw new Error("Conversión a base64 falló");
+        }
+        return result;
     } catch (e: any) {
         throw new Error(`Falló lectura de archivo (${Platform.OS}): ${e.message}`);
     }
@@ -82,13 +96,22 @@ const getBase64 = async (uri: string, webFile?: any) => {
 // 1. LEER DOCUMENTO (PDF, DOCX, TXT)
 export const extractTextFromDocument = async (fileUri: string, mimeType: string = 'application/pdf', webFile?: any) => {
     try {
+        // Validar que el mimeType sea un string válido
+        const validMimeType = (typeof mimeType === 'string' && mimeType.includes('/'))
+            ? mimeType
+            : 'application/pdf';
+
         const base64Data = await getBase64(fileUri, webFile);
+
+        if (typeof base64Data !== 'string' || base64Data.length === 0) {
+            throw new Error("No se pudo convertir el archivo a base64");
+        }
 
         const body = {
             contents: [{
                 parts: [
                     { text: "Eres un experto en RRHH. Extrae del CV: Perfil, Skills y Experiencia. Haz un resumen claro." },
-                    { inline_data: { mime_type: mimeType, data: base64Data } }
+                    { inlineData: { mimeType: validMimeType, data: base64Data } }
                 ]
             }]
         };
@@ -109,10 +132,12 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
     let parts: any[] = [];
     const basePrompt = `
     Actúa como un **Senior Technical Recruiter**.
-    DATOS: CANDIDATO: "${profile}", ASPIRACIONES: "${aspirations}"
+    
+    DATOS DEL CANDIDATO (su CV): "${profile}"
+    ASPIRACIONES DEL CANDIDATO: "${aspirations}"
     
     INSTRUCCIONES CLAVE:
-    1. Extrae CARGO y EMPRESA (o "No especificado").
+    1. **IMPORTANTE**: Extrae el CARGO y EMPRESA de la **VACANTE/ANUNCIO DE TRABAJO** que te proporciono, NO del CV del candidato. Si el anuncio no especifica empresa, pon "No especificado".
     2. Detecta **SOBRECALIFICACIÓN**: Si el perfil excede por mucho la vacante, el match debe ser bajo (30-50%) PERO el tip debe ser: "Adapta tu CV para resaltar humildad y enfoque operativo" (No digas "no postules").
     3. Detecta **CONFLICTO DE INTERESES**: Si el candidato busca Minería y la vacante es Retail, baja el match, y el tip debe ser: "Considera ajustar tus intereses clave (Ej: 'Retail') si te interesa este sector".
     4. Calcula MATCH (0-100) siendo estricto pero justo.
@@ -121,8 +146,8 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
     7. **MEJORAS**: Da 2-3 recomendaciones específicas de cómo mejorar el CV para esta vacante.
     
     RESPONDE SOLO JSON: { 
-      "role": "Cargo", 
-      "company": "Empresa", 
+      "role": "Cargo DE LA VACANTE (no del CV)", 
+      "company": "Empresa QUE PUBLICA LA VACANTE (no donde trabajó el candidato)", 
       "match": (0-100), 
       "reason": "Veredicto Breve", 
       "tips": ["Tip Estratégico 1", "Tip Estratégico 2", "Tip Estratégico 3"],
@@ -135,7 +160,13 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
     try {
         if (mode === 'image') {
             const imageBase64 = await getBase64(jobData.uri, jobData.webFile);
-            parts = [{ text: basePrompt + "\n\nVACANTE (IMAGEN):" }, { inline_data: { mime_type: "image/jpeg", data: imageBase64 } }];
+            if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+                throw new Error("No se pudo convertir la imagen a base64");
+            }
+            parts = [
+                { text: basePrompt + "\n\nVACANTE (IMAGEN):" },
+                { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }
+            ];
         } else {
             parts = [{ text: `${basePrompt}\n\nVACANTE (${mode}): "${jobData}"` }];
         }
@@ -161,7 +192,10 @@ export const generateInterviewQuestions = async (profile: string, jobData: strin
     try {
         if (mode === 'image') {
             const imageBase64 = await getBase64(jobData.uri, jobData.webFile);
-            parts = [{ text: basePrompt }, { inline_data: { mime_type: "image/jpeg", data: imageBase64 } }];
+            if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+                throw new Error("No se pudo convertir la imagen a base64");
+            }
+            parts = [{ text: basePrompt }, { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }];
         } else {
             parts = [{ text: `${basePrompt}\n\nVACANTE: "${jobData}"` }];
         }

@@ -122,7 +122,10 @@ export default function JobDetailScreen() {
                         webFile = (file as any).file || (file as any).output;
                     }
 
-                    const text = await extractTextFromDocument(file.uri, file.mimeType, webFile);
+                    // Extraer mimeType como string
+                    const mimeType = typeof file.mimeType === 'string' ? file.mimeType : 'application/pdf';
+
+                    const text = await extractTextFromDocument(file.uri, mimeType, webFile);
 
                     if (!text || text.length < 50) {
                         throw new Error("Texto insuficiente extraído");

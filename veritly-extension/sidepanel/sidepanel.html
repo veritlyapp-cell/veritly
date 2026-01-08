@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veritly Matcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="grad" x1="2" y1="2" x2="22" y2="22">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#6366f1"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">Veritly Matcher</span>
+      </div>
+      <div class="credits-badge" id="credits-badge">
+        <span id="credits-count">3</span> análisis
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- CV Upload Section -->
+      <section class="section cv-section" id="cv-section">
+        <h3 class="section-title">Tu CV</h3>
+        <div class="cv-upload-zone" id="cv-upload-zone">
+          <div class="upload-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17,8 12,3 7,8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p class="upload-text">Arrastra tu CV aquí</p>
+          <p class="upload-subtext">o haz clic para seleccionar (PDF)</p>
+          <input type="file" id="cv-input" accept=".pdf" hidden>
+        </div>
+        <div class="cv-loaded" id="cv-loaded" style="display: none;">
+          <div class="cv-file-info">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+            </svg>
+            <span id="cv-filename">documento.pdf</span>
+          </div>
+          <button class="btn-icon" id="remove-cv" title="Eliminar CV">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Job Info Section -->
+      <section class="section job-section" id="job-section" style="display: none;">
+        <h3 class="section-title">Vacante Detectada</h3>
+        <div class="job-card">
+          <h4 class="job-title" id="job-title">-</h4>
+          <p class="job-company" id="job-company">-</p>
+        </div>
+        <button class="btn-primary" id="analyze-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
+          Analizar Match
+        </button>
+      </section>
+
+      <!-- Loading State -->
+      <section class="section loading-section" id="loading-section" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Analizando compatibilidad...</p>
+      </section>
+
+      <!-- Results Section -->
+      <section class="section results-section" id="results-section" style="display: none;">
+        <h3 class="section-title">Resultado del Análisis</h3>
+        
+        <!-- Match Score Circle -->
+        <div class="match-circle-container">
+          <div class="match-circle" id="match-circle">
+            <svg viewBox="0 0 100 100">
+              <circle class="circle-bg" cx="50" cy="50" r="45"/>
+              <circle class="circle-progress" id="circle-progress" cx="50" cy="50" r="45"/>
+            </svg>
+            <div class="match-score">
+              <span class="score-number" id="score-number">0</span>
+              <span class="score-percent">%</span>
+            </div>
+          </div>
+          <p class="match-label" id="match-label">Match con la vacante</p>
+        </div>
+
+        <!-- Keywords Section -->
+        <div class="keywords-section">
+          <h4 class="subsection-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            Keywords Faltantes
+          </h4>
+          <div class="keywords-list" id="keywords-list">
+            <!-- Keywords will be inserted here -->
+          </div>
+        </div>
+
+        <!-- AI Tips Section -->
+        <div class="tips-section">
+          <h4 class="subsection-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            Consejos de IA
+          </h4>
+          <div class="tips-list" id="tips-list">
+            <!-- Tips will be inserted here -->
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button class="btn-secondary" id="new-analysis-btn">Nuevo análisis</button>
+          <a href="https://veritlyapp.com/historial" target="_blank" class="btn-link">
+            Ver historial completo
+          </a>
+        </div>
+      </section>
+
+      <!-- Paywall Section -->
+      <section class="section paywall-section" id="paywall-section" style="display: none;">
+        <div class="paywall-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3 class="paywall-title">¡Tus análisis gratuitos se agotaron!</h3>
+        <p class="paywall-text">Para seguir encontrando tu match perfecto, obtén más créditos.</p>
+        
+        <div class="pricing-options">
+          <button class="pricing-card" id="buy-10-credits">
+            <span class="pricing-amount">10 créditos</span>
+            <span class="pricing-price">S/. 9.90</span>
+          </button>
+          <button class="pricing-card premium" id="subscribe-premium">
+            <span class="pricing-badge">Recomendado</span>
+            <span class="pricing-amount">Premium</span>
+            <span class="pricing-price">S/. 19.90/mes</span>
+            <span class="pricing-feature">Análisis ilimitados</span>
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <a href="https://veritlyapp.com" target="_blank">veritlyapp.com</a>
+    </footer>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

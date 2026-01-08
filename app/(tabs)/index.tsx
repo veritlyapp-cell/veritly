@@ -11,6 +11,7 @@ import { auth } from '../../config/firebase';
 import { AppConfig, canUserAnalyze, deductCredit, getAppConfig, getAvailableCredits, getUserCredits } from '../../services/credits-service';
 import { getHistoryFromCloud, getUserProfileFromCloud, saveAnalysisToCloud, updateHistoryInCloud } from '../../services/storage';
 import { logError, trackDailyScan } from '../../utils/analytics';
+import { trackScan } from '../../utils/ga';
 
 // --- LOGO LOCAL ---
 const LocalLogo = require('../../assets/images/veritly3.png');
@@ -319,7 +320,8 @@ export default function VeritlyScanner() {
       if (aiResponse) {
         setResult(aiResponse);
         setShowInstructions(false); // Ocultar instrucciones al tener resultado
-        trackDailyScan(); // <--- METRIC
+        trackDailyScan(); // <--- METRIC (Firestore)
+        trackScan(mode);  // <--- METRIC (Google Analytics)
 
         // --- DEDUCIR CRÉDITO DESPUÉS DEL ANÁLISIS EXITOSO ---
         await deductCredit(user.uid);

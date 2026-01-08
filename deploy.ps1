@@ -19,10 +19,11 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ Build completado exitosamente!" -ForegroundColor Green
 
 # Verificar si se especificó producción
-if ($prod) {
+if ($prod.IsPresent) {
     Write-Host "🌟 Deploying a PRODUCCIÓN..." -ForegroundColor Magenta
     netlify deploy --prod --dir=dist
-} else {
+}
+else {
     Write-Host "🧪 Deploying a PREVIEW..." -ForegroundColor Yellow
     netlify deploy --dir=dist
 }

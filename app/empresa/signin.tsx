@@ -7,6 +7,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
 import { createCompanyUser } from '../../services/auth-service';
+import { trackDailyLogin, trackNewUser } from '../../utils/analytics';
+import { setUserId, trackLogin, trackSignUp } from '../../utils/ga';
 
 const LocalLogo = require('../../assets/images/veritly3.png');
 const HeroImage = require('../../assets/images/friendly_hero.png');
@@ -87,6 +89,13 @@ export default function CompanySignIn() {
                 console.log('📝 Registrando empresa:', cleanEmail);
                 await createCompanyUser(cleanEmail, password);
                 console.log('✅ Empresa creada');
+
+                // --- TRACKING METRICS ---
+                trackNewUser();
+                trackSignUp('email_empresa');
+                if (auth.currentUser) setUserId(auth.currentUser.uid);
+                // ------------------------
+
                 showAlert("¡Bienvenido!", "Cuenta de empresa creada.");
                 setTimeout(() => {
                     router.replace('/empresa/dashboard/onboarding');
@@ -96,6 +105,13 @@ export default function CompanySignIn() {
                 console.log('🔐 Login empresa:', cleanEmail);
                 await signInWithEmailAndPassword(auth, cleanEmail, password);
                 console.log('✅ Login exitoso');
+
+                // --- TRACKING METRICS ---
+                trackDailyLogin();
+                trackLogin('email_empresa');
+                if (auth.currentUser) setUserId(auth.currentUser.uid);
+                // ------------------------
+
                 setTimeout(() => {
                     router.replace('/empresa/dashboard');
                 }, 500);

@@ -1,374 +1,597 @@
 import { useRouter } from 'expo-router';
-import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { Activity, BarChart, ChevronRight, Lock, RefreshCw, ShieldAlert, TrendingDown, TrendingUp, Users } from 'lucide-react-native';
+import { collection, collectionGroup, getDocs } from 'firebase/firestore';
+import { BarChart2, Building2, ExternalLink, Lock, RefreshCw, ShieldAlert, Users, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../config/firebase';
 
 // --- CONFIGURACIÓN DE SEGURIDAD ---
 const ADMIN_EMAILS = ['test+1@gmail.com', 'oscar@veritlyapp.com', 'oscar@relielabs.com'];
 
-type Period = 'today' | 'week' | 'month' | 'custom';
+// URLs externas
+const GA_URL = 'https://analytics.google.com/analytics/web/#/p451066061/reports/dashboard?r=firebase-overview';
+const SENTRY_URL = 'https://relie-labs.sentry.io/projects/veritly/';
+
+interface Stats {
+    totalCandidatos: number;
+    totalEmpresas: number;
+    totalJobProfiles: number;
+    totalUsuarios: number;
+    totalAnalisis: number;
+    loading: boolean;
+}
+
+interface WeeklyData {
+    week: string;
+    usuarios: number;
+    analisis: number;
+}
 
 export default function AnalyticsScreen() {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [stats, setStats] = useState<any>({});
-    const [logs, setLogs] = useState<any[]>([]);
-
-    // Filtros
-    const [period, setPeriod] = useState<Period>('today');
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [customRange, setCustomRange] = useState({ start: '', end: '' });
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [stats, setStats] = useState<Stats>({
+        totalCandidatos: 0,
+        totalEmpresas: 0,
+        totalJobProfiles: 0,
+        totalUsuarios: 0,
+        totalAnalisis: 0,
+        loading: true
+    });
+    const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
 
     useEffect(() => {
         checkAdminAccess();
     }, []);
 
-    const checkAdminAccess = () => {
+    const checkAdminAccess = async () => {
         const user = auth.currentUser;
         if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
             setIsAdmin(true);
-            subscribeToStats();
-            subscribeToLogs();
+            await loadRealStats();
         } else {
             setIsAdmin(false);
-            setLoading(false);
         }
+        setLoading(false);
     };
 
-    const subscribeToStats = () => {
-        const statsRef = doc(db, 'stats', 'global_counters');
-        const unsub = onSnapshot(statsRef, (doc) => {
-            if (doc.exists()) {
-                setStats(doc.data());
+    // Cargar estadísticas REALES de Firestore
+    const loadRealStats = async () => {
+        try {
+            setRefreshing(true);
+
+            // Conteo real de candidatos
+            const candidatosSnapshot = await getDocs(collection(db, 'users_candidatos'));
+            const totalCandidatos = candidatosSnapshot.size;
+
+            // Conteo real de empresas
+            const empresasSnapshot = await getDocs(collection(db, 'users_empresas'));
+            const totalEmpresas = empresasSnapshot.size;
+
+            // Conteo real de job profiles
+            const jobsSnapshot = await getDocs(collection(db, 'job_profiles'));
+            const totalJobProfiles = jobsSnapshot.size;
+
+            // Total de usuarios (candidatos + empresas)
+            const totalUsuarios = totalCandidatos + totalEmpresas;
+
+            // Contar análisis totales de todas las subcolecciones de candidates
+            let totalAnalisis = 0;
+            try {
+                const candidatesGroup = await getDocs(collectionGroup(db, 'candidates'));
+                totalAnalisis = candidatesGroup.size;
+            } catch (e) {
+                console.log('Error counting analyses, trying users history...', e);
+                // Fallback: count from users.history
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                usersSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.history && Array.isArray(data.history)) {
+                        totalAnalisis += data.history.length;
+                    }
+                });
             }
-            setLoading(false);
-        });
-        return unsub;
-    };
 
-    const subscribeToLogs = () => {
-        const logsRef = collection(db, 'system_logs');
-        const q = query(logsRef, orderBy('timestamp', 'desc'), limit(20));
-        const unsub = onSnapshot(q, (snapshot) => {
-            const logsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setLogs(logsData);
-        });
-        return unsub;
-    };
+            // Generate weekly data from users_candidatos createdAt
+            const weeklyStats = generateWeeklyStats(candidatosSnapshot.docs, empresasSnapshot.docs);
+            setWeeklyData(weeklyStats);
 
-    // --- LÓGICA DE CÁLCULO DE PERÍODOS ---
-
-    const getDateList = (start: Date, end: Date) => {
-        const list = [];
-        let current = new Date(start);
-        while (current <= end) {
-            list.push(current.toISOString().split('T')[0]);
-            current.setDate(current.getDate() + 1);
+            setStats({
+                totalCandidatos,
+                totalEmpresas,
+                totalJobProfiles,
+                totalUsuarios,
+                totalAnalisis,
+                loading: false
+            });
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        } finally {
+            setRefreshing(false);
         }
-        return list;
     };
 
-    const getPeriodRanges = (type: Period) => {
-        const now = new Date();
-        const startCurrent = new Date(now);
-        const endCurrent = new Date(now);
-        const startPrev = new Date(now);
-        const endPrev = new Date(now);
+    // Generate weekly stats from user docs
+    const generateWeeklyStats = (candidatoDocs: any[], empresaDocs: any[]): WeeklyData[] => {
+        const weeks: { [key: string]: { usuarios: number; analisis: number } } = {};
 
-        if (type === 'today') {
-            startPrev.setDate(now.getDate() - 1);
-            endPrev.setDate(now.getDate() - 1);
-        } else if (type === 'week') {
-            startCurrent.setDate(now.getDate() - 7);
-            startPrev.setDate(now.getDate() - 14);
-            endPrev.setDate(now.getDate() - 8);
-        } else if (type === 'month') {
-            startCurrent.setMonth(now.getMonth() - 1);
-            startPrev.setMonth(now.getMonth() - 2);
-            endPrev.setMonth(now.getMonth() - 1);
-            endPrev.setDate(now.getDate());
-        } else if (type === 'custom') {
-            const s = new Date(customRange.start || now);
-            const e = new Date(customRange.end || now);
-            return { current: getDateList(s, e), previous: [] };
+        // Get last 6 weeks
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - (i * 7));
+            const weekKey = getWeekKey(date);
+            weeks[weekKey] = { usuarios: 0, analisis: 0 };
         }
 
-        return {
-            current: getDateList(startCurrent, endCurrent),
-            previous: getDateList(startPrev, endPrev)
-        };
-    };
-
-    const calculateMetrics = (keys: string[]) => {
-        const data = { logins: 0, users: 0, scans: 0 };
-        keys.forEach(k => {
-            data.logins += stats.dailyLogins?.[k] || 0;
-            data.users += stats.dailyNewUsers?.[k] || 0;
-            data.scans += stats.dailyScans?.[k] || 0;
+        // Count users by week
+        candidatoDocs.forEach((doc) => {
+            const data = doc.data();
+            if (data.createdAt) {
+                const date = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                const weekKey = getWeekKey(date);
+                if (weeks[weekKey]) {
+                    weeks[weekKey].usuarios++;
+                }
+            }
         });
-        return data;
+
+        empresaDocs.forEach((doc) => {
+            const data = doc.data();
+            if (data.createdAt) {
+                const date = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                const weekKey = getWeekKey(date);
+                if (weeks[weekKey]) {
+                    weeks[weekKey].usuarios++;
+                }
+            }
+        });
+
+        return Object.entries(weeks).map(([week, data]) => ({
+            week,
+            usuarios: data.usuarios,
+            analisis: data.analisis
+        }));
     };
 
-    const getTrend = (curr: number, prev: number) => {
-        if (prev === 0) return curr > 0 ? { val: 100, up: true } : { val: 0, up: true };
-        const diff = ((curr - prev) / prev) * 100;
-        return { val: Math.abs(diff).toFixed(1), up: diff >= 0 };
+    const getWeekKey = (date: Date): string => {
+        const month = date.toLocaleString('es', { month: 'short' });
+        const day = date.getDate();
+        return `${day} ${month}`;
     };
 
-    // --- COMPONENTES ---
+    const openExternalLink = (url: string) => {
+        if (Platform.OS === 'web') {
+            window.open(url, '_blank');
+        } else {
+            Linking.openURL(url);
+        }
+    };
 
-    const MetricCard = ({ title, current, previous, icon, color }: any) => {
-        const trend = getTrend(current, previous);
-        const isNeutral = previous === 0 && current === 0;
+    // Simple bar chart component
+    const SimpleBarChart = ({ data }: { data: WeeklyData[] }) => {
+        const maxValue = Math.max(...data.map(d => d.usuarios), 1);
+        const chartHeight = 120;
 
         return (
-            <View style={styles.card}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <View style={[styles.iconBox, { backgroundColor: color }]}>
-                        {icon}
-                    </View>
-                    {!isNeutral && period !== 'custom' && (
-                        <View style={[styles.trendBadge, { backgroundColor: trend.up ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-                            {trend.up ? <TrendingUp size={12} color="#10b981" /> : <TrendingDown size={12} color="#ef4444" />}
-                            <Text style={[styles.trendText, { color: trend.up ? '#10b981' : '#ef4444' }]}>{trend.val}%</Text>
+            <View style={styles.chartContainer}>
+                <Text style={styles.chartTitle}>📈 Nuevos Usuarios por Semana</Text>
+                <View style={styles.chart}>
+                    {data.map((item, index) => (
+                        <View key={index} style={styles.barContainer}>
+                            <View style={styles.barWrapper}>
+                                <View
+                                    style={[
+                                        styles.bar,
+                                        {
+                                            height: Math.max((item.usuarios / maxValue) * chartHeight, 4),
+                                        }
+                                    ]}
+                                />
+                                <Text style={styles.barValue}>{item.usuarios}</Text>
+                            </View>
+                            <Text style={styles.barLabel}>{item.week}</Text>
                         </View>
-                    )}
-                </View>
-                <Text style={styles.cardValue}>{current}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.cardTitle}>{title}</Text>
-                    {previous > 0 && period !== 'custom' && (
-                        <Text style={styles.cardPrev}> vs {previous}</Text>
-                    )}
+                    ))}
                 </View>
             </View>
         );
     };
 
-    if (loading) return (
-        <View style={styles.center}>
-            <ActivityIndicator size="large" color="#3b82f6" />
-            <Text style={{ color: 'white', marginTop: 10 }}>Cargando Analytics...</Text>
-        </View>
-    );
-
-    if (!isAdmin) {
+    if (loading) {
         return (
-            <View style={styles.center}>
-                <Lock size={64} color="#64748b" />
-                <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', marginTop: 20 }}>Acceso Restringido</Text>
-                <Text style={{ color: '#94a3b8', textAlign: 'center', marginTop: 10, paddingHorizontal: 40 }}>
-                    Esta sección es exclusiva para administradores de Veritly.
-                </Text>
-            </View>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color="#10b981" />
+                </View>
+            </SafeAreaView>
         );
     }
 
-    const { current: currentKeys, previous: previousKeys } = getPeriodRanges(period);
-    const currentStats = calculateMetrics(currentKeys);
-    const previousStats = calculateMetrics(previousKeys);
+    if (!isAdmin) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.center}>
+                    <Lock size={64} color="#64748b" />
+                    <Text style={styles.lockedTitle}>Acceso Restringido</Text>
+                    <Text style={styles.lockedText}>
+                        Esta sección es exclusiva para administradores de Veritly.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
+            {/* HEADER */}
             <View style={styles.header}>
                 <View>
                     <Text style={styles.title}>Super Admin</Text>
-                    <Text style={styles.subtitle}>Veritly Core Insights</Text>
+                    <Text style={styles.subtitle}>Panel de Control</Text>
                 </View>
-                <ShieldAlert color="#10b981" size={24} />
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                    <TouchableOpacity
+                        onPress={loadRealStats}
+                        disabled={refreshing}
+                        style={styles.refreshBtn}
+                    >
+                        <RefreshCw color="#10b981" size={18} style={refreshing ? { opacity: 0.5 } : {}} />
+                    </TouchableOpacity>
+                    <ShieldAlert color="#10b981" size={24} />
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
 
-                {/* FILTERS */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
-                    {(['today', 'week', 'month', 'custom'] as Period[]).map((p) => (
-                        <TouchableOpacity
-                            key={p}
-                            style={[styles.filterBtn, period === p && styles.filterBtnActive]}
-                            onPress={() => p === 'custom' ? setShowDatePicker(true) : setPeriod(p)}
-                        >
-                            <Text style={[styles.filterText, period === p && styles.filterTextActive]}>
-                                {p === 'today' ? 'Hoy' : p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : '📅 Rango'}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-
-                {/* METRICS GRID */}
-                <Text style={styles.sectionTitle}>Métricas de Crecimiento</Text>
-                <View style={styles.grid}>
-                    <MetricCard
-                        title="Nuevos Usuarios"
-                        current={currentStats.users}
-                        previous={previousStats.users}
-                        icon={<Users size={20} color="white" />}
-                        color="rgba(59, 130, 246, 0.4)"
-                    />
-                    <MetricCard
-                        title="Sesiones (Logins)"
-                        current={currentStats.logins}
-                        previous={previousStats.logins}
-                        icon={<Activity size={20} color="white" />}
-                        color="rgba(16, 185, 129, 0.4)"
-                    />
-                    <MetricCard
-                        title="Análisis Realizados"
-                        current={currentStats.scans}
-                        previous={previousStats.scans}
-                        icon={<BarChart size={20} color="white" />}
-                        color="rgba(139, 92, 246, 0.4)"
-                    />
-                    <View style={[styles.card, { backgroundColor: '#0f172a', borderStyle: 'dashed', borderColor: '#334155' }]}>
-                        <View style={[styles.iconBox, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-                            <Users size={20} color="#f59e0b" />
+                {/* MAIN STATS - Total Usuarios y Análisis */}
+                <Text style={styles.sectionTitle}>🎯 Métricas Principales</Text>
+                <View style={styles.mainStatsGrid}>
+                    <View style={[styles.mainStatCard, { backgroundColor: '#1e3a5f' }]}>
+                        <View style={styles.mainStatIcon}>
+                            <Users color="#38bdf8" size={32} />
                         </View>
-                        <Text style={styles.cardValue}>{stats.totalUsers || 0}</Text>
-                        <Text style={styles.cardTitle}>Total Histórico</Text>
+                        <Text style={styles.mainStatNumber}>{stats.totalUsuarios}</Text>
+                        <Text style={styles.mainStatLabel}>Total Usuarios</Text>
+                        <Text style={styles.mainStatSubtext}>
+                            {stats.totalCandidatos} candidatos · {stats.totalEmpresas} empresas
+                        </Text>
+                    </View>
+
+                    <View style={[styles.mainStatCard, { backgroundColor: '#3d1f5c' }]}>
+                        <View style={styles.mainStatIcon}>
+                            <Zap color="#a855f7" size={32} />
+                        </View>
+                        <Text style={styles.mainStatNumber}>{stats.totalAnalisis}</Text>
+                        <Text style={styles.mainStatLabel}>Total Análisis</Text>
+                        <Text style={styles.mainStatSubtext}>
+                            CVs analizados con IA
+                        </Text>
                     </View>
                 </View>
 
-                {/* LOGS MONITOR */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 40, marginBottom: 15 }}>
-                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Monitor de Sistema</Text>
-                    <TouchableOpacity style={styles.refreshBtn}>
-                        <RefreshCw size={14} color="#3b82f6" />
-                        <Text style={{ color: '#3b82f6', fontSize: 12, marginLeft: 5 }}>En Vivo</Text>
-                    </TouchableOpacity>
+                {/* WEEKLY CHART */}
+                {weeklyData.length > 0 && <SimpleBarChart data={weeklyData} />}
+
+                {/* DETAILED STATS */}
+                <Text style={styles.sectionTitle}>📊 Detalle por Categoría</Text>
+                <View style={styles.statsGrid}>
+                    <View style={styles.statCard}>
+                        <Users color="#3b82f6" size={28} />
+                        <Text style={styles.statNumber}>{stats.totalCandidatos}</Text>
+                        <Text style={styles.statLabel}>Candidatos</Text>
+                    </View>
+
+                    <View style={styles.statCard}>
+                        <Building2 color="#10b981" size={28} />
+                        <Text style={styles.statNumber}>{stats.totalEmpresas}</Text>
+                        <Text style={styles.statLabel}>Empresas</Text>
+                    </View>
+
+                    <View style={styles.statCard}>
+                        <BarChart2 color="#f59e0b" size={28} />
+                        <Text style={styles.statNumber}>{stats.totalJobProfiles}</Text>
+                        <Text style={styles.statLabel}>Vacantes</Text>
+                    </View>
                 </View>
 
-                <View style={styles.logsContainer}>
-                    {logs.length === 0 ? (
-                        <View style={styles.emptyCard}>
-                            <Text style={styles.emptyText}>✅ Todo operando normal.</Text>
-                        </View>
-                    ) : (
-                        logs.map((log: any) => (
-                            <View key={log.id} style={[styles.logItem, log.severity === 'CRITICAL' && styles.logCritical]}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <View style={[styles.severityDot, { backgroundColor: log.severity === 'CRITICAL' ? '#ef4444' : '#3b82f6' }]} />
-                                        <Text style={[styles.logType, { color: log.severity === 'CRITICAL' ? '#ef4444' : '#3b82f6' }]}>
-                                            {log.severity}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.logTime}>
-                                        {new Date(log.timestamp).toLocaleTimeString()}
-                                    </Text>
-                                </View>
-                                <Text style={styles.logContext}>{log.context}</Text>
-                                <Text style={styles.logMsg} numberOfLines={2}>{log.message}</Text>
-                                <View style={styles.logFooter}>
-                                    <Text style={styles.logUser}>{log.userEmail}</Text>
-                                    <ChevronRight size={14} color="#475569" />
-                                </View>
-                            </View>
-                        ))
-                    )}
+                {/* EXTERNAL TOOLS */}
+                <Text style={styles.sectionTitle}>🔧 Herramientas Externas</Text>
+
+                <TouchableOpacity
+                    style={styles.externalCard}
+                    onPress={() => openExternalLink(GA_URL)}
+                >
+                    <View style={styles.externalIcon}>
+                        <Text style={{ fontSize: 24 }}>📈</Text>
+                    </View>
+                    <View style={styles.externalInfo}>
+                        <Text style={styles.externalTitle}>Google Analytics</Text>
+                        <Text style={styles.externalDesc}>Ver tráfico, usuarios activos, conversiones y más</Text>
+                    </View>
+                    <ExternalLink color="#64748b" size={20} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.externalCard}
+                    onPress={() => openExternalLink(SENTRY_URL)}
+                >
+                    <View style={styles.externalIcon}>
+                        <Text style={{ fontSize: 24 }}>🐛</Text>
+                    </View>
+                    <View style={styles.externalInfo}>
+                        <Text style={styles.externalTitle}>Sentry</Text>
+                        <Text style={styles.externalDesc}>Monitoreo de errores en producción</Text>
+                    </View>
+                    <ExternalLink color="#64748b" size={20} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.externalCard}
+                    onPress={() => openExternalLink('https://console.firebase.google.com/')}
+                >
+                    <View style={styles.externalIcon}>
+                        <Text style={{ fontSize: 24 }}>🔥</Text>
+                    </View>
+                    <View style={styles.externalInfo}>
+                        <Text style={styles.externalTitle}>Firebase Console</Text>
+                        <Text style={styles.externalDesc}>Base de datos, autenticación y más</Text>
+                    </View>
+                    <ExternalLink color="#64748b" size={20} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.externalCard}
+                    onPress={() => openExternalLink('https://app.netlify.com/projects/veritly')}
+                >
+                    <View style={styles.externalIcon}>
+                        <Text style={{ fontSize: 24 }}>🚀</Text>
+                    </View>
+                    <View style={styles.externalInfo}>
+                        <Text style={styles.externalTitle}>Netlify</Text>
+                        <Text style={styles.externalDesc}>Deploys, logs y configuración de hosting</Text>
+                    </View>
+                    <ExternalLink color="#64748b" size={20} />
+                </TouchableOpacity>
+
+                {/* QUICK INFO */}
+                <View style={styles.infoBox}>
+                    <Text style={styles.infoTitle}>💡 Tip</Text>
+                    <Text style={styles.infoText}>
+                        Los datos de "Total Análisis" cuentan todos los CVs procesados por IA.
+                        Para métricas más detalladas, usa Google Analytics.
+                    </Text>
                 </View>
 
-                <View style={{ height: 50 }} />
             </ScrollView>
-
-            {/* CUSTOM RANGE PICKER MODAL */}
-            <Modal visible={showDatePicker} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Rango Personalizado</Text>
-                        <View style={styles.modalInputs}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.modalLabel}>Inicio (YYYY-MM-DD)</Text>
-                                <TextInput
-                                    style={styles.modalInput}
-                                    placeholder="2024-01-01"
-                                    placeholderTextColor="#64748b"
-                                    value={customRange.start}
-                                    onChangeText={(t) => setCustomRange(p => ({ ...p, start: t }))}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.modalLabel}>Fin (YYYY-MM-DD)</Text>
-                                <TextInput
-                                    style={styles.modalInput}
-                                    placeholder="2024-01-07"
-                                    placeholderTextColor="#64748b"
-                                    value={customRange.end}
-                                    onChangeText={(t) => setCustomRange(p => ({ ...p, end: t }))}
-                                />
-                            </View>
-                        </View>
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowDatePicker(false)}>
-                                <Text style={{ color: '#94a3b8' }}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.applyBtn}
-                                onPress={() => {
-                                    setPeriod('custom');
-                                    setShowDatePicker(false);
-                                }}
-                            >
-                                <Text style={{ color: 'white', fontWeight: 'bold' }}>Aplicar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    center: { flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#1e293b', backgroundColor: '#0f172a' },
-    title: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-    subtitle: { color: '#64748b', fontSize: 13 },
-    content: { padding: 20 },
-    sectionTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', marginBottom: 20 },
+    container: {
+        flex: 1,
+        backgroundColor: '#0f172a'
+    },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40
+    },
+    lockedTitle: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 20
+    },
+    lockedText: {
+        color: '#94a3b8',
+        textAlign: 'center',
+        marginTop: 10
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1e293b'
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'white'
+    },
+    subtitle: {
+        fontSize: 14,
+        color: '#64748b',
+        marginTop: 2
+    },
+    refreshBtn: {
+        padding: 10,
+        backgroundColor: '#1e293b',
+        borderRadius: 10
+    },
+    content: {
+        padding: 20,
+        paddingBottom: 100
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#94a3b8',
+        marginBottom: 16,
+        marginTop: 10
+    },
 
-    filterRow: { flexDirection: 'row', marginBottom: 25 },
-    filterBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#1e293b', marginRight: 10, borderWidth: 1, borderColor: '#334155' },
-    filterBtnActive: { backgroundColor: '#3b82f6', borderColor: '#60a5fa' },
-    filterText: { color: '#94a3b8', fontSize: 13, fontWeight: '500' },
-    filterTextActive: { color: 'white', fontWeight: 'bold' },
+    // Main Stats (Total Users & Analyses)
+    mainStatsGrid: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24
+    },
+    mainStatCard: {
+        flex: 1,
+        borderRadius: 20,
+        padding: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)'
+    },
+    mainStatIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12
+    },
+    mainStatNumber: {
+        fontSize: 42,
+        fontWeight: '800',
+        color: 'white'
+    },
+    mainStatLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white',
+        marginTop: 4
+    },
+    mainStatSubtext: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.6)',
+        marginTop: 6,
+        textAlign: 'center'
+    },
 
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    card: { width: '48%', backgroundColor: '#1e293b', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
-    iconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-    cardValue: { color: 'white', fontSize: 28, fontWeight: 'bold', marginBottom: 4 },
-    cardTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
-    cardPrev: { color: '#475569', fontSize: 11 },
+    // Chart styles
+    chartContainer: {
+        backgroundColor: '#1e293b',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    chartTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#94a3b8',
+        marginBottom: 16
+    },
+    chart: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        height: 150,
+        paddingTop: 20
+    },
+    barContainer: {
+        flex: 1,
+        alignItems: 'center'
+    },
+    barWrapper: {
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        height: 120
+    },
+    bar: {
+        width: 32,
+        backgroundColor: '#38bdf8',
+        borderRadius: 6,
+        minHeight: 4
+    },
+    barValue: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#38bdf8',
+        marginBottom: 4
+    },
+    barLabel: {
+        fontSize: 10,
+        color: '#64748b',
+        marginTop: 8,
+        textAlign: 'center'
+    },
 
-    trendBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, gap: 4 },
-    trendText: { fontSize: 11, fontWeight: 'bold' },
-
-    refreshBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
-
-    logsContainer: { gap: 12 },
-    logItem: { backgroundColor: '#1e293b', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#334155' },
-    logCritical: { borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' },
-    severityDot: { width: 6, height: 6, borderRadius: 3 },
-    logType: { fontWeight: 'bold', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
-    logTime: { color: '#64748b', fontSize: 10 },
-    logContext: { color: 'white', fontWeight: 'bold', fontSize: 15, marginTop: 10, marginBottom: 4 },
-    logMsg: { color: '#94a3b8', fontSize: 13, lineHeight: 18 },
-    logFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' },
-    logUser: { color: '#475569', fontSize: 11 },
-
-    emptyCard: { padding: 40, alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 20, borderStyle: 'dashed', borderWidth: 1, borderColor: '#334155' },
-    emptyText: { color: '#64748b' },
-
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#1e293b', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#334155' },
-    modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
-    modalInputs: { flexDirection: 'row', gap: 15, marginBottom: 25 },
-    modalLabel: { color: '#94a3b8', fontSize: 12, marginBottom: 8 },
-    modalInput: { backgroundColor: '#0f172a', borderRadius: 12, padding: 12, color: 'white', borderColor: '#334155', borderWidth: 1 },
-    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
-    cancelBtn: { padding: 12 },
-    applyBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }
+    // Detail Stats Grid
+    statsGrid: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 30
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: '#1e293b',
+        borderRadius: 16,
+        padding: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    statNumber: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: 'white',
+        marginTop: 12
+    },
+    statLabel: {
+        fontSize: 12,
+        color: '#94a3b8',
+        marginTop: 4
+    },
+    externalCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1e293b',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    externalIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: '#0f172a',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14
+    },
+    externalInfo: {
+        flex: 1
+    },
+    externalTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white'
+    },
+    externalDesc: {
+        fontSize: 13,
+        color: '#64748b',
+        marginTop: 2
+    },
+    infoBox: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.3)'
+    },
+    infoTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#10b981',
+        marginBottom: 6
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#94a3b8',
+        lineHeight: 20
+    }
 });
