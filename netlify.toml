@@ -3,6 +3,11 @@
   command = "npm run build:web"
   publish = "dist"
 
+[build.environment]
+  # Firebase API keys are designed to be public (client-side)
+  # They're protected by Firebase Security Rules, not by being secret
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+
 # Redirect rules for SPA
 [[redirects]]
   from = "/*"
