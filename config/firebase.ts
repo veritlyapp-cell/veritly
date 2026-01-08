@@ -23,10 +23,10 @@ const app = initializeApp(firebaseConfig);
 let auth: Auth;
 if (Platform.OS === 'web') {
     // Importamos dinámicamente si es necesario o usamos la referencia directa
-    const { browserSessionPersistence, setPersistence } = require('firebase/auth');
+    const { browserLocalPersistence, setPersistence } = require('firebase/auth');
     auth = getAuth(app);
-    // Establecemos persistencia de sesión (se borra al cerrar pestaña)
-    setPersistence(auth, browserSessionPersistence);
+    // Establecemos persistencia LOCAL (se mantiene incluso al cerrar navegador)
+    setPersistence(auth, browserLocalPersistence);
 } else {
     // En móvil usamos AsyncStorage para recordar al usuario
     auth = initializeAuth(app, {
