@@ -100,3 +100,24 @@ export const logError = async (context: string, error: any, severity: 'INFO' | '
         console.error("❌ Failed to log system error:", e);
     }
 };
+/**
+ * Registra el login de un usuario específico.
+ * Incrementa su contador personal y actualiza la fecha.
+ */
+export const trackUserLogin = async (uid: string, role: 'candidate' | 'company') => {
+    try {
+        const collectionName = role === 'company' ? 'users_empresas' : 'users_candidatos';
+        const userRef = doc(db, collectionName, uid);
+
+        await setDoc(userRef, {
+            loginCount: increment(1),
+            lastLoginAt: new Date().toISOString()
+        }, { merge: true });
+
+        // También registramos el login global
+        await trackDailyLogin();
+
+    } catch (error) {
+        console.error("❌ Error tracking user login:", error);
+    }
+};

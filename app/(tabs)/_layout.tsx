@@ -25,13 +25,13 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false, // Sin header nativo (usamos el nuestro)
+        headerShown: false,
         tabBarStyle: Platform.select({
           ios: { position: 'absolute', backgroundColor: '#0f172a', borderTopColor: '#334155', height: 60, paddingBottom: 5 },
           default: { backgroundColor: '#0f172a', borderTopColor: '#334155', height: 60, paddingBottom: 10 },
         }),
-        tabBarActiveTintColor: '#38bdf8', // Azul Cyan brillante
-        tabBarInactiveTintColor: '#64748b', // Gris apagado
+        tabBarActiveTintColor: '#38bdf8',
+        tabBarInactiveTintColor: '#64748b',
         tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold', marginTop: -5 }
       }}>
 

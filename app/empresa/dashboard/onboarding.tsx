@@ -54,8 +54,9 @@ export default function CompanyOnboarding() {
                     router.replace('/empresa/dashboard');
                     return;
                 }
-                if (data.ruc) setRuc(data.ruc);
-                if (data.razonSocial) setRazonSocial(data.razonSocial);
+                if (data.company?.ruc) setRuc(data.company.ruc);
+                if (data.company?.razonSocial) setRazonSocial(data.company.razonSocial);
+                if (data.company?.name) setNombreComercial(data.company.name);
             }
         };
         loadDraft();

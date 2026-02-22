@@ -1,14 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { ArrowRight, Building2, CheckSquare, Github, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
+import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { ArrowRight, Building2, CheckSquare, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
-import { createCompanyUser } from '../../services/auth-service';
-import { trackDailyLogin, trackNewUser } from '../../utils/analytics';
-import { setUserId, trackLogin, trackSignUp } from '../../utils/ga';
+import { checkEmailAvailability, createCompanyUser } from '../../services/auth-service';
+import { trackDailyLogin, trackUserLogin } from '../../utils/analytics';
+import { setUserId, trackLogin } from '../../utils/ga';
 
 const LocalLogo = require('../../assets/images/veritly3.png');
 const HeroImage = require('../../assets/images/friendly_hero.png');
@@ -24,6 +24,15 @@ export default function CompanySignIn() {
     const [loading, setLoading] = useState(false);
     const [isRegistering, setIsRegistering] = useState(register === 'true');
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+    // New State for Enhanced Registration
+    const [userType, setUserType] = useState<'empresa' | 'independiente'>('empresa');
+    const [ruc, setRuc] = useState('');
+    const [dni, setDni] = useState('');
+    const [razonSocial, setRazonSocial] = useState(''); // Para RUC y Nombre Comercial
+    const [fullName, setFullName] = useState(''); // Para Independiente
+    const [isValidatingId, setIsValidatingId] = useState(false);
+    const [idVerified, setIdVerified] = useState(false);
 
     // Validation State
     const [emailError, setEmailError] = useState(false);
@@ -67,6 +76,8 @@ export default function CompanySignIn() {
         else Alert.alert(title, message);
     };
 
+    // ID validation logic removed as per user request. Manual entry only.
+
     const handleAuth = async () => {
         const cleanEmail = email.trim().toLowerCase();
 
@@ -82,34 +93,74 @@ export default function CompanySignIn() {
             return showAlert('Requerido', 'Debes aceptar la Política de Privacidad para registrar tu empresa.');
         }
 
+        if (isRegistering) {
+            if (userType === 'empresa') {
+                if (!ruc) return showAlert('Datos Incompletos', 'Por favor ingresa el RUC.');
+                if (ruc.length !== 11) return showAlert('RUC Inválido', 'El RUC debe tener 11 dígitos.');
+                if (!razonSocial) return showAlert('Datos Incompletos', 'Por favor ingresa la Razón Social.');
+            } else {
+                if (!dni) return showAlert('Datos Incompletos', 'Por favor ingresa tu DNI.');
+                if (dni.length !== 8) return showAlert('DNI Inválido', 'El DNI debe tener 8 dígitos.');
+                if (!fullName) return showAlert('Datos Incompletos', 'Por favor ingresa tu Nombre Completo.');
+            }
+        }
+
         setLoading(true);
         try {
             if (isRegistering) {
+                // Check Email Availability globally
+                const emailCheck = await checkEmailAvailability(cleanEmail);
+                if (!emailCheck.available) {
+                    const msg = emailCheck.existingRole === 'candidato'
+                        ? 'Este correo ya está registrado como Candidato. Por favor usa otro correo para tu cuenta de Empresa.'
+                        : 'Este correo ya está registrado.';
+                    setLoading(false);
+                    return showAlert('Email no disponible', msg);
+                }
+
                 // REGISTRO EMPRESA
-                console.log('📝 Registrando empresa:', cleanEmail);
-                await createCompanyUser(cleanEmail, password);
+                console.log('📝 Registrando empresa/recruiter:', cleanEmail);
+
+                // [UPDATE] User requested "Nombre Comercial" to be empty at start.
+                // We pass 'razonSocial' to the dedicated field, and empty string to 'name' (commercial name).
+                // For 'independiente', we use fullName as the name.
+                await createCompanyUser(cleanEmail, password, {
+                    name: userType === 'empresa' ? '' : fullName,
+                    type: userType,
+                    ruc: userType === 'empresa' ? ruc : undefined,
+                    razonSocial: userType === 'empresa' ? razonSocial : undefined,
+                    dni: userType === 'independiente' ? dni : undefined
+                });
+
                 console.log('✅ Empresa creada');
 
-                // --- TRACKING METRICS ---
-                trackNewUser();
-                trackSignUp('email_empresa');
-                if (auth.currentUser) setUserId(auth.currentUser.uid);
-                // ------------------------
+                // Send Verification Email
+                if (auth.currentUser) {
+                    await sendEmailVerification(auth.currentUser);
+                    await signOut(auth); // Force logout so they verify first
+                }
 
-                showAlert("¡Bienvenido!", "Cuenta de empresa creada.");
-                setTimeout(() => {
-                    router.replace('/empresa/dashboard/onboarding');
-                }, 500);
+                showAlert("¡Cuenta Creada!", "Hemos enviado un correo de verificación. Por favor actívalo para iniciar sesión.");
+                // Redirect to login view within the same screen
+                setIsRegistering(false);
             } else {
                 // LOGIN EMPRESA
                 console.log('🔐 Login empresa:', cleanEmail);
-                await signInWithEmailAndPassword(auth, cleanEmail, password);
-                console.log('✅ Login exitoso');
+                const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                const user = userCredential.user;
+
+                if (!user.emailVerified) {
+                    await signOut(auth);
+                    return showAlert("Verificación Pendiente", "Por favor verifica tu correo electrónico para acceder.");
+                }
+
+                console.log('✅ Login exitoso y verificado');
 
                 // --- TRACKING METRICS ---
                 trackDailyLogin();
                 trackLogin('email_empresa');
-                if (auth.currentUser) setUserId(auth.currentUser.uid);
+                trackUserLogin(user.uid, 'company');
+                setUserId(user.uid);
                 // ------------------------
 
                 setTimeout(() => {
@@ -141,9 +192,7 @@ export default function CompanySignIn() {
         }
     };
 
-    const handleSocialLogin = (provider: string) => {
-        showAlert('Próximamente', `El inicio de sesión con ${provider} estará disponible muy pronto.`);
-    };
+    /* Social Login Removed */
 
     return (
         <SafeAreaView style={styles.container}>
@@ -174,8 +223,93 @@ export default function CompanySignIn() {
                                     : "Accede para gestionar tus vacantes y candidatos."}
                             </Text>
 
+                            {/* --- REGISTER TOGGLE --- */}
+                            {isRegistering && (
+                                <View style={styles.toggleContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.toggleBtn, userType === 'empresa' && styles.toggleBtnActive]}
+                                        onPress={() => { setUserType('empresa'); setIdVerified(false); setRazonSocial(''); }}
+                                    >
+                                        <Text style={[styles.toggleText, userType === 'empresa' && styles.toggleTextActive]}>Empresa</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.toggleBtn, userType === 'independiente' && styles.toggleBtnActive]}
+                                        onPress={() => { setUserType('independiente'); setIdVerified(false); setFullName(''); }}
+                                    >
+                                        <Text style={[styles.toggleText, userType === 'independiente' && styles.toggleTextActive]}>Independiente</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
                             {/* Form Inputs */}
                             <View style={styles.inputsStack}>
+
+                                {/* EMPRESA FIELDS */}
+                                {isRegistering && userType === 'empresa' && (
+                                    <View>
+                                        <Text style={styles.label}>RUC</Text>
+                                        <View style={{ marginBottom: 15 }}>
+                                            <View style={styles.inputGroup}>
+                                                <Building2 color="#94a3b8" size={20} />
+                                                <TextInput
+                                                    style={styles.input}
+                                                    placeholder="20123456789"
+                                                    placeholderTextColor="#64748b"
+                                                    value={ruc}
+                                                    onChangeText={(t) => { setRuc(t); }}
+                                                    keyboardType="numeric"
+                                                    maxLength={11}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <Text style={styles.label}>Razón Social</Text>
+                                        <View style={[styles.inputGroup, { marginBottom: 15 }]}>
+                                            <Building2 color="#94a3b8" size={20} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Mi Empresa S.A.C."
+                                                placeholderTextColor="#64748b"
+                                                value={razonSocial}
+                                                onChangeText={setRazonSocial}
+                                            />
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* INDEPENDIENTE FIELDS */}
+                                {isRegistering && userType === 'independiente' && (
+                                    <View>
+                                        <Text style={styles.label}>DNI</Text>
+                                        <View style={{ marginBottom: 15 }}>
+                                            <View style={styles.inputGroup}>
+                                                <UserPlus color="#94a3b8" size={20} />
+                                                <TextInput
+                                                    style={styles.input}
+                                                    placeholder="12345678"
+                                                    placeholderTextColor="#64748b"
+                                                    value={dni}
+                                                    onChangeText={(t) => { setDni(t); }}
+                                                    keyboardType="numeric"
+                                                    maxLength={8}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <Text style={styles.label}>Nombre Completo</Text>
+                                        <View style={[styles.inputGroup, { marginBottom: 15 }]}>
+                                            <UserPlus color="#94a3b8" size={20} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Juan Pérez"
+                                                placeholderTextColor="#64748b"
+                                                value={fullName}
+                                                onChangeText={setFullName}
+                                            />
+                                        </View>
+                                    </View>
+                                )}
+
                                 <View>
                                     <Text style={styles.label}>Correo Corporativo</Text>
                                     <View style={[styles.inputGroup, emailError && styles.inputError]}>
@@ -250,25 +384,7 @@ export default function CompanySignIn() {
                                 )}
                             </TouchableOpacity>
 
-                            {/* Social Login */}
-                            <View style={styles.socialSection}>
-                                <View style={styles.divider}>
-                                    <View style={styles.dividerLine} />
-                                    <Text style={styles.dividerText}>O accede con</Text>
-                                    <View style={styles.dividerLine} />
-                                </View>
-
-                                <View style={styles.socialButtons}>
-                                    <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocialLogin('Google')}>
-                                        <Text style={styles.socialIcon}>🔵</Text>
-                                        <Text style={styles.socialBtnText}>Google</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocialLogin('GitHub')}>
-                                        <Github color="white" size={20} />
-                                        <Text style={styles.socialBtnText}>GitHub</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            {/* Social Login Removed */}
 
                             {/* Mode Toggle */}
                             <View style={styles.footer}>
@@ -546,5 +662,46 @@ const styles = StyleSheet.create({
     featureText: {
         color: '#d1fae5',
         fontWeight: '500'
+    },
+    // Toggle Styles
+    toggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#1e293b',
+        borderRadius: 10,
+        padding: 4,
+        marginBottom: 25,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    toggleBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8
+    },
+    toggleBtnActive: {
+        backgroundColor: '#10b981'
+    },
+    toggleText: {
+        color: '#94a3b8',
+        fontWeight: '600',
+        fontSize: 14
+    },
+    toggleTextActive: {
+        color: 'white'
+    },
+    // Validation Btn
+    validateBtn: {
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        marginLeft: 10
+    },
+    validateBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14
     }
 });

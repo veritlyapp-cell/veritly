@@ -1,46 +1,124 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Veritly Matcher</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="container">
     <!-- Header -->
     <header class="header">
       <div class="logo">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2 17L12 22L22 17" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2 12L12 17L22 12" stroke="url(#grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path d="M2 17L12 22L22 17" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path d="M2 12L12 17L22 12" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
           <defs>
             <linearGradient id="grad" x1="2" y1="2" x2="22" y2="22">
-              <stop offset="0%" stop-color="#38bdf8"/>
-              <stop offset="100%" stop-color="#6366f1"/>
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="100%" stop-color="#6366f1" />
             </linearGradient>
           </defs>
         </svg>
         <span class="logo-text">Veritly Matcher</span>
+      </div>
+      <div class="user-status" id="user-status">
+        <span id="user-email">Cerrar sesión</span>
+        <button class="btn-text" id="logout-btn">Salir</button>
       </div>
       <div class="credits-badge" id="credits-badge">
         <span id="credits-count">3</span> análisis
       </div>
     </header>
 
+    <div id="sync-status" class="sync-banner" style="display: none;">
+      <div class="sync-spinner"></div>
+      <span>Sincronizando con tu cuenta...</span>
+    </div>
+
     <!-- Main Content -->
     <main class="main-content">
-      
-      <!-- CV Upload Section -->
-      <section class="section cv-section" id="cv-section">
-        <h3 class="section-title">Tu CV</h3>
-        <div class="cv-upload-zone" id="cv-upload-zone">
+
+      <!-- Login Section -->
+      <section class="section auth-section" id="auth-section">
+        <h3 class="section-title">Inicia Sesión</h3>
+        <p class="section-desc">Conéctate para usar tu CV de Veritly automáticamente.</p>
+        <div class="auth-form">
+          <div class="input-group">
+            <input type="email" id="login-email" placeholder="Correo electrónico">
+          </div>
+          <div class="input-group">
+            <input type="password" id="login-password" placeholder="Contraseña">
+          </div>
+          <button class="btn-primary" id="login-btn">Entrar</button>
+
+          <div class="divider">
+            <span class="divider-text">o</span>
+          </div>
+
+          <button class="btn-google" id="google-login-btn">
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335"
+                d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+              <path fill="#4285F4"
+                d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+              <path fill="#FBBC05"
+                d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+              <path fill="#34A853"
+                d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+              <path fill="none" d="M0 0h48v48H0z" />
+            </svg>
+            Continuar con Google
+          </button>
+
+          <button class="btn-text" id="sync-web-btn" style="width: 100%; margin-top: 10px;">
+            ¿Ya iniciaste sesión? Sincronizar
+          </button>
+
+          <p class="auth-footer">¿No tienes cuenta? <a href="https://veritlyapp.com/signin?register=true"
+              target="_blank">Regístrate</a></p>
+        </div>
+      </section>
+
+      <!-- CV Status Section (shown when logged in) -->
+      <section class="section cv-section" id="cv-section" style="display: none;">
+        <!-- Synced CV Banner (default for logged-in users) -->
+        <div class="cv-synced-banner" id="cv-synced-banner">
+          <div class="cv-synced-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22,4 12,14.01 9,11.01" />
+            </svg>
+          </div>
+          <div class="cv-synced-info">
+            <span class="cv-synced-title">CV sincronizado</span>
+            <span class="cv-synced-desc">Usando tu perfil de Veritly</span>
+          </div>
+        </div>
+
+        <!-- Waiting for job info -->
+        <div class="waiting-job" id="waiting-job">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <p class="waiting-text">Ve a LinkedIn y abre una vacante para analizarla</p>
+        </div>
+
+        <!-- Fallback: Manual CV Upload (hidden by default) -->
+        <div class="cv-upload-zone" id="cv-upload-zone" style="display: none;">
           <div class="upload-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17,8 12,3 7,8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17,8 12,3 7,8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
           </div>
           <p class="upload-text">Arrastra tu CV aquí</p>
@@ -50,15 +128,15 @@
         <div class="cv-loaded" id="cv-loaded" style="display: none;">
           <div class="cv-file-info">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14,2 14,8 20,8"/>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14,2 14,8 20,8" />
             </svg>
             <span id="cv-filename">documento.pdf</span>
           </div>
           <button class="btn-icon" id="remove-cv" title="Eliminar CV">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
@@ -73,9 +151,9 @@
         </div>
         <button class="btn-primary" id="analyze-btn">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4"/>
-            <path d="M12 8h.01"/>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
           </svg>
           Analizar Match
         </button>
@@ -90,13 +168,13 @@
       <!-- Results Section -->
       <section class="section results-section" id="results-section" style="display: none;">
         <h3 class="section-title">Resultado del Análisis</h3>
-        
+
         <!-- Match Score Circle -->
         <div class="match-circle-container">
           <div class="match-circle" id="match-circle">
             <svg viewBox="0 0 100 100">
-              <circle class="circle-bg" cx="50" cy="50" r="45"/>
-              <circle class="circle-progress" id="circle-progress" cx="50" cy="50" r="45"/>
+              <circle class="circle-bg" cx="50" cy="50" r="45" />
+              <circle class="circle-progress" id="circle-progress" cx="50" cy="50" r="45" />
             </svg>
             <div class="match-score">
               <span class="score-number" id="score-number">0</span>
@@ -110,8 +188,8 @@
         <div class="keywords-section">
           <h4 class="subsection-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-              <line x1="7" y1="7" x2="7.01" y2="7"/>
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+              <line x1="7" y1="7" x2="7.01" y2="7" />
             </svg>
             Keywords Faltantes
           </h4>
@@ -124,9 +202,9 @@
         <div class="tips-section">
           <h4 class="subsection-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="16" x2="12" y2="12"/>
-              <line x1="12" y1="8" x2="12.01" y2="8"/>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             Consejos de IA
           </h4>
@@ -148,13 +226,13 @@
       <section class="section paywall-section" id="paywall-section" style="display: none;">
         <div class="paywall-icon">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
         <h3 class="paywall-title">¡Tus análisis gratuitos se agotaron!</h3>
         <p class="paywall-text">Para seguir encontrando tu match perfecto, obtén más créditos.</p>
-        
+
         <div class="pricing-options">
           <button class="pricing-card" id="buy-10-credits">
             <span class="pricing-amount">10 créditos</span>
@@ -179,4 +257,5 @@
 
   <script src="sidepanel.js"></script>
 </body>
+
 </html>

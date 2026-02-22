@@ -3,6 +3,10 @@
   command = "npm run build:web"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+
+
 [build.environment]
   # Firebase API keys are designed to be public (client-side)
   # They're protected by Firebase Security Rules, not by being secret

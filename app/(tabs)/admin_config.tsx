@@ -1,6 +1,7 @@
-import { CreditCard, Lock, Save, ShieldCheck, ToggleLeft, ToggleRight } from 'lucide-react-native';
+import { Bell, CreditCard, Lock, Save, Settings, ShieldCheck, ToggleLeft, ToggleRight, Users } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AdminUsersTable from '../../components/AdminUsersTable';
 import { auth } from '../../config/firebase';
 import { AppConfig, getAppConfig, updateAppConfig } from '../../services/credits-service';
 
@@ -11,6 +12,7 @@ export default function AdminConfigScreen() {
     const [saving, setSaving] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [config, setConfig] = useState<AppConfig | null>(null);
+    const [currentTab, setCurrentTab] = useState<'config' | 'users'>('config');
 
     useEffect(() => {
         checkAdminAccess();
@@ -79,118 +81,191 @@ export default function AdminConfigScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-
-                {/* GLOBAL SWITCHES */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Módulos y Visibilidad</Text>
-
+                <View style={styles.tabContainer}>
                     <TouchableOpacity
-                        style={styles.switchRow}
-                        onPress={() => setConfig(prev => prev ? ({ ...prev, showCreditsUI: !prev.showCreditsUI }) : null)}
+                        style={[styles.mainTab, currentTab === 'config' && styles.mainTabActive]}
+                        onPress={() => setCurrentTab('config')}
                     >
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.switchLabel}>Sistema de Créditos</Text>
-                            <Text style={styles.switchDesc}>Mostrar balance y límites a los usuarios</Text>
-                        </View>
-                        {config?.showCreditsUI !== false ? (
-                            <ToggleRight size={32} color="#10b981" />
-                        ) : (
-                            <ToggleLeft size={32} color="#64748b" />
-                        )}
+                        <Settings size={20} color={currentTab === 'config' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'config' && styles.mainTabTextActive]}>Configuración</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity
-                        style={styles.switchRow}
-                        onPress={() => setConfig(prev => prev ? ({ ...prev, packagesEnabled: !prev.packagesEnabled }) : null)}
+                        style={[styles.mainTab, currentTab === 'users' && styles.mainTabActive]}
+                        onPress={() => setCurrentTab('users')}
                     >
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.switchLabel}>Venta de Paquetes</Text>
-                            <Text style={styles.switchDesc}>Habilitar modal de compra en el Scanner</Text>
-                        </View>
-                        {config?.packagesEnabled ? (
-                            <ToggleRight size={32} color="#10b981" />
-                        ) : (
-                            <ToggleLeft size={32} color="#64748b" />
-                        )}
+                        <Users size={20} color={currentTab === 'users' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'users' && styles.mainTabTextActive]}>Usuarios</Text>
                     </TouchableOpacity>
-
-                    <View style={styles.inputBox}>
-                        <Text style={styles.label}>Créditos Gratuitos Mensuales</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={config?.freeCreditsPerMonth.toString()}
-                            onChangeText={(t) => setConfig(prev => prev ? ({ ...prev, freeCreditsPerMonth: parseInt(t) || 0 }) : null)}
-                            keyboardType="numeric"
-                        />
-                    </View>
                 </View>
 
-                {/* PACKAGE EDITOR */}
-                <Text style={styles.sectionTitle}>Edición de Paquetes</Text>
-                {config?.packages.map((pkg) => (
-                    <View key={pkg.id} style={styles.packageCard}>
-                        <View style={styles.packageHeader}>
-                            <CreditCard size={20} color={pkg.active ? "#3b82f6" : "#64748b"} />
-                            <TextInput
-                                style={[styles.packageName, !pkg.active && { color: '#64748b' }]}
-                                value={pkg.name}
-                                onChangeText={(t) => updatePackage(pkg.id, 'name', t)}
-                            />
-                            <TouchableOpacity onPress={() => togglePackageStatus(pkg.id)}>
-                                <Text style={{ color: pkg.active ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: 12 }}>
-                                    {pkg.active ? 'ACTIVO' : 'INACTIVO'}
-                                </Text>
+                {currentTab === 'users' ? (
+                    <AdminUsersTable />
+                ) : (
+                    <>
+                        {/* GLOBAL SWITCHES */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Módulos y Visibilidad</Text>
+
+                            <TouchableOpacity
+                                style={styles.switchRow}
+                                onPress={() => setConfig(prev => prev ? ({ ...prev, showCreditsUI: !prev.showCreditsUI }) : null)}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.switchLabel}>Sistema de Créditos</Text>
+                                    <Text style={styles.switchDesc}>Mostrar balance y límites a los usuarios</Text>
+                                </View>
+                                {config?.showCreditsUI !== false ? (
+                                    <ToggleRight size={32} color="#10b981" />
+                                ) : (
+                                    <ToggleLeft size={32} color="#64748b" />
+                                )}
                             </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.switchRow}
+                                onPress={() => setConfig(prev => prev ? ({ ...prev, packagesEnabled: !prev.packagesEnabled }) : null)}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.switchLabel}>Venta de Paquetes</Text>
+                                    <Text style={styles.switchDesc}>Habilitar modal de compra en el Scanner</Text>
+                                </View>
+                                {config?.packagesEnabled ? (
+                                    <ToggleRight size={32} color="#10b981" />
+                                ) : (
+                                    <ToggleLeft size={32} color="#64748b" />
+                                )}
+                            </TouchableOpacity>
+
+                            <View style={styles.inputBox}>
+                                <Text style={styles.label}>Créditos Gratuitos Mensuales</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={config?.freeCreditsPerMonth.toString()}
+                                    onChangeText={(t) => setConfig(prev => prev ? ({ ...prev, freeCreditsPerMonth: parseInt(t) || 0 }) : null)}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+
+                            {/* NOTIFICATIONS SETTINGS */}
+                            <View style={styles.section}>
+                                <View style={styles.sectionHeader}>
+                                    <Bell color="#38bdf8" size={20} />
+                                    <Text style={styles.sectionTitle}>Notificaciones por Correo</Text>
+                                </View>
+
+                                <View style={styles.inputBox}>
+                                    <Text style={styles.label}>Email Admin (Recibe las alertas)</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={config?.notifications?.adminEmail || ''}
+                                        onChangeText={(t) => setConfig(prev => prev ? ({ ...prev, notifications: { ...prev.notifications, adminEmail: t } as any }) : null)}
+                                        placeholder="admin@ejemplo.com"
+                                        placeholderTextColor="#64748b"
+                                    />
+                                </View>
+
+                                <View style={{ height: 15 }} />
+
+                                <TouchableOpacity
+                                    style={styles.switchRow}
+                                    onPress={() => setConfig(prev => prev ? ({ ...prev, notifications: { ...prev.notifications, newCandidateEmail: !prev.notifications?.newCandidateEmail } as any }) : null)}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.switchLabel}>Nuevos Candidatos</Text>
+                                        <Text style={styles.switchDesc}>Recibir email cuando se registre un candidato</Text>
+                                    </View>
+                                    {config?.notifications?.newCandidateEmail ? (
+                                        <ToggleRight size={32} color="#10b981" />
+                                    ) : (
+                                        <ToggleLeft size={32} color="#64748b" />
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.switchRow, { marginBottom: 0 }]}
+                                    onPress={() => setConfig(prev => prev ? ({ ...prev, notifications: { ...prev.notifications, newCompanyEmail: !prev.notifications?.newCompanyEmail } as any }) : null)}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.switchLabel}>Nuevas Empresas</Text>
+                                        <Text style={styles.switchDesc}>Recibir email cuando se registre una empresa</Text>
+                                    </View>
+                                    {config?.notifications?.newCompanyEmail ? (
+                                        <ToggleRight size={32} color="#10b981" />
+                                    ) : (
+                                        <ToggleLeft size={32} color="#64748b" />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
-                        <View style={styles.packageGrid}>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.miniLabel}>Créditos</Text>
-                                <TextInput
-                                    style={styles.gridInput}
-                                    value={pkg.credits.toString()}
-                                    onChangeText={(t) => updatePackage(pkg.id, 'credits', parseInt(t) || 0)}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.miniLabel}>Precio USD</Text>
-                                <TextInput
-                                    style={styles.gridInput}
-                                    value={pkg.priceUSD.toString()}
-                                    onChangeText={(t) => updatePackage(pkg.id, 'priceUSD', parseFloat(t) || 0)}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.miniLabel}>Precio PEN</Text>
-                                <TextInput
-                                    style={styles.gridInput}
-                                    value={pkg.pricePEN.toString()}
-                                    onChangeText={(t) => updatePackage(pkg.id, 'pricePEN', parseFloat(t) || 0)}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                        </View>
-                    </View>
-                ))}
+                        {/* PACKAGE EDITOR */}
+                        <Text style={styles.sectionTitle}>Edición de Paquetes</Text>
+                        {config?.packages.map((pkg) => (
+                            <View key={pkg.id} style={styles.packageCard}>
+                                <View style={styles.packageHeader}>
+                                    <CreditCard size={20} color={pkg.active ? "#3b82f6" : "#64748b"} />
+                                    <TextInput
+                                        style={[styles.packageName, !pkg.active && { color: '#64748b' }]}
+                                        value={pkg.name}
+                                        onChangeText={(t) => updatePackage(pkg.id, 'name', t)}
+                                    />
+                                    <TouchableOpacity onPress={() => togglePackageStatus(pkg.id)}>
+                                        <Text style={{ color: pkg.active ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: 12 }}>
+                                            {pkg.active ? 'ACTIVO' : 'INACTIVO'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
 
-                <TouchableOpacity
-                    style={[styles.saveBtn, saving && { opacity: 0.7 }]}
-                    onPress={handleSave}
-                    disabled={saving}
-                >
-                    {saving ? <ActivityIndicator color="white" /> : (
-                        <>
-                            <Save size={20} color="white" />
-                            <Text style={styles.saveBtnText}>Guardar Configuración</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                                <View style={styles.packageGrid}>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.miniLabel}>Créditos</Text>
+                                        <TextInput
+                                            style={styles.gridInput}
+                                            value={pkg.credits.toString()}
+                                            onChangeText={(t) => updatePackage(pkg.id, 'credits', parseInt(t) || 0)}
+                                            keyboardType="numeric"
+                                        />
+                                    </View>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.miniLabel}>Precio USD</Text>
+                                        <TextInput
+                                            style={styles.gridInput}
+                                            value={pkg.priceUSD.toString()}
+                                            onChangeText={(t) => updatePackage(pkg.id, 'priceUSD', parseFloat(t) || 0)}
+                                            keyboardType="numeric"
+                                        />
+                                    </View>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.miniLabel}>Precio PEN</Text>
+                                        <TextInput
+                                            style={styles.gridInput}
+                                            value={pkg.pricePEN.toString()}
+                                            onChangeText={(t) => updatePackage(pkg.id, 'pricePEN', parseFloat(t) || 0)}
+                                            keyboardType="numeric"
+                                        />
+                                    </View>
+                                </View>
+                            </View>
+                        ))}
+
+                        <TouchableOpacity
+                            style={[styles.saveBtn, saving && { opacity: 0.7 }]}
+                            onPress={handleSave}
+                            disabled={saving}
+                        >
+                            {saving ? <ActivityIndicator color="white" /> : (
+                                <>
+                                    <Save size={20} color="white" />
+                                    <Text style={styles.saveBtnText}>Guardar Configuración</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </>
+                )}
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -224,5 +299,14 @@ const styles = StyleSheet.create({
     gridInput: { backgroundColor: '#0f172a', borderRadius: 8, padding: 8, color: 'white', fontSize: 14, borderWidth: 1, borderColor: '#334155' },
 
     saveBtn: { backgroundColor: '#3b82f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 10, marginTop: 10 },
-    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
+    // Tabs
+    tabContainer: { flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 12, padding: 4, marginBottom: 20 },
+    mainTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 8, borderRadius: 8 },
+    mainTabActive: { backgroundColor: '#3b82f6' },
+    mainTabText: { color: '#94a3b8', fontWeight: '600' },
+    mainTabTextActive: { color: 'white' },
+
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 }
 });

@@ -40,6 +40,51 @@ const fetchWithFallback = async (body: any) => {
     throw lastError;
 };
 
+// 0. VALIDAR TIPO DE DOCUMENTO
+export const validateDocumentType = async (text: string): Promise<{ isJobProfile: boolean; detectedType: string; confidence: number }> => {
+    const prompt = `
+    Analiza el siguiente texto y determina qué tipo de documento es.
+    
+    TEXTO:
+    """
+    ${text.substring(0, 2000)}
+    """
+    
+    TIPOS POSIBLES:
+    - "job_profile": Descripción de puesto, perfil de búsqueda, requisitos de un cargo
+    - "cv": Currículum vitae, hoja de vida, resumen profesional de una persona
+    - "contract": Contrato laboral, acuerdo de servicios
+    - "policy": Política de empresa, reglamento interno
+    - "other": Otro tipo de documento
+
+    RESPONDE SOLO JSON:
+    {
+        "detectedType": "(uno de los tipos anteriores)",
+        "confidence": (0-100),
+        "reason": "Breve explicación de por qué es este tipo"
+    }
+    `;
+
+    try {
+        const response = await fetchWithFallback({
+            contents: [{ parts: [{ text: prompt }] }]
+        });
+        const candidate = response.candidates[0].content.parts[0].text;
+        const jsonString = candidate.replace(/```json/g, '').replace(/```/g, '').trim();
+        const result = JSON.parse(jsonString);
+
+        return {
+            isJobProfile: result.detectedType === 'job_profile',
+            detectedType: result.detectedType,
+            confidence: result.confidence || 0
+        };
+    } catch (e) {
+        console.error("Error validando tipo de documento:", e);
+        // En caso de error, asumimos que es válido para no bloquear
+        return { isJobProfile: true, detectedType: 'unknown', confidence: 0 };
+    }
+};
+
 
 // 1. EXTRAER DATOS ESTRUCTURADOS (Desde Texto o PDF convertido)
 export const extractJobData = async (text: string) => {
@@ -80,16 +125,46 @@ export const extractJobData = async (text: string) => {
     }
 };
 
-// 2. OPTIMIZAR DESCRIPCIÓN (Opcional)
-export const optimizeJobDescription = async (text: string) => {
-    const prompt = `
-    Actúa como un reclutador experto. Reescribe la siguiente descripción de puesto para que sea más atractiva, clara y profesional.
-    Usa formato Markdown con viñetas para Responsabilidades y Requisitos.
+// 2. OPTIMIZAR DESCRIPCIÓN CON CONTEXTO DE EMPRESA
+interface CompanyContext {
+    nombreComercial?: string;
+    rubro?: string;
+    beneficios?: string;
+}
 
-    TEXTO ORIGINAL:
+export const optimizeJobDescription = async (text: string, companyContext?: CompanyContext) => {
+    const companyIntro = companyContext?.nombreComercial && companyContext?.rubro
+        ? `La empresa "${companyContext.nombreComercial}", del sector ${companyContext.rubro}, está en la búsqueda de...`
+        : '';
+
+    const beneficiosSection = companyContext?.beneficios
+        ? `\nIncluye estos beneficios en la sección de "Ofrecemos": ${companyContext.beneficios}`
+        : '';
+
+    const prompt = `
+    Actúa como un reclutador experto. Genera una OFERTA DE TRABAJO profesional y atractiva basada en el perfil de puesto.
+    
+    ${companyIntro ? `IMPORTANTE: Inicia la oferta mencionando: "${companyIntro}"` : ''}
+    ${beneficiosSection}
+    
+    PERFIL DE PUESTO:
     """
     ${text}
     """
+    
+    INSTRUCCIONES DE FORMATO (ESTRICTO):
+    1. NO uses saludos ni frases conversacionales como "¡Excelente!", "Aquí tienes...", "Espero que te guste".
+    2. NO uses formato Markdown de encabezados (#, ##, ###) ni negritas (**texto**).
+    3. Usa SOLO texto plano y viñetas simples (• o -) para listas.
+    4. Estructura:
+       - Título del puesto (en mayúsculas)
+       - Párrafo de introducción (empresa y propósito del puesto)
+       - Responsabilidades (usa viñetas)
+       - Requisitos (usa viñetas)
+       - Ofrecemos (usa viñetas, incluye los beneficios de la empresa si hay)
+       - Cómo postular
+
+    Empieza DIRECTAMENTE con el Título del Puesto.
     `;
 
     try {

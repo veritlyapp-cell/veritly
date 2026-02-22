@@ -13,7 +13,9 @@
         "sidePanel",
         "storage",
         "scripting",
-        "activeTab"
+        "activeTab",
+        "identity",
+        "tabs"
     ],
     "host_permissions": [
         "https://www.linkedin.com/*",
@@ -24,7 +26,9 @@
         "https://www.indeed.com/*",
         "https://pe.indeed.com/*",
         "https://*.indeed.com/*",
-        "https://veritlyapp.com/*"
+        "https://veritlyapp.com/*",
+        "https://www.veritlyapp.com/*",
+        "http://localhost:8888/*"
     ],
     "background": {
         "service_worker": "background/background.js",

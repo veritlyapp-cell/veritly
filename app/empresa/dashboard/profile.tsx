@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Building2, ChevronDown, MapPin, Save, User, UserCheck, X } from 'lucide-react-native';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -37,17 +37,63 @@ export default function CompanyProfile() {
     const [celular, setCelular] = useState('');
     const [emailResponsable, setEmailResponsable] = useState('');
 
+    // CONTEXTO IA
+    const [rubro, setRubro] = useState('');
+    const [beneficios, setBeneficios] = useState('');
+
+    // Lista de rubros comunes en Perú
+    const RUBROS_PERU = [
+        'Retail / Comercio',
+        'Banca y Finanzas',
+        'Tecnología / TI',
+        'Consultoría RR.HH.',
+        'Manufactura / Industrial',
+        'Logística y Transporte',
+        'Salud / Farmacéutica',
+        'Educación',
+        'Construcción',
+        'Minería y Energía',
+        'Telecomunicaciones',
+        'Servicios Profesionales',
+        'Alimentos y Bebidas',
+        'Hotelería y Turismo',
+        'Seguros',
+        'Automotriz',
+        'Agroindustria',
+        'Inmobiliaria',
+        'Otro'
+    ];
+
     useEffect(() => {
         const loadProfile = async () => {
             if (!auth.currentUser) return;
             try {
-                const docRef = doc(db, 'companies', auth.currentUser.uid);
-                const docSnap = await getDoc(docRef);
+                // Intentar primero con la colección nueva
+                let docRef = doc(db, 'users_empresas', auth.currentUser.uid);
+                let docSnap = await getDoc(docRef);
+
+                // Fallback a colección antigua
+                if (!docSnap.exists()) {
+                    console.log("📦 No encontrado en users_empresas, probando companies...");
+                    docRef = doc(db, 'companies', auth.currentUser.uid);
+                    docSnap = await getDoc(docRef);
+                }
+
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    setRuc(data.ruc || '');
-                    setRazonSocial(data.razonSocial || '');
-                    setNombreComercial(data.nombreComercial || '');
+                    console.log("✅ Perfil cargado:", data);
+
+                    // [FIX] Read from nested 'company' object
+                    if (data.company) {
+                        setRuc(data.company.ruc || '');
+                        setRazonSocial(data.company.razonSocial || '');
+                        setNombreComercial(data.company.name || ''); // 'name' is Commercial Name
+                    } else {
+                        // Fallback for legacy data (if any was created at root)
+                        setRuc(data.ruc || '');
+                        setRazonSocial(data.razonSocial || '');
+                        setNombreComercial(data.nombreComercial || '');
+                    }
 
                     if (data.location) {
                         setDepartamento(data.location.departamento || 'Lima');
@@ -62,6 +108,14 @@ export default function CompanyProfile() {
                         setCelular(data.responsible.phone || '');
                         setEmailResponsable(data.responsible.email || '');
                     }
+
+                    // Contexto IA
+                    if (data.aiContext) {
+                        setRubro(data.aiContext.rubro || '');
+                        setBeneficios(data.aiContext.beneficios || '');
+                    }
+                } else {
+                    console.log("⚠️ No se encontró perfil en ninguna colección");
                 }
             } catch (error) {
                 console.error("Error loading profile:", error);
@@ -93,7 +147,8 @@ export default function CompanyProfile() {
         const missing = [];
         if (!ruc) missing.push("RUC");
         if (!razonSocial) missing.push("Razón Social");
-        if (!nombreComercial) missing.push("Nombre Comercial");
+        // Nombre Comercial can be optional if created empty
+        // if (!nombreComercial) missing.push("Nombre Comercial");
         if (!departamento || !provincia || !distrito) missing.push("Ubicación Completa");
         if (!nombreResponsable) missing.push("Nombre Responsable");
         if (!emailResponsable) missing.push("Email Responsable");
@@ -107,21 +162,35 @@ export default function CompanyProfile() {
             const user = auth.currentUser;
             if (!user) return;
 
+            // [FIX] Update specific fields in nested objects using dot notation
+            // This preserves other fields in 'company', 'location', 'responsible', etc.
+            // AND fixes the schema mismatch.
             const updateData = {
-                ruc,
-                razonSocial,
-                nombreComercial,
-                location: { departamento, provincia, distrito, address: direccion },
-                responsible: {
-                    name: nombreResponsable,
-                    position: cargoResponsable,
-                    phone: celular,
-                    email: emailResponsable
-                },
+                'company.ruc': ruc,
+                'company.razonSocial': razonSocial,
+                'company.name': nombreComercial,
+
+                'location.departamento': departamento,
+                'location.provincia': provincia,
+                'location.distrito': distrito,
+                'location.address': direccion,
+
+                'responsible.name': nombreResponsable,
+                'responsible.position': cargoResponsable,
+                'responsible.phone': celular,
+                'responsible.email': emailResponsable,
+
+                'aiContext.rubro': rubro,
+                'aiContext.beneficios': beneficios,
+
                 updatedAt: new Date().toISOString()
             };
 
-            await setDoc(doc(db, 'companies', user.uid), updateData, { merge: true });
+            // [FIX] Use updateDoc to correctly handle dot notation for nested fields.
+            // setDoc with { merge: true } and dot notation creates fields with dots in keys.
+            // updateDoc parses "company.ruc" as nested field update.
+            await updateDoc(doc(db, 'users_empresas', user.uid), updateData);
+            console.log("✅ Perfil guardado en users_empresas");
             Alert.alert("¡Actualizado!", "Tus datos han sido guardados correctamente.");
 
         } catch (e: any) {
@@ -259,6 +328,44 @@ export default function CompanyProfile() {
                 <Text style={{ color: '#64748b', fontSize: 12, marginTop: 10, fontStyle: 'italic' }}>
                     * La gestión de múltiples usuarios estará disponible próximamente.
                 </Text>
+
+                {/* SECCIÓN 5: CONTEXTO IA */}
+                <View style={[styles.sectionHeader, { marginTop: 35 }]}>
+                    <Sparkles color="#f59e0b" size={24} />
+                    <Text style={[styles.sectionTitle, { color: '#f59e0b' }]}>Contexto para IA</Text>
+                </View>
+                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 15 }}>
+                    Esta información la usará la IA para generar ofertas de trabajo personalizadas.
+                </Text>
+
+                <Text style={styles.label}>Rubro / Industria</Text>
+                <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => {
+                        setModalType('dep' as any); // Reusing modal structure
+                        Alert.alert(
+                            "Selecciona tu Rubro",
+                            "",
+                            RUBROS_PERU.map(r => ({
+                                text: r,
+                                onPress: () => setRubro(r)
+                            }))
+                        );
+                    }}
+                >
+                    <Text style={{ color: rubro ? 'white' : '#64748b' }}>{rubro || "Seleccionar rubro..."}</Text>
+                    <ChevronDown color="#94a3b8" size={20} />
+                </TouchableOpacity>
+
+                <Text style={styles.label}>Beneficios de la Empresa</Text>
+                <TextInput
+                    style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 10 }]}
+                    value={beneficios}
+                    onChangeText={setBeneficios}
+                    multiline
+                    placeholder="Ej: Seguro de salud, bonos trimestrales, home office..."
+                    placeholderTextColor="#64748b"
+                />
 
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleUpdate} disabled={loading}>

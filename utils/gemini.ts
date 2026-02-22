@@ -1,4 +1,5 @@
 
+import mammoth from 'mammoth';
 import { Platform } from 'react-native';
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -101,6 +102,34 @@ export const extractTextFromDocument = async (fileUri: string, mimeType: string 
             ? mimeType
             : 'application/pdf';
 
+        console.log("📄 Procesando documento con MIME:", validMimeType);
+
+        // DOCX: Usar mammoth para extraer texto (Gemini no soporta DOCX directamente)
+        if (validMimeType.includes('wordprocessingml') || validMimeType.includes('openxmlformats')) {
+            console.log("📝 Detectado DOCX - Usando mammoth para extraer texto...");
+
+            let arrayBuffer: ArrayBuffer;
+
+            if (Platform.OS === 'web' && webFile && webFile instanceof Blob) {
+                arrayBuffer = await webFile.arrayBuffer();
+            } else {
+                const response = await fetch(fileUri);
+                const blob = await response.blob();
+                arrayBuffer = await blob.arrayBuffer();
+            }
+
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            const extractedText = result.value;
+
+            if (!extractedText || extractedText.trim().length === 0) {
+                throw new Error("No se pudo extraer texto del documento Word.");
+            }
+
+            console.log("✅ Texto extraído de DOCX. Longitud:", extractedText.length);
+            return extractedText;
+        }
+
+        // PDF y otros: Enviar a Gemini
         const base64Data = await getBase64(fileUri, webFile);
 
         if (typeof base64Data !== 'string' || base64Data.length === 0) {
@@ -120,6 +149,7 @@ export const extractTextFromDocument = async (fileUri: string, mimeType: string 
         return data.candidates[0].content.parts[0].text;
 
     } catch (error: any) {
+        console.error("❌ Error en extractTextFromDocument:", error);
         throw new Error(error.message);
     }
 };

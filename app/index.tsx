@@ -5,7 +5,7 @@ import React from 'react';
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
-const HeroLaptop = require('../assets/images/hero_laptop_veritly.png');
+const HeroLaptop = require('../assets/images/hero_veritly_v2.png');
 
 // Veritly brand colors
 const VERITLY_CYAN = '#38bdf8';
@@ -80,7 +80,7 @@ export default function VeritlyLandingPage() {
 
                             <View style={[
                                 styles.heroCTAContainer,
-                                !isDesktop && { flexDirection: 'column', alignItems: 'stretch' }
+                                !isDesktop && { flexDirection: 'row', justifyContent: 'flex-start' }
                             ]}>
                                 <TouchableOpacity
                                     style={styles.heroPrimaryButton}
@@ -95,7 +95,7 @@ export default function VeritlyLandingPage() {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={[styles.heroSecondaryButton, !isDesktop && { alignSelf: 'center' }]}
+                                    style={[styles.heroSecondaryButton]}
                                     onPress={() => router.push('/signin')}
                                 >
                                     <Text style={styles.heroSecondaryButtonText}>Iniciar Sesión</Text>
@@ -203,6 +203,28 @@ export default function VeritlyLandingPage() {
                                 Te damos las preguntas clave y consejos para destacar.
                             </Text>
                         </View>
+                    </View>
+                </View>
+
+                {/* ========== FOR COMPANIES SECTION ========== */}
+                <View style={styles.companySection}>
+                    <View style={styles.companyContent}>
+                        <View style={styles.companyLeft}>
+                            <Text style={styles.companyLabel}>PARA EMPRESAS</Text>
+                            <Text style={styles.companyTitle}>Contrata con Inteligencia Artificial</Text>
+                            <Text style={styles.companyDescription}>
+                                Deja de filtrar CVs manualmente. Publica tu vacante y nuestra IA validará cientos de candidatos en segundos, entregándote solo los mejores perfiles rankeados por compatibilidad.
+                            </Text>
+
+                            <TouchableOpacity
+                                style={styles.companyButton}
+                                onPress={() => router.push('/empresa/signin?register=true')}
+                            >
+                                <Text style={styles.companyButtonText}>Registrar Empresa Gratis</Text>
+                                <ChevronDown style={{ transform: [{ rotate: '-90deg' }] }} color="white" size={20} />
+                            </TouchableOpacity>
+                        </View>
+                        {/* Visual element could go here if needed, keeping it text focused for now as per request */}
                     </View>
                 </View>
 
@@ -523,6 +545,70 @@ const styles = StyleSheet.create({
         color: '#b0b0b0',
         textAlign: 'center',
         lineHeight: 22,
+    },
+
+    // ========== FOR COMPANIES SECTION ==========
+    companySection: {
+        backgroundColor: '#0f172a',
+        paddingVertical: 60,
+        paddingHorizontal: 20,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.1)',
+        alignItems: 'center',
+    },
+    companyContent: {
+        maxWidth: 800,
+        width: '100%',
+        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        borderRadius: 24,
+        padding: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.2)',
+    },
+    companyLeft: {
+        alignItems: 'center',
+    },
+    companyLabel: {
+        color: '#38bdf8',
+        fontWeight: 'bold',
+        fontSize: 14,
+        letterSpacing: 1,
+        marginBottom: 12,
+    },
+    companyTitle: {
+        fontSize: 32,
+        fontWeight: '900',
+        color: 'white',
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    companyDescription: {
+        fontSize: 16,
+        color: '#94a3b8',
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+        maxWidth: 600,
+    },
+    companyButton: {
+        backgroundColor: '#0ea5e9', // Sky 500
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 6,
+    },
+    companyButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
 
     // ========== BOTTOM CTA SECTION ==========

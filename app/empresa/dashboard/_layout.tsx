@@ -1,26 +1,26 @@
 import { Drawer } from 'expo-router/drawer';
 import { Briefcase, Settings } from 'lucide-react-native';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRequireRole } from '../../../hooks/useRequireRole';
 
 export default function CompanyDrawerLayout() {
     const { loading, authorized } = useRequireRole('empresa');
 
-    // TEMPORARILY DISABLED - DEBUGGING
     // Show loading screen while checking role
-    // if (loading) {
-    //     return (
-    //         <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-    //             <ActivityIndicator size="large" color="#10b981" />
-    //         </View>
-    //     );
-    // }
+    if (loading) {
+        return (
+            <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#10b981" />
+            </View>
+        );
+    }
 
-    // If not authorized, hook already redirected, show nothing
-    // if (!authorized) {
-    //     return null;
-    // }
+    // If not authorized, hook handles redirection, show nothing
+    if (!authorized) {
+        return null;
+    }
 
     // Authorized - show dashboard
     return (

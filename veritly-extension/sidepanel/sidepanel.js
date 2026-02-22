@@ -1,385 +1,427 @@
 // Veritly Matcher - Side Panel Logic
-// Handles CV upload, analysis, credits, and results display
+// Handles CV sync, analysis, credits, and results display
 
 (function () {
     'use strict';
 
-    // API Configuration
-    const API_BASE = 'https://veritlyapp.com/api';
+    // Configuration
+    const API_BASE = 'https://veritlyapp.com/api'; // Or local: http://localhost:8888/api
+    const FIREBASE_API_KEY = "AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8";
 
     // State
     let currentJobData = null;
-    let userCV = null;
+    let userProfile = null; // { uid, email, cvUrl, etc }
+    let isAnalyzing = false;
 
-    // DOM Elements
+    // DOM Elements - Updated for new UI components
     const elements = {
+        // Sections
+        authSection: document.getElementById('auth-section'),
+        cvSection: document.getElementById('cv-section'),
+        jobSection: document.getElementById('job-section'),
+        loadingSection: document.getElementById('loading-section'),
+        resultsSection: document.getElementById('results-section'),
+        paywallSection: document.getElementById('paywall-section'),
+        syncStatus: document.getElementById('sync-status'),
+        userStatus: document.getElementById('user-status'),
+
+        // Auth
+        loginEmail: document.getElementById('login-email'),
+        loginPass: document.getElementById('login-password'),
+        loginBtn: document.getElementById('login-btn'),
+        userEmailDisplay: document.getElementById('user-email'),
+        logoutBtn: document.getElementById('logout-btn'),
+        googleLoginBtn: document.getElementById('google-login-btn'),
+
+        // Credits / CV
         creditsCount: document.getElementById('credits-count'),
         creditsBadge: document.getElementById('credits-badge'),
-        cvSection: document.getElementById('cv-section'),
         cvUploadZone: document.getElementById('cv-upload-zone'),
         cvInput: document.getElementById('cv-input'),
         cvLoaded: document.getElementById('cv-loaded'),
         cvFilename: document.getElementById('cv-filename'),
         removeCV: document.getElementById('remove-cv'),
-        jobSection: document.getElementById('job-section'),
+
+        // Job
         jobTitle: document.getElementById('job-title'),
         jobCompany: document.getElementById('job-company'),
         analyzeBtn: document.getElementById('analyze-btn'),
-        loadingSection: document.getElementById('loading-section'),
-        resultsSection: document.getElementById('results-section'),
+
+        // Results
         circleProgress: document.getElementById('circle-progress'),
         scoreNumber: document.getElementById('score-number'),
         matchLabel: document.getElementById('match-label'),
         keywordsList: document.getElementById('keywords-list'),
         tipsList: document.getElementById('tips-list'),
         newAnalysisBtn: document.getElementById('new-analysis-btn'),
-        paywallSection: document.getElementById('paywall-section'),
-        buy10Credits: document.getElementById('buy-10-credits'),
-        subscribePremium: document.getElementById('subscribe-premium')
+
+        // Payment
+        subscribePremium: document.getElementById('subscribe-premium'),
+        syncWebBtn: document.getElementById('sync-web-btn'),
+
+        // New synced UI
+        cvSyncedBanner: document.getElementById('cv-synced-banner'),
+        waitingJob: document.getElementById('waiting-job')
     };
 
     // Initialize
     async function init() {
-        await loadUserData();
+        await loadUserState();
+        await syncWithWeb(); // Try to sync on startup
         setupEventListeners();
         setupMessageListener();
         updateCreditsDisplay();
     }
 
-    // Load user data from storage
-    async function loadUserData() {
+    // Load persistent user state
+    async function loadUserState() {
         return new Promise((resolve) => {
-            chrome.storage.local.get(['userCV', 'freeUsesRemaining', 'credits'], (result) => {
-                if (result.userCV) {
-                    userCV = result.userCV;
-                    showCVLoaded(result.userCV.name);
+            chrome.storage.local.get(['userProfile', 'credits'], (result) => {
+                if (result.userProfile) {
+                    userProfile = result.userProfile;
+                    showLoggedInState(userProfile.email);
+                    syncUserProfile(userProfile.uid);
+                } else {
+                    showLoggedOutState();
                 }
                 resolve();
             });
         });
     }
 
-    // Setup event listeners
-    function setupEventListeners() {
-        // CV Upload - Drag & Drop
-        elements.cvUploadZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            elements.cvUploadZone.classList.add('dragover');
-        });
-
-        elements.cvUploadZone.addEventListener('dragleave', () => {
-            elements.cvUploadZone.classList.remove('dragover');
-        });
-
-        elements.cvUploadZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            elements.cvUploadZone.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type === 'application/pdf') {
-                handleCVUpload(file);
-            }
-        });
-
-        // CV Upload - Click
-        elements.cvUploadZone.addEventListener('click', () => {
-            elements.cvInput.click();
-        });
-
-        elements.cvInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                handleCVUpload(file);
-            }
-        });
-
-        // Remove CV
-        elements.removeCV.addEventListener('click', () => {
-            removeCVData();
-        });
-
-        // Analyze button
-        elements.analyzeBtn.addEventListener('click', () => {
-            performAnalysis();
-        });
-
-        // New analysis button
-        elements.newAnalysisBtn.addEventListener('click', () => {
-            resetToInitialState();
-        });
-
-        // Payment buttons
-        elements.buy10Credits.addEventListener('click', () => {
-            handlePurchase('10_credits');
-        });
-
-        elements.subscribePremium.addEventListener('click', () => {
-            handlePurchase('premium');
-        });
+    // Show Logged In State
+    function showLoggedInState(email) {
+        elements.authSection.style.display = 'none';
+        elements.userStatus.style.display = 'flex';
+        elements.userEmailDisplay.textContent = email;
+        elements.cvSection.style.display = 'block';
+        // Show synced banner, hide upload zone
+        if (elements.cvSyncedBanner) elements.cvSyncedBanner.style.display = 'flex';
+        if (elements.cvUploadZone) elements.cvUploadZone.style.display = 'none';
+        // Show waiting for job if no job detected yet
+        if (elements.waitingJob) elements.waitingJob.style.display = currentJobData ? 'none' : 'flex';
     }
 
-    // Listen for messages from content script
+    // Show Logged Out State
+    function showLoggedOutState() {
+        elements.authSection.style.display = 'block';
+        elements.userStatus.style.display = 'none';
+        elements.cvSection.style.display = 'none';
+        elements.jobSection.style.display = 'none';
+    }
+
+    // Sync User Profile (and CV) from Firestore
+    async function syncUserProfile(uid) {
+        if (!uid) return;
+
+        elements.syncStatus.style.display = 'flex';
+
+        try {
+            // We use a dedicated endpoint or directly fetch via Firestore REST API
+            // For simplicity, we'll assume the sync happens when they login and we store their basic info
+            // In a more robust version, we'd fetch the latest CV URL here
+            console.log('Syncing data for user...', uid);
+
+            // Re-fetch credits and profile info if needed
+            // await updateCreditsDisplay();
+
+        } catch (error) {
+            console.error('Sync failed:', error);
+        } finally {
+            setTimeout(() => {
+                elements.syncStatus.style.display = 'none';
+            }, 1500);
+        }
+    }
+
+    // Sync with Veritly Web Tab
+    async function syncWithWeb() {
+        if (userProfile) return; // Already logged in
+
+        try {
+            // Find Veritly tabs
+            const tabs = await chrome.tabs.query({ url: "*://*.veritlyapp.com/*" });
+            if (tabs.length === 0) return;
+
+            for (const tab of tabs) {
+                const result = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => {
+                        const key = `firebase:authUser:${"AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8"}:[DEFAULT]`;
+                        return localStorage.getItem(key);
+                    }
+                });
+
+                const authData = result[0]?.result;
+                if (authData) {
+                    const parsed = JSON.parse(authData);
+                    if (parsed && parsed.uid) {
+                        userProfile = {
+                            uid: parsed.uid,
+                            email: parsed.email,
+                            displayName: parsed.displayName,
+                            token: parsed.stsTokenManager?.accessToken,
+                            lastLogin: new Date().toISOString()
+                        };
+                        await chrome.storage.local.set({ userProfile });
+                        showLoggedInState(userProfile.email);
+                        syncUserProfile(userProfile.uid);
+                        return true;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Session sync error:', error);
+        }
+        return false;
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+        // Auth
+        elements.loginBtn.addEventListener('click', handleLogin);
+        elements.logoutBtn.addEventListener('click', handleLogout);
+        elements.googleLoginBtn.addEventListener('click', handleGoogleLogin);
+        if (elements.syncWebBtn) elements.syncWebBtn.addEventListener('click', syncWithWeb);
+
+        // CV Upload (with null checks for hidden elements)
+        if (elements.cvUploadZone) elements.cvUploadZone.addEventListener('click', () => elements.cvInput.click());
+        if (elements.cvInput) elements.cvInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleCVUpload(file);
+        });
+        if (elements.removeCV) elements.removeCV.addEventListener('click', removeCVLocal);
+
+        // Analyze
+        elements.analyzeBtn.addEventListener('click', performAnalysis);
+        elements.newAnalysisBtn.addEventListener('click', resetToInitialState);
+
+        // Payment (with null checks)
+        const buy10 = document.getElementById('buy-10-credits');
+        if (buy10) buy10.addEventListener('click', () => openExternal('checkout?product=10_credits'));
+        if (elements.subscribePremium) elements.subscribePremium.addEventListener('click', () => openExternal('checkout?product=premium'));
+    }
+
+    // Handle Login (using Firebase REST API)
+    async function handleLogin() {
+        const email = elements.loginEmail.value;
+        const password = elements.loginPass.value;
+
+        if (!email || !password) return alert('Por favor ingresa tus datos');
+
+        elements.loginBtn.disabled = true;
+        elements.loginBtn.textContent = 'Entrando...';
+
+        try {
+            const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, returnSecureToken: true })
+            });
+
+            const data = await res.json();
+
+            if (data.error) throw new Error(data.error.message);
+
+            userProfile = {
+                uid: data.localId,
+                email: data.email,
+                token: data.idToken,
+                lastLogin: new Date().toISOString()
+            };
+
+            await chrome.storage.local.set({ userProfile });
+            showLoggedInState(userProfile.email);
+            syncUserProfile(userProfile.uid);
+
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Error al iniciar sesión: ' + (error.message === 'INVALID_LOGIN_CREDENTIALS' ? 'Credenciales incorrectas' : error.message));
+        } finally {
+            elements.loginBtn.disabled = false;
+            elements.loginBtn.textContent = 'Entrar';
+        }
+    }
+
+    // Handle Google Login
+    function handleGoogleLogin() {
+        // Since we don't have a Client ID for the extension, we redirect to the main site
+        // The main site handles Google Auth and the user can then sync back
+        openExternal('signin?source=extension');
+
+        // Inform the user
+        const originalText = elements.googleLoginBtn.innerHTML;
+        elements.googleLoginBtn.innerHTML = 'Abriendo Veritly...';
+        elements.googleLoginBtn.disabled = true;
+
+        // Start polling for login
+        let attempts = 0;
+        const interval = setInterval(async () => {
+            attempts++;
+            const synced = await syncWithWeb();
+            if (synced || attempts > 30) {
+                clearInterval(interval);
+                elements.googleLoginBtn.innerHTML = originalText;
+                elements.googleLoginBtn.disabled = false;
+            }
+        }, 2000);
+    }
+
+    // Handle Logout
+    async function handleLogout() {
+        userProfile = null;
+        await chrome.storage.local.remove('userProfile');
+        showLoggedOutState();
+    }
+
+    // Handle incoming job data from content script
     function setupMessageListener() {
-        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        chrome.runtime.onMessage.addListener((message) => {
             if (message.type === 'JOB_DATA') {
                 handleJobData(message.data);
             }
         });
     }
 
-    // Handle CV upload
-    async function handleCVUpload(file) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            userCV = {
-                name: file.name,
-                data: e.target.result,
-                uploadedAt: new Date().toISOString()
-            };
-
-            // Save to storage
-            await chrome.storage.local.set({ userCV });
-
-            showCVLoaded(file.name);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    // Show CV loaded state
-    function showCVLoaded(filename) {
-        elements.cvUploadZone.style.display = 'none';
-        elements.cvLoaded.style.display = 'flex';
-        elements.cvFilename.textContent = filename;
-    }
-
-    // Remove CV data
-    async function removeCVData() {
-        userCV = null;
-        await chrome.storage.local.remove('userCV');
-        elements.cvUploadZone.style.display = 'flex';
-        elements.cvLoaded.style.display = 'none';
-    }
-
-    // Handle incoming job data
     function handleJobData(data) {
         currentJobData = data;
         elements.jobTitle.textContent = data.title || 'Sin título';
         elements.jobCompany.textContent = data.company || 'Empresa no detectada';
-        elements.jobSection.style.display = 'block';
-        elements.resultsSection.style.display = 'none';
-        elements.paywallSection.style.display = 'none';
+
+        if (userProfile) {
+            // Hide waiting prompt, show job section
+            if (elements.waitingJob) elements.waitingJob.style.display = 'none';
+            elements.jobSection.style.display = 'block';
+            elements.resultsSection.style.display = 'none';
+        }
     }
 
-    // Update credits display
-    async function updateCreditsDisplay() {
-        return new Promise((resolve) => {
-            chrome.storage.local.get(['freeUsesRemaining', 'credits'], (result) => {
-                const freeUses = result.freeUsesRemaining ?? 3;
-                const credits = result.credits || 0;
-                const total = freeUses + credits;
-
-                elements.creditsCount.textContent = total;
-
-                if (total === 0) {
-                    elements.creditsBadge.classList.add('empty');
-                } else {
-                    elements.creditsBadge.classList.remove('empty');
-                }
-
-                resolve({ freeUses, credits });
-            });
-        });
-    }
-
-    // Perform analysis
+    // Perform real AI Analysis
     async function performAnalysis() {
-        if (!userCV) {
-            alert('Por favor sube tu CV primero');
-            return;
-        }
+        if (!userProfile) return alert('Debes iniciar sesión');
+        if (!currentJobData) return alert('No se detectó vacante');
+        if (isAnalyzing) return;
 
-        if (!currentJobData) {
-            alert('No se ha detectado ninguna vacante');
-            return;
-        }
-
-        // Check credits
-        const { freeUses, credits } = await updateCreditsDisplay();
-
-        if (freeUses === 0 && credits === 0) {
-            showPaywall();
-            return;
-        }
-
-        // Show loading
+        isAnalyzing = true;
         elements.jobSection.style.display = 'none';
         elements.loadingSection.style.display = 'block';
 
         try {
-            // Use credit
-            await chrome.runtime.sendMessage({ type: 'USE_CREDIT' });
-
-            // Simulate AI analysis (replace with actual API call)
-            const analysisResult = await simulateAnalysis(currentJobData);
-
-            // Save to backend
-            await saveMatchToBackend(analysisResult);
-
-            // Show results
-            showResults(analysisResult);
-
-        } catch (error) {
-            console.error('Analysis error:', error);
-            alert('Error al analizar. Por favor intenta de nuevo.');
-            elements.loadingSection.style.display = 'none';
-            elements.jobSection.style.display = 'block';
-        }
-
-        await updateCreditsDisplay();
-    }
-
-    // Simulate AI analysis (replace with actual Gemini API call)
-    async function simulateAnalysis(jobData) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Mock analysis results
-        const matchScore = Math.floor(Math.random() * 40) + 60; // 60-100
-
-        const missingKeywords = [
-            'Python',
-            'Machine Learning',
-            'SQL',
-            'Experiencia en startups'
-        ].slice(0, Math.floor(Math.random() * 3) + 1);
-
-        const tips = [
-            'Destaca tus proyectos relacionados con análisis de datos',
-            'Menciona experiencia específica con las herramientas requeridas',
-            'Incluye métricas cuantificables de tus logros anteriores'
-        ];
-
-        return {
-            jobData,
-            matchScore,
-            missingKeywords,
-            tips,
-            analyzedAt: new Date().toISOString()
-        };
-    }
-
-    // Save match to backend
-    async function saveMatchToBackend(analysisResult) {
-        try {
+            // Call the REAL backend function
             const response = await fetch(`${API_BASE}/save-match`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    jobUrl: analysisResult.jobData.url,
-                    jobTitle: analysisResult.jobData.title,
-                    company: analysisResult.jobData.company,
-                    matchScore: analysisResult.matchScore,
-                    missingKeywords: analysisResult.missingKeywords,
-                    tips: analysisResult.tips,
-                    analyzedAt: analysisResult.analyzedAt
+                    uid: userProfile.uid,
+                    jobData: {
+                        title: currentJobData.title,
+                        company: currentJobData.company,
+                        description: currentJobData.description,
+                        url: currentJobData.url
+                    }
                 })
             });
 
-            if (!response.ok) {
-                console.warn('Failed to save match to backend');
-            }
+            if (!response.ok) throw new Error('Error en el servidor');
+
+            const result = await response.json();
+            showResults(result);
+
         } catch (error) {
-            console.warn('Backend save error:', error);
+            console.error('Analysis failed:', error);
+            alert('Error al analizar. Asegúrate de haber completado tu perfil en Veritly.');
+            elements.loadingSection.style.display = 'none';
+            elements.jobSection.style.display = 'block';
+        } finally {
+            isAnalyzing = false;
+            updateCreditsDisplay();
         }
     }
 
-    // Show results
+    // UI Helpers
     function showResults(result) {
         elements.loadingSection.style.display = 'none';
         elements.resultsSection.style.display = 'block';
 
-        // Animate score
-        animateScore(result.matchScore);
+        animateScore(result.matchScore || 0);
 
-        // Set match label
-        if (result.matchScore >= 80) {
-            elements.matchLabel.textContent = '¡Excelente match!';
-            elements.matchLabel.style.color = '#22c55e';
-        } else if (result.matchScore >= 60) {
-            elements.matchLabel.textContent = 'Buen match';
-            elements.matchLabel.style.color = '#38bdf8';
-        } else {
-            elements.matchLabel.textContent = 'Match bajo';
-            elements.matchLabel.style.color = '#f59e0b';
-        }
+        elements.matchLabel.textContent = (result.matchScore >= 70) ? '¡Buen match!' : 'Match regular';
+        elements.matchLabel.style.color = (result.matchScore >= 70) ? '#22c55e' : '#f59e0b';
 
-        // Render keywords
-        elements.keywordsList.innerHTML = result.missingKeywords.map(keyword => `
-      <span class="keyword-tag">${keyword}</span>
-    `).join('');
+        // Keywords
+        elements.keywordsList.innerHTML = (result.missingKeywords || []).map(k =>
+            `<span class="keyword-tag">${k}</span>`
+        ).join('') || '<p style="color:#d1d5db; font-size:12px;">¡Tienes todas las claves!</p>';
 
-        // Render tips
-        elements.tipsList.innerHTML = result.tips.map(tip => `
-      <div class="tip-item">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20,6 9,17 4,12"/>
-        </svg>
-        <span>${tip}</span>
-      </div>
-    `).join('');
+        // Tips
+        elements.tipsList.innerHTML = (result.tips || []).map(t => `
+            <div class="tip-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20,6 9,17 4,12"/>
+                </svg>
+                <span>${t}</span>
+            </div>
+        `).join('');
     }
 
-    // Animate score circle
     function animateScore(targetScore) {
         const circumference = 2 * Math.PI * 45;
         elements.circleProgress.style.strokeDasharray = circumference;
 
-        let currentScore = 0;
-        const duration = 1500;
+        let start = 0;
+        const duration = 1000;
         const startTime = performance.now();
 
-        function animate(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
+        function step(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const current = Math.floor(progress * targetScore);
+            elements.scoreNumber.textContent = current;
 
-            currentScore = Math.floor(progress * targetScore);
-            elements.scoreNumber.textContent = currentScore;
-
-            const offset = circumference - (progress * targetScore / 100) * circumference;
+            const offset = circumference - (current / 100) * circumference;
             elements.circleProgress.style.strokeDashoffset = offset;
 
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
+            if (progress < 1) requestAnimationFrame(step);
         }
-
-        requestAnimationFrame(animate);
+        requestAnimationFrame(step);
     }
 
-    // Show paywall
-    function showPaywall() {
-        elements.jobSection.style.display = 'none';
-        elements.resultsSection.style.display = 'none';
-        elements.paywallSection.style.display = 'block';
+    async function updateCreditsDisplay() {
+        // In a real scenario, this would fetch from the user_credits collection
+        // For now, we'll keep the UI stable
+        chrome.storage.local.get(['credits'], (res) => {
+            elements.creditsCount.textContent = res.credits || 3;
+        });
     }
 
-    // Handle purchase
-    function handlePurchase(type) {
-        // Open Veritly payment page
-        const paymentUrl = `https://veritlyapp.com/checkout?product=${type}&source=extension`;
-        chrome.tabs.create({ url: paymentUrl });
-    }
-
-    // Reset to initial state
     function resetToInitialState() {
-        currentJobData = null;
         elements.resultsSection.style.display = 'none';
-        elements.paywallSection.style.display = 'none';
-        elements.jobSection.style.display = 'none';
+        elements.jobSection.style.display = 'block';
     }
 
-    // Initialize when DOM is ready
+    function openExternal(path) {
+        chrome.tabs.create({ url: `https://veritlyapp.com/${path}` });
+    }
+
+    // Local CV Upload (Fallback)
+    async function handleCVUpload(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const localCV = { name: file.name, data: e.target.result };
+            await chrome.storage.local.set({ localCV });
+            elements.cvUploadZone.style.display = 'none';
+            elements.cvLoaded.style.display = 'flex';
+            elements.cvFilename.textContent = file.name;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function removeCVLocal() {
+        await chrome.storage.local.remove('localCV');
+        elements.cvUploadZone.style.display = 'flex';
+        elements.cvLoaded.style.display = 'none';
+    }
+
+    // Start
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { Mail, MessageSquare, Sparkles, Upload, X } from 'lucide-react-native';
+import { ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -223,11 +223,12 @@ export default function JobDetailScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Arrow Left size={24} color="white" />
+                    <ArrowLeft size={24} color="white" />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.headerTitle}>{jobDetails.title || 'Candidatos'}</Text>
                     <Text style={styles.headerSubtitle}>{candidates.length} análisis realizados</Text>
+                    <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>* El Score de IA puede variar +/- 5%</Text>
                 </View>
             </View>
 

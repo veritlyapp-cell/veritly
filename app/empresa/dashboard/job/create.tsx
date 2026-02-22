@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../../config/firebase';
 import { extractTextFromDocument } from '../../../../utils/gemini';
-import { extractJobData, optimizeJobDescription } from '../../../../utils/gemini-company';
+import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
 
 export default function CreateJob() {
     const router = useRouter();
@@ -15,6 +15,7 @@ export default function CreateJob() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [initializing, setInitializing] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('');
 
     // INPUTS
     const [rawText, setRawText] = useState('');
@@ -26,6 +27,13 @@ export default function CreateJob() {
 
     // SUGERENCIAS DE LA IA
     const [postingSuggestions, setPostingSuggestions] = useState<any>(null);
+
+    // CONTEXTO DE LA EMPRESA
+    const [companyContext, setCompanyContext] = useState<{
+        nombreComercial: string;
+        rubro: string;
+        beneficios: string;
+    } | null>(null);
 
     // Limpiar estado cuando vuelves a "Nuevo Perfil" (sin ID)
     useFocusEffect(
@@ -49,6 +57,29 @@ export default function CreateJob() {
             loadJobData(id as string);
         }
     }, [id]);
+
+    // Cargar contexto de la empresa al montar
+    useEffect(() => {
+        const loadCompanyContext = async () => {
+            if (!auth.currentUser) return;
+            try {
+                const docRef = doc(db, 'users_empresas', auth.currentUser.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setCompanyContext({
+                        nombreComercial: data.company?.name || data.nombreComercial || '', // [FIX] Read from nested company.name
+                        rubro: data.aiContext?.rubro || '',
+                        beneficios: data.aiContext?.beneficios || ''
+                    });
+                    console.log("📊 Contexto empresa cargado:", data.nombreComercial, data.aiContext?.rubro);
+                }
+            } catch (e) {
+                console.error("Error cargando contexto empresa:", e);
+            }
+        };
+        loadCompanyContext();
+    }, []);
 
     const loadJobData = async (jobId: string | string[]) => {
         setInitializing(true);
@@ -119,7 +150,6 @@ export default function CreateJob() {
     };
 
     const handleProcessAI = async () => {
-        // DEBUG: Verificar texto
         console.log("🔵 BOTÓN PRESIONADO - Raw Text Length:", rawText?.length);
 
         if (!rawText || rawText.length < 20) {
@@ -127,36 +157,53 @@ export default function CreateJob() {
             return Alert.alert("Texto Insuficiente", "Por favor ingresa más detalles o sube un documento válido.");
         }
 
-        console.log("✅ Texto válido, iniciando análisis...");
-        Alert.alert("Procesando", "Analizando con IA, por favor espera...");
         setLoading(true);
+        setLoadingMessage("Validando tipo de documento...");
 
         try {
+            // 1. VALIDAR TIPO DE DOCUMENTO
+            console.log("🔍 Validando tipo de documento...");
+            const validation = await validateDocumentType(rawText);
+            console.log("📄 Tipo detectado:", validation.detectedType, "Confianza:", validation.confidence);
+
+            if (!validation.isJobProfile) {
+                setLoading(false);
+                const typeLabels: Record<string, string> = {
+                    'cv': 'un CV o Hoja de Vida',
+                    'contract': 'un Contrato',
+                    'policy': 'una Política de Empresa',
+                    'other': 'otro tipo de documento'
+                };
+                const detectedLabel = typeLabels[validation.detectedType] || 'un documento no reconocido';
+
+                return Alert.alert(
+                    "⚠️ Documento Incorrecto",
+                    `El documento parece ser ${detectedLabel}, no un Perfil de Puesto.\n\nPor favor sube una descripción de cargo con requisitos, responsabilidades y habilidades.`,
+                    [{ text: "Entendido" }]
+                );
+            }
+
+            // 2. PROCESAR CON IA
+            setLoadingMessage("Analizando perfil con IA...");
             console.log("📡 Llamando a extractJobData, optimizeJobDescription y analyzeJobPosting...");
+
             const [extracted, optimized, suggestions] = await Promise.all([
                 extractJobData(rawText),
-                optimizeJobDescription(rawText),
+                optimizeJobDescription(rawText, companyContext || undefined),
                 analyzeJobPosting(rawText)
             ]);
 
             console.log("✅ Análisis completado. Datos extraídos:", extracted);
-            console.log("📝 Descripción optimizada length:", optimized?.length);
-            console.log("💡 Sugerencias:", suggestions);
 
             if (!extracted) {
                 throw new Error("La IA no devolvió datos estructurados.");
             }
 
-            console.log("💾 Guardando datos en state...");
             setJobData(extracted);
             setOptimizedDescription(optimized);
             setPostingSuggestions(suggestions);
-
-            console.log("🎯 Ejecutando setStep(2)...");
             setStep(2);
-            console.log("✅ Step cambiado a 2");
 
-            // Mostrar resumen de sugerencias
             const scoreColor = suggestions.qualityScore >= 70 ? "✅" : suggestions.qualityScore >= 50 ? "⚠️" : "❌";
             Alert.alert(
                 "¡Análisis Completado!",
@@ -168,6 +215,7 @@ export default function CreateJob() {
             Alert.alert("Error de Proceso", `Ocurrió un error: ${e?.message || JSON.stringify(e)}`);
         } finally {
             setLoading(false);
+            setLoadingMessage("");
         }
     };
 
@@ -276,8 +324,13 @@ export default function CreateJob() {
                                 />
                             </View>
 
-                            <TouchableOpacity style={styles.processButton} onPress={handleProcessAI} disabled={loading}>
-                                {loading ? <ActivityIndicator color="white" /> : (
+                            <TouchableOpacity style={[styles.processButton, loading && { backgroundColor: '#1e293b' }]} onPress={handleProcessAI} disabled={loading}>
+                                {loading ? (
+                                    <View style={{ alignItems: 'center' }}>
+                                        <ActivityIndicator color="#38bdf8" />
+                                        <Text style={{ color: '#94a3b8', marginTop: 8, fontSize: 12 }}>{loadingMessage || 'Procesando...'}</Text>
+                                    </View>
+                                ) : (
                                     <><Text style={styles.buttonText}>ANALIZAR CON IA</Text><Sparkles color="white" size={20} style={{ marginLeft: 10 }} /></>
                                 )}
                             </TouchableOpacity>

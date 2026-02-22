@@ -12,6 +12,29 @@ export interface UserProfile {
   name?: string;           // Para candidato
   companyName?: string;    // Para empresa
   industry?: string;       // Para empresa
+
+  // Contacto & Analytics (Super Admin)
+  phoneNumber?: string;
+  birthDate?: string;      // YYYY-MM-DD
+  location?: {
+    country: string;
+    department: string;
+    province: string;
+    district: string;
+  };
+  salaryExpectations?: string;
+
+  // Analytics
+  loginCount?: number;
+  lastLoginAt?: string;
+
+  // Company Specific
+  ruc?: string;
+  companyContact?: {
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
 // --- ESTADOS DEL PROCESO (ATS) ---
@@ -41,10 +64,10 @@ export interface CandidateAnalysis {
   name: string;           // Nombre detectado por IA
   email: string | null;   // Email detectado (Vital para el historial)
   phoneNumber?: string;   // Teléfono para WhatsApp
-  
+
   // Análisis IA
   matchScore: number;     // 0 - 100
-  matchStatus: MatchStatus; 
+  matchStatus: MatchStatus;
   summary: string;        // Resumen corto
   pros: string[];
   cons: string[];
@@ -52,11 +75,11 @@ export interface CandidateAnalysis {
 
   // Archivo
   originalFileUrl?: string; // URL en Storage o Local URI
-  
+
   // Gestión
   recruitmentStatus: RecruitmentStatus;
   analyzedAt: string;     // Fecha ISO
-  
+
   // Datos para historial
   originalJobTitle?: string; // Para saber a qué puesto aplicó antes
 }

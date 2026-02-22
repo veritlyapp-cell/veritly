@@ -4,12 +4,9 @@ import { Briefcase, LogOut, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../config/firebase';
-import { useRequireRole } from '../../../hooks/useRequireRole';
 
 export default function CompanyDashboard() {
-    // Protect route - only 'empresa' role can access
-    const { loading: authLoading, authorized } = useRequireRole('empresa');
-
+    // Note: Auth protection is already handled by the layout (_layout.tsx)
     const router = useRouter();
     const [jobs, setJobs] = useState<any[]>([]);
     const [refreshing, setRefreshing] = useState(false);
@@ -184,15 +181,6 @@ export default function CompanyDashboard() {
     );
 
     // Show loading while checking authorization
-    if (authLoading || !authorized) {
-        return (
-            <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <Text style={{ color: '#94a3b8', marginTop: 20 }}>Verificando acceso...</Text>
-            </View>
-        );
-    }
-
     if (loading && !refreshing) {
         return (
             <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>

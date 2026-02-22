@@ -16,6 +16,11 @@ export interface AppConfig {
     showCreditsUI: boolean; // Controla si la UI de créditos es visible y si se aplican límites
     packages: CreditPackage[];
     freeCreditsPerMonth: number;
+    notifications?: {
+        newCandidateEmail: boolean;
+        newCompanyEmail: boolean;
+        adminEmail: string;
+    };
 }
 
 // Fallback estático (mientras carga Firestore)
@@ -44,7 +49,12 @@ export const getAppConfig = async (): Promise<AppConfig> => {
             packagesEnabled: false,
             showCreditsUI: false, // Por defecto oculto (Modo Gratis)
             packages: DEFAULT_CREDIT_PACKAGES,
-            freeCreditsPerMonth: STATIC_FREE_CREDITS
+            freeCreditsPerMonth: STATIC_FREE_CREDITS,
+            notifications: {
+                newCandidateEmail: true, // [UPDATED] Default to TRUE
+                newCompanyEmail: true,   // [UPDATED] Default to TRUE
+                adminEmail: 'oscar@relielabs.com'
+            }
         };
         await setDoc(configRef, initialConfig);
         return initialConfig;
@@ -54,7 +64,12 @@ export const getAppConfig = async (): Promise<AppConfig> => {
             packagesEnabled: false,
             showCreditsUI: false,
             packages: DEFAULT_CREDIT_PACKAGES,
-            freeCreditsPerMonth: STATIC_FREE_CREDITS
+            freeCreditsPerMonth: STATIC_FREE_CREDITS,
+            notifications: {
+                newCandidateEmail: true, // [UPDATED] Default to TRUE
+                newCompanyEmail: true,   // [UPDATED] Default to TRUE
+                adminEmail: 'oscar@relielabs.com'
+            }
         };
     }
 };

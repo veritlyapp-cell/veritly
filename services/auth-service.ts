@@ -1,6 +1,7 @@
 import { createUserWithEmailAndPassword, User } from 'firebase/auth';
-import { doc, getDoc, getDocFromServer, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocFromServer, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { sendAdminNotification } from './notification-service';
 
 export type UserRole = 'candidato' | 'empresa';
 
@@ -76,10 +77,68 @@ export async function createCandidateUser(
 
         await setDoc(doc(db, 'users_candidatos', user.uid), candidateData);
 
+        // Notify Admin (Async, don't block)
+        sendAdminNotification('candidate', {
+            name: profileData?.fullName || 'Nuevo Candidato',
+            email: user.email || email,
+            phone: profileData?.phone
+        });
+
         return user;
     } catch (error: any) {
         console.error('Error creating candidate user:', error);
         throw error;
+    }
+}
+
+/**
+ * Checks if an email is already in use by ANY role (candidate or company)
+ */
+export async function checkEmailAvailability(email: string): Promise<{ available: boolean; existingRole?: UserRole }> {
+    try {
+        // Check candidates
+        const candidatesRef = collection(db, 'users_candidatos');
+        const qCand = query(candidatesRef, where('email', '==', email));
+        const candSnap = await getDocs(qCand);
+
+        if (!candSnap.empty) return { available: false, existingRole: 'candidato' };
+
+        // Check companies
+        const companiesRef = collection(db, 'users_empresas');
+        const qComp = query(companiesRef, where('email', '==', email));
+        const compSnap = await getDocs(qComp);
+
+        if (!compSnap.empty) return { available: false, existingRole: 'empresa' };
+
+        return { available: true };
+    } catch (error) {
+        console.error("Error checking email availability:", error);
+        // Default to true to not block if there is a connection error, but log it.
+        // Ideally should throw or handle better.
+        return { available: true };
+    }
+}
+
+/**
+ * Checks if a Company ID (RUC or DNI) is already registered
+ */
+export async function checkCompanyIdAvailability(idValue: string): Promise<boolean> {
+    try {
+        const companiesRef = collection(db, 'users_empresas');
+        // Check RUC match
+        const qRuc = query(companiesRef, where('company.ruc', '==', idValue));
+        const rucSnap = await getDocs(qRuc);
+        if (!rucSnap.empty) return false;
+
+        // Check DNI match (for independent recruiters)
+        const qDni = query(companiesRef, where('company.dni', '==', idValue));
+        const dniSnap = await getDocs(qDni);
+        if (!dniSnap.empty) return false;
+
+        return true;
+    } catch (error) {
+        console.error("Error checking ID availability:", error);
+        return true;
     }
 }
 
@@ -89,7 +148,13 @@ export async function createCandidateUser(
 export async function createCompanyUser(
     email: string,
     password: string,
-    companyName?: string
+    companyDataInput: {
+        name: string,
+        type: 'empresa' | 'independiente',
+        ruc?: string,
+        dni?: string,
+        razonSocial?: string // [NEW] Accept Reason Social specifically
+    }
 ): Promise<User> {
     try {
         // Create user in Firebase Auth
@@ -97,13 +162,19 @@ export async function createCompanyUser(
         const user = userCredential.user;
 
         // Create company document in Firestore
-        const companyData: CompanyProfile = {
+        const companyProfile: CompanyProfile = {
             uid: user.uid,
             email: user.email || email,
             role: 'empresa',
             company: {
-                name: companyName || 'Nueva Empresa'
-            },
+                name: companyDataInput.name, // Commercial Name (can be empty)
+                ...(companyDataInput.type === 'empresa' ? {
+                    ruc: companyDataInput.ruc,
+                    razonSocial: companyDataInput.razonSocial
+                } : {}),
+                ...(companyDataInput.type === 'independiente' ? { dni: companyDataInput.dni } : {}),
+                type: companyDataInput.type // Guardar el tipo para referencia
+            } as any, // Cast to any to allow dynamic fields if interface is strict
             subscription: {
                 plan: 'free',
                 jobsLimit: 5,
@@ -115,7 +186,16 @@ export async function createCompanyUser(
         };
 
         console.log(`📡 [auth-service] Creating Firestore document for company: ${user.uid}`);
-        await setDoc(doc(db, 'users_empresas', user.uid), companyData);
+        console.log(`📡 [auth-service] Creating Firestore document for company: ${user.uid}`);
+        await setDoc(doc(db, 'users_empresas', user.uid), companyProfile);
+        console.log('✅ [auth-service] Firestore document created successfully');
+
+        // Notify Admin
+        sendAdminNotification('company', {
+            name: companyProfile.company.name,
+            email: user.email || email,
+            id: companyProfile.company.ruc || (companyProfile.company as any).dni
+        });
         console.log('✅ [auth-service] Firestore document created successfully');
 
         return user;
@@ -130,37 +210,48 @@ export async function createCompanyUser(
  * Includes fallback to legacy 'companies' collection for existing users
  */
 export async function getCurrentUserRole(uid: string): Promise<UserRole | null> {
+    const startTime = Date.now();
     try {
-        console.log('🔍 [getCurrentUserRole] Checking role for UID:', uid);
+        console.log(`🔍 [getCurrentUserRole] Checking role for UID: ${uid.substring(0, 8)}...`);
 
         // Parallel checks for better performance - and BYPASSING CACHE
         // We use getDocFromServer to ensure we don't get a "null" result from local cache 
         // right after account creation.
         const [candidateSnap, companySnap, legacySnap] = await Promise.all([
-            getDocFromServer(doc(db, 'users_candidatos', uid)).catch(() => getDoc(doc(db, 'users_candidatos', uid))),
-            getDocFromServer(doc(db, 'users_empresas', uid)).catch(() => getDoc(doc(db, 'users_empresas', uid))),
-            getDocFromServer(doc(db, 'companies', uid)).catch(() => getDoc(doc(db, 'companies', uid)))
+            getDocFromServer(doc(db, 'users_candidatos', uid)).catch(e => {
+                console.warn('⚠️ [getCurrentUserRole] users_candidatos check failed:', e.message);
+                return getDoc(doc(db, 'users_candidatos', uid));
+            }),
+            getDocFromServer(doc(db, 'users_empresas', uid)).catch(e => {
+                console.warn('⚠️ [getCurrentUserRole] users_empresas check failed:', e.message);
+                return getDoc(doc(db, 'users_empresas', uid));
+            }),
+            getDocFromServer(doc(db, 'companies', uid)).catch(e => {
+                console.warn('⚠️ [getCurrentUserRole] legacy companies check failed:', e.message);
+                return getDoc(doc(db, 'companies', uid));
+            })
         ]);
 
+        const duration = Date.now() - startTime;
         if (candidateSnap.exists()) {
-            console.log('✅ [getCurrentUserRole] Found in users_candidatos');
+            console.log(`✅ [getCurrentUserRole] Found 'candidato' in ${duration}ms`);
             return 'candidato';
         }
 
         if (companySnap.exists()) {
-            console.log('✅ [getCurrentUserRole] Found in users_empresas');
+            console.log(`✅ [getCurrentUserRole] Found 'empresa' (new) in ${duration}ms`);
             return 'empresa';
         }
 
         if (legacySnap.exists()) {
-            console.log('⚠️ [getCurrentUserRole] Found in legacy companies collection');
+            console.log(`⚠️ [getCurrentUserRole] Found 'empresa' (legacy) in ${duration}ms`);
             return 'empresa';
         }
 
-        console.error('❌ [getCurrentUserRole] User not found in any collection!');
+        console.error(`❌ [getCurrentUserRole] User NOT found in any collection after ${duration}ms!`);
         return null;
-    } catch (error) {
-        console.error('❌ [getCurrentUserRole] Error:', error);
+    } catch (error: any) {
+        console.error(`❌ [getCurrentUserRole] Fatal Error after ${Date.now() - startTime}ms:`, error);
         return null;
     }
 }

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { ArrowRight, CheckSquare, Lock, Mail, Square } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
@@ -7,8 +7,9 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
 import { auth } from '../config/firebase';
-import { trackDailyLogin, trackNewUser } from '../utils/analytics';
-import { setUserId, trackLogin, trackSignUp } from '../utils/ga';
+import { checkEmailAvailability } from '../services/auth-service';
+import { trackDailyLogin, trackUserLogin } from '../utils/analytics';
+import { setUserId, trackLogin } from '../utils/ga';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroImage = require('../assets/images/friendly_hero.png');
@@ -114,28 +115,37 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (isRegistering) {
+        const emailCheck = await checkEmailAvailability(email);
+        if (!emailCheck.available) {
+          setLoading(false);
+          const msg = emailCheck.existingRole === 'empresa'
+            ? 'Este correo ya está registrado como empresa.'
+            : 'Este correo ya está en uso.';
+          return showAlert('Correo Registrado', msg);
+        }
+
         console.log('📝 Creando cuenta para:', email);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await sendEmailVerification(userCredential.user);
-
-        // --- TRACKING METRICS ---
-        trackNewUser();
-        trackSignUp('email');
-        setUserId(userCredential.user.uid);
-        // ------------------------
+        await signOut(auth);
 
         console.log('✅ Cuenta creada y verificación enviada');
-        showAlert('¡Bienvenido!', 'Tu cuenta ha sido creada. Hemos enviado un link a tu correo para verificar tu cuenta.');
-        setTimeout(() => {
-          router.replace('/(tabs)/profile');
-        }, 1500);
+        showAlert('¡Verifica tu Correo!', 'Hemos enviado un enlace de verificación a tu correo. Por favor actívalo para iniciar sesión.');
+
+        setIsRegistering(false); // Switch to login view
       } else {
         console.log('🔐 Intentando login con:', email);
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+        if (userCredential.user && !userCredential.user.emailVerified) {
+          await signOut(auth);
+          return showAlert('Verificación Pendiente', 'Por favor verifica tu correo electrónico para ingresar.');
+        }
 
         // --- TRACKING METRICS ---
         trackDailyLogin();
         trackLogin('email');
+        trackUserLogin(userCredential.user.uid, 'candidate');
         if (auth.currentUser) setUserId(auth.currentUser.uid);
         // ------------------------
 

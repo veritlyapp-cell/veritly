@@ -26,90 +26,98 @@ export function useRequireRole(requiredRole: UserRole) {
     useEffect(() => {
         if (!isMounted) return;
 
+        let isEffectMounted = true;
+
         const checkAuthorization = async (retryCount = 0) => {
             const MAX_RETRIES = 12; // 12 seconds total
             const RETRY_DELAY = 1000;
 
             try {
+                // IMPORTANT: Wait for Auth to initialize if it's currently null but might be loading
+                // Firebase Auth is sometimes null for a few cycles on startup
                 const user = auth.currentUser;
 
                 // 1. Verificar Autenticación
                 if (!user) {
-                    // Si no hay usuario, esperamos un poco (a veces Auth tarda en inicializar)
-                    if (retryCount < 3) {
+                    // Try to wait a bit more for Auth state to stabilize
+                    if (retryCount < 4) {
                         console.log(`⏳ [useRequireRole] Waiting for Firebase Auth (Attempt ${retryCount + 1})...`);
-                        setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, 500);
+                        setTimeout(() => { if (isEffectMounted) checkAuthorization(retryCount + 1); }, 800);
                         return;
                     }
 
-                    console.log('↩️ [useRequireRole] Redirecting to empresa signin (No user)');
-                    setTimeout(() => {
-                        if (isMounted) router.replace('/empresa/signin');
-                    }, 100);
-                    setLoading(false);
+                    console.log('↩️ [useRequireRole] Redirecting to signin (No user found after retries)');
+                    if (isEffectMounted) {
+                        router.replace(requiredRole === 'empresa' ? '/empresa/signin' : '/signin');
+                        setLoading(false);
+                    }
                     return;
                 }
 
                 console.log(`🔍 [useRequireRole] Checking Role for ${user.email} (UID: ${user.uid.substring(0, 5)}...)`);
 
-                // 2. Verificar Rol en Firestore (Forzando servidor en auth-service)
+                // 2. Verificar Rol en Firestore
                 const userRole = await getCurrentUserRole(user.uid);
-                console.log(`🎭 [useRequireRole] Role found: ${userRole || 'NONE'}`);
+                console.log(`🎭 [useRequireRole] Role detected: ${userRole || 'NONE'}`);
 
                 if (!userRole) {
+                    // If we are ON the onboarding page, we might not have the role set yet in Firestore 
+                    // (e.g., right after signup). We allow this as a special case for companies.
+                    if (pathname && pathname.includes('onboarding') && requiredRole === 'empresa') {
+                        console.warn('⚠️ [useRequireRole] Role missing but on onboarding page. Granting temporary access.');
+                        if (isEffectMounted) {
+                            setAuthorized(true);
+                            setLoading(false);
+                        }
+                        return;
+                    }
+
                     if (retryCount < MAX_RETRIES) {
-                        console.log(`⏳ [useRequireRole] Role NOT found yet. Retrying in ${RETRY_DELAY}ms... (${retryCount + 1}/${MAX_RETRIES})`);
-                        setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
+                        console.log(`⏳ [useRequireRole] Role NOT found yet. Retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+                        setTimeout(() => { if (isEffectMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
                         return;
                     }
 
                     console.error('❌ [useRequireRole] Role check FAILED after all retries.');
-
-                    // EXCEPCIÓN CRÍTICA: Si el usuario está en Onboarding, lo dejamos quedarse
-                    // Esto evita que el loop de redirección lo expulse mientras intenta completar su perfil
-                    if (pathname && pathname.includes('onboarding')) {
-                        console.warn('⚠️ [useRequireRole] Role missing but on onboarding page. Granting temporary access.');
-                        setAuthorized(true);
+                    if (isEffectMounted) {
+                        router.replace(requiredRole === 'empresa' ? '/empresa/signin' : '/signin');
                         setLoading(false);
-                        return;
                     }
-
-                    // En lugar de botar a /, intentamos ir al signin por si la sesión expiró o es inválida
-                    setTimeout(() => {
-                        if (isMounted) router.replace('/empresa/signin');
-                    }, 100);
-                    setLoading(false);
                     return;
                 }
 
                 // 3. Verificar si el rol coincide
                 if (userRole !== requiredRole) {
                     console.log(`❌ [useRequireRole] Wrong role: has ${userRole}, needs ${requiredRole}`);
-                    setTimeout(() => {
-                        if (!isMounted) return;
-                        router.replace(userRole === 'candidato' ? '/(tabs)' : '/empresa/dashboard');
-                    }, 100);
-                    setLoading(false);
+                    if (isEffectMounted) {
+                        // Redirect logic based on what they HAVE vs what they NEED
+                        if (userRole === 'candidato') router.replace('/(tabs)');
+                        else if (userRole === 'empresa') router.replace('/empresa/dashboard');
+                        setLoading(false);
+                    }
                     return;
                 }
 
                 // Éxito
                 console.log(`✅ [useRequireRole] Authorized as ${requiredRole}`);
-                setAuthorized(true);
-                setLoading(false);
+                if (isEffectMounted) {
+                    setAuthorized(true);
+                    setLoading(false);
+                }
 
             } catch (error) {
                 console.error('❌ [useRequireRole] Fatal Error:', error);
                 if (retryCount < MAX_RETRIES) {
-                    setTimeout(() => { if (isMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
+                    setTimeout(() => { if (isEffectMounted) checkAuthorization(retryCount + 1); }, RETRY_DELAY);
                 } else {
-                    setLoading(false);
+                    if (isEffectMounted) setLoading(false);
                 }
             }
         };
 
         checkAuthorization();
-    }, [requiredRole, router, isMounted]);
+        return () => { isEffectMounted = false; };
+    }, [requiredRole, router, isMounted, pathname]);
 
     return { loading, authorized };
 }
