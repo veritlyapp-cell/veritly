@@ -14,9 +14,16 @@
 
 # Redirect /api/* to Netlify Functions (MUST be before SPA catch-all)
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/api/auth"
+  to = "/.netlify/functions/auth"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/save-match"
+  to = "/.netlify/functions/save-match"
+  status = 200
+  force = true
 
 # Redirect rules for SPA
 [[redirects]]

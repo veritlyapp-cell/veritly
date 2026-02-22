@@ -215,16 +215,22 @@
         elements.loginBtn.textContent = 'Entrando...';
 
         try {
-            // Updated to use our secure backend proxy instead of direct Firebase REST API
-            const res = await fetch(`${API_BASE}/auth`, {
+            const response = await fetch(`${API_BASE}/auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
 
-            const data = await res.json();
+            const dataText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(dataText);
+            } catch (e) {
+                console.error('Invalid JSON response from auth:', dataText);
+                throw new Error('Error al conectar con el servidor de autenticación.');
+            }
 
-            if (!res.ok) throw new Error(data.error || 'Error de autenticación');
+            if (!response.ok) throw new Error(data.error || 'Error de autenticación');
 
             userProfile = {
                 uid: data.localId,
@@ -325,10 +331,17 @@
                 })
             });
 
-            const result = await response.json();
+            const dataText = await response.text();
+            let result;
+            try {
+                result = JSON.parse(dataText);
+            } catch (e) {
+                console.error('Invalid JSON response from analysis:', dataText);
+                throw new Error('Respuesta del servidor no válida (posible error de configuración/redirección).');
+            }
 
             if (!response.ok) {
-                throw new Error(result.error || `Server error: ${response.status}`);
+                throw new Error(result.error || `Error del servidor: ${response.status}`);
             }
 
             showResults(result);
