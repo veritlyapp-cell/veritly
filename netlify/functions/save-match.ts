@@ -109,9 +109,33 @@ export const handler: Handler = async (event) => {
             })
         });
 
+        if (!geminiRes.ok) {
+            const errorData = await geminiRes.json();
+            throw new Error(`Gemini API Error: ${errorData.error?.message || geminiRes.statusText}`);
+        }
+
         const geminiData = await geminiRes.json();
+
+        if (!geminiData.candidates || geminiData.candidates.length === 0) {
+            console.error("Gemini Response:", JSON.stringify(geminiData));
+            throw new Error('El asistente IA no pudo generar una respuesta. Por favor intenta de nuevo.');
+        }
+
         const aiText = geminiData.candidates[0].content.parts[0].text;
-        const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        // Clean JSON (more robustly)
+        let cleanJson = aiText.trim();
+        if (cleanJson.includes('```')) {
+            cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '').trim();
+        }
+
+        // Final fallback: try to find the first { and last }
+        const startIdx = cleanJson.indexOf('{');
+        const endIdx = cleanJson.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+            cleanJson = cleanJson.substring(startIdx, endIdx + 1);
+        }
+
         const analysis = JSON.parse(cleanJson);
 
         // Save to Firestore if UID is provided
