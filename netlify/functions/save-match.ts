@@ -48,12 +48,30 @@ export const handler: Handler = async (event) => {
 
         // If UID is provided and no cvText, try to fetch it from Firestore
         if (uid && !cvText) {
-            const userSnap = await getDoc(doc(db, 'users_candidatos', uid));
-            if (userSnap.exists()) {
-                const userData = userSnap.data();
-                cvText = userData.profile?.experience || userData.profile?.summary || '';
-                // If it's still empty, it might be that we need to extract from cvUrl, 
-                // but for now we'll use what we have in the profile fields.
+            // Check multiple collections and fields for robustness
+            // 'users' is where ProfileScreen saves detailed info
+            // 'users_candidatos' is the base profile collection
+            const collections = ['users', 'users_candidatos'];
+
+            for (const colName of collections) {
+                const userSnap = await getDoc(doc(db, colName, uid));
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+                    // Try to find the CV text in various possible fields
+                    cvText =
+                        userData.profile?.contextForAI ||
+                        userData.profile?.bio ||
+                        userData.profile?.experience ||
+                        userData.profile?.summary ||
+                        userData.bio ||
+                        userData.contextForAI ||
+                        '';
+
+                    if (cvText) {
+                        console.log(`✅ Found CV text in collection '${colName}'`);
+                        break;
+                    }
+                }
             }
         }
 
