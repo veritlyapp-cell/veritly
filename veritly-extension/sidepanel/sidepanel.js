@@ -6,7 +6,6 @@
 
     // Configuration
     const API_BASE = 'https://veritlyapp.com/api'; // Or local: http://localhost:8888/api
-    const FIREBASE_API_KEY = "AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8";
 
     // State
     let currentJobData = null;
@@ -147,7 +146,10 @@
                 const result = await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
                     func: () => {
-                        const key = `firebase:authUser:${"AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8"}:[DEFAULT]`;
+                        // The API Key is still needed in the frontend for the cookie/localStorage key identification
+                        // but it's not "secret" in the context of Firebase Web SDK, just better to avoid hardcoding 
+                        // when possible. Here we use it to find the local session.
+                        const key = `firebase:authUser:AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8:[DEFAULT]`;
                         return localStorage.getItem(key);
                     }
                 });
@@ -213,15 +215,16 @@
         elements.loginBtn.textContent = 'Entrando...';
 
         try {
-            const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+            // Updated to use our secure backend proxy instead of direct Firebase REST API
+            const res = await fetch(`${API_BASE}/auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, returnSecureToken: true })
+                body: JSON.stringify({ email, password })
             });
 
             const data = await res.json();
 
-            if (data.error) throw new Error(data.error.message);
+            if (!res.ok) throw new Error(data.error || 'Error de autenticación');
 
             userProfile = {
                 uid: data.localId,
@@ -322,14 +325,17 @@
                 })
             });
 
-            if (!response.ok) throw new Error('Error en el servidor');
-
             const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || `Server error: ${response.status}`);
+            }
+
             showResults(result);
 
         } catch (error) {
             console.error('Analysis failed:', error);
-            alert('Error al analizar. Asegúrate de haber completado tu perfil en Veritly.');
+            alert('Error al analizar: ' + error.message);
             elements.loadingSection.style.display = 'none';
             elements.jobSection.style.display = 'block';
         } finally {

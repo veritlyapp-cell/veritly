@@ -12,6 +12,12 @@
   # They're protected by Firebase Security Rules, not by being secret
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
+# Redirect /api/* to Netlify Functions (MUST be before SPA catch-all)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 # Redirect rules for SPA
 [[redirects]]
   from = "/*"
