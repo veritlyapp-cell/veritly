@@ -41,19 +41,19 @@ export default function VeritlyLandingPage() {
                     <View style={styles.navRight}>
                         <TouchableOpacity
                             style={styles.navButtonSecondary}
-                            onPress={() => router.push('/signin')}
+                            onPress={() => router.push('/empresa/signin')}
                         >
                             <Text style={styles.navButtonSecondaryText}>Iniciar Sesión</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.navButtonPrimary}
-                            onPress={() => router.push('/signin?register=true')}
+                            onPress={() => router.push('/empresa/signin?register=true')}
                         >
                             <LinearGradient
                                 colors={[VERITLY_CYAN, VERITLY_BLUE]}
                                 style={styles.navButtonPrimaryGradient}
                             >
-                                <Text style={styles.navButtonPrimaryText}>Crear cuenta gratis</Text>
+                                <Text style={styles.navButtonPrimaryText}>Crear cuenta empresa</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -71,11 +71,11 @@ export default function VeritlyLandingPage() {
                                 styles.heroTitle,
                                 { fontSize: isDesktop ? 48 : 32, lineHeight: isDesktop ? 58 : 40 }
                             ]}>
-                                Tu próximo trabajo{'\n'}está a un{' '}
-                                <Text style={styles.heroTitleHighlight}>click</Text>
+                                Contrata con Inteligencia{'\n'}
+                                <Text style={styles.heroTitleHighlight}>Artificial</Text>
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Deja de postular a ciegas. Sube tu CV, nosotros lo analizamos y prepárate para esa entrevista ideal.
+                                Deja de filtrar CVs manualmente. Publica tu vacante y nuestra IA validará cientos de candidatos en segundos, entregándote solo los mejores perfiles rankeados.
                             </Text>
 
                             <View style={[
@@ -84,19 +84,19 @@ export default function VeritlyLandingPage() {
                             ]}>
                                 <TouchableOpacity
                                     style={styles.heroPrimaryButton}
-                                    onPress={() => router.push('/signin?register=true')}
+                                    onPress={() => router.push('/empresa/signin?register=true')}
                                 >
                                     <LinearGradient
                                         colors={[VERITLY_CYAN, VERITLY_BLUE]}
                                         style={styles.heroPrimaryButtonGradient}
                                     >
-                                        <Text style={styles.heroPrimaryButtonText}>Crear cuenta gratis</Text>
+                                        <Text style={styles.heroPrimaryButtonText}>Crear cuenta empresa</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
                                     style={[styles.heroSecondaryButton]}
-                                    onPress={() => router.push('/signin')}
+                                    onPress={() => router.push('/empresa/signin')}
                                 >
                                     <Text style={styles.heroSecondaryButtonText}>Iniciar Sesión</Text>
                                 </TouchableOpacity>
@@ -176,9 +176,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconContainer}>
                                 <Upload color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Sube tu CV</Text>
+                            <Text style={styles.cardTitle}>Publica tu Vacante</Text>
                             <Text style={styles.cardDescription}>
-                                Cárgalo y nosotros lo analizamos contra cientos de ofertas.
+                                Define los requisitos, rol y el perfil ideal que estás buscando.
                             </Text>
                         </View>
 
@@ -187,9 +187,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconContainer}>
                                 <Star color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Recibe Feedback Personalizado</Text>
+                            <Text style={styles.cardTitle}>IA Filtra Candidatos</Text>
                             <Text style={styles.cardDescription}>
-                                Te mostramos tu % de match y qué mejorar en tu CV para esa posición.
+                                Nuestra IA evalúa cada CV en profundidad contra tus criterios.
                             </Text>
                         </View>
 
@@ -198,29 +198,29 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconContainer}>
                                 <CheckCircle color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Prepárate para la Entrevista</Text>
+                            <Text style={styles.cardTitle}>Entrevista a los Mejores</Text>
                             <Text style={styles.cardDescription}>
-                                Te damos las preguntas clave y consejos para destacar.
+                                Obtén un ranking validado con los candidatos más compatibles.
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* ========== FOR COMPANIES SECTION ========== */}
+                {/* ========== FOR CANDIDATES SECTION ========== */}
                 <View style={styles.companySection}>
                     <View style={styles.companyContent}>
                         <View style={styles.companyLeft}>
-                            <Text style={styles.companyLabel}>PARA EMPRESAS</Text>
-                            <Text style={styles.companyTitle}>Contrata con Inteligencia Artificial</Text>
+                            <Text style={styles.companyLabel}>PARA CANDIDATOS</Text>
+                            <Text style={styles.companyTitle}>Tu próximo trabajo a un click</Text>
                             <Text style={styles.companyDescription}>
-                                Deja de filtrar CVs manualmente. Publica tu vacante y nuestra IA validará cientos de candidatos en segundos, entregándote solo los mejores perfiles rankeados por compatibilidad.
+                                Deja de postular a ciegas. Sube tu CV, recibe feedback instantáneo y prepárate para destacar en tu próxima entrevista con ayuda de nuestra Inteligencia Artificial.
                             </Text>
 
                             <TouchableOpacity
                                 style={styles.companyButton}
-                                onPress={() => router.push('/empresa/signin?register=true')}
+                                onPress={() => router.push('/signin?register=true')}
                             >
-                                <Text style={styles.companyButtonText}>Registrar Empresa Gratis</Text>
+                                <Text style={styles.companyButtonText}>Crear cuenta gratis</Text>
                                 <ChevronDown style={{ transform: [{ rotate: '-90deg' }] }} color="white" size={20} />
                             </TouchableOpacity>
                         </View>
@@ -232,18 +232,18 @@ export default function VeritlyLandingPage() {
                 <View style={[styles.bottomCTASection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
                     <Text style={[styles.bottomCTATitle, { fontSize: isDesktop ? 36 : 28 }]}>¿Listo para empezar?</Text>
                     <Text style={styles.bottomCTASubtitle}>
-                        Miles de personas ya usan Veritly para destacar en sus postulaciones.
+                        Cientos de empresas ya usan Veritly para encontrar al talento ideal.
                     </Text>
 
                     <TouchableOpacity
                         style={styles.bottomCTAButton}
-                        onPress={() => router.push('/signin?register=true')}
+                        onPress={() => router.push('/empresa/signin?register=true')}
                     >
                         <LinearGradient
                             colors={[VERITLY_CYAN, VERITLY_BLUE]}
                             style={styles.bottomCTAButtonGradient}
                         >
-                            <Text style={styles.bottomCTAButtonText}>Crear cuenta gratis</Text>
+                            <Text style={styles.bottomCTAButtonText}>Crear cuenta empresa</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
