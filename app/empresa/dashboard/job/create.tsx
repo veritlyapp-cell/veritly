@@ -2,7 +2,7 @@ import { setStringAsync } from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload } from 'lucide-react-native';
+import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../../config/firebase';
@@ -22,7 +22,11 @@ export default function CreateJob() {
     const [fileName, setFileName] = useState('');
 
     // DATA PROCESADA
-    const [jobData, setJobData] = useState<any>(null);
+    const [jobData, setJobData] = useState<any>({
+        salaryBudget: '',
+        salaryTolerance: '10', // Default 10%
+        isExternal: false
+    });
     const [optimizedDescription, setOptimizedDescription] = useState('');
 
     // SUGERENCIAS DE LA IA
@@ -99,7 +103,12 @@ export default function CreateJob() {
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                setJobData(data);
+                setJobData({
+                    ...data,
+                    salaryBudget: data.salaryBudget?.toString() || '',
+                    salaryTolerance: data.salaryTolerance?.toString() || '10',
+                    isExternal: data.isExternal || false
+                });
                 setOptimizedDescription(data.optimizedText || '');
                 setRawText(data.originalText || '');
                 setStep(2); // Ir directo a edición
@@ -199,7 +208,10 @@ export default function CreateJob() {
                 throw new Error("La IA no devolvió datos estructurados.");
             }
 
-            setJobData(extracted);
+            setJobData({
+                ...jobData, // Preserve manually set fields if any, or default ones
+                ...extracted
+            });
             setOptimizedDescription(optimized);
             setPostingSuggestions(suggestions);
             setStep(2);
@@ -224,8 +236,12 @@ export default function CreateJob() {
         setLoading(true);
 
         try {
+            // Convierte salario y tolerancia a números antes de guardar
             const finalData = {
                 ...jobData,
+                salaryBudget: Number(jobData.salaryBudget) || 0,
+                salaryTolerance: Number(jobData.salaryTolerance) || 0,
+                isExternal: !!jobData.isExternal,
                 originalText: rawText,
                 optimizedText: optimizedDescription,
                 companyId: auth.currentUser.uid,
@@ -432,6 +448,70 @@ export default function CreateJob() {
                                     multiline
                                     scrollEnabled={false} // Expands with content
                                 />
+
+                                {/* --- GESTIÓN DE POSTULACIÓN --- */}
+                                <View style={{ marginTop: 30, padding: 20, backgroundColor: '#0f172a', borderRadius: 12, borderWidth: 1, borderColor: '#3b82f6' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                                        <Settings color="#38bdf8" size={20} />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 }}>Configuración de Recepción</Text>
+                                    </View>
+
+                                    <TouchableOpacity 
+                                        style={[styles.switchContainer, jobData?.isExternal && styles.switchContainerActive]}
+                                        onPress={() => setJobData({ ...jobData, isExternal: !jobData?.isExternal })}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: 'white', fontWeight: 'bold' }}>Habilitar Link de Postulación</Text>
+                                            <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>Creará un formulario web para que los candidatos postulen directamente a Veritly.</Text>
+                                        </View>
+                                        <View style={[styles.switchToggle, jobData?.isExternal ? { backgroundColor: '#3b82f6', alignItems: 'flex-end' } : { backgroundColor: '#334155', alignItems: 'flex-start' }]}>
+                                            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white' }} />
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {jobData?.isExternal && (
+                                        <View style={{ marginTop: 20, backgroundColor: '#1e293b', padding: 15, borderRadius: 8 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                                <DollarSign color="#10b981" size={18} />
+                                                <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Filtro Salarial Automático</Text>
+                                            </View>
+                                            <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 15 }}>
+                                                Los candidatos cuya expectativa supere el presupuesto + tolerancia, serán movidos a "Descartados" automáticamente sin consumir créditos de IA.
+                                            </Text>
+
+                                            <View style={{ flexDirection: 'row', gap: 15 }}>
+                                                <View style={{ flex: 2 }}>
+                                                    <Text style={styles.label}>PRESUPUESTO MAX (S/)</Text>
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="Ej. 3500"
+                                                        placeholderTextColor="#475569"
+                                                        keyboardType="numeric"
+                                                        value={jobData?.salaryBudget}
+                                                        onChangeText={(t) => setJobData({ ...jobData, salaryBudget: t })}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.label}>TOLERANCIA (%)</Text>
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="10"
+                                                        placeholderTextColor="#475569"
+                                                        keyboardType="numeric"
+                                                        value={jobData?.salaryTolerance}
+                                                        onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
+                                                    />
+                                                </View>
+                                            </View>
+                                            
+                                             {Number(jobData?.salaryBudget) > 0 && (
+                                                <Text style={{ color: '#10b981', fontSize: 12, marginTop: 5 }}>
+                                                    El sistema aceptará expectativas hasta S/ {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance) / 100))}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
                             </View>
 
                             <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
@@ -482,5 +562,8 @@ const styles = StyleSheet.create({
     weaknessText: { color: '#ef4444', fontSize: 12, marginLeft: 10, marginBottom: 3 },
     improvementText: { color: '#38bdf8', fontSize: 12, marginLeft: 10, marginBottom: 3 },
     keywordTag: { backgroundColor: '#3b82f6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15 },
-    keywordTagText: { color: 'white', fontSize: 11, fontWeight: 'bold' }
+    keywordTagText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
+    switchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
+    switchContainerActive: { borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)' },
+    switchToggle: { width: 50, height: 28, borderRadius: 15, justifyContent: 'center', padding: 2 }
 });
