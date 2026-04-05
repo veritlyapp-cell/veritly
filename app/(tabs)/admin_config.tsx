@@ -5,14 +5,16 @@ import AdminUsersTable from '../../components/AdminUsersTable';
 import { auth } from '../../config/firebase';
 import { AppConfig, getAppConfig, updateAppConfig } from '../../services/credits-service';
 
-const ADMIN_EMAILS = ['test+1@gmail.com', 'oscar@veritlyapp.com', 'oscar@relielabs.com'];
+const ADMIN_EMAILS = ['oscarqv88@gmail.com'];
 
 export default function AdminConfigScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [config, setConfig] = useState<AppConfig | null>(null);
-    const [currentTab, setCurrentTab] = useState<'config' | 'users'>('config');
+    const [currentTab, setCurrentTab] = useState<'config' | 'users' | 'analytics'>('config');
+    const [totalB2B, setTotalB2B] = useState(0);
+    const [b2cStats, setB2cStats] = useState({ revenue: 0, newThisMonth: 0, avgLogins: 0, total: 0 });
 
     useEffect(() => {
         checkAdminAccess();
@@ -24,6 +26,51 @@ export default function AdminConfigScreen() {
             setIsAdmin(true);
             const data = await getAppConfig();
             setConfig(data);
+            
+            // Fetch B2B cross-summary
+            try {
+                const { collection, getDocs, query } = require('firebase/firestore');
+                const { db } = require('../../config/firebase');
+                const snap = await getDocs(query(collection(db, 'users_empresas')));
+                setTotalB2B(snap.size);
+
+                // Fetch B2C insights
+                const candsSnap = await getDocs(query(collection(db, 'users_candidatos')));
+                let totalCands = candsSnap.size;
+                let newThisMonth = 0;
+                let totalLogins = 0;
+                const currentMonthNum = new Date().getMonth();
+
+                candsSnap.forEach((doc: any) => {
+                    const data = doc.data();
+                    if(data.createdAt) {
+                        const d = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                        if(d.getMonth() === currentMonthNum) newThisMonth++;
+                    }
+                    totalLogins += (data.loginCount || 0);
+                });
+
+                // Fetch Revenue from credits
+                const creditsSnap = await getDocs(query(collection(db, 'user_credits')));
+                let totalRevenue = 0;
+                creditsSnap.forEach((doc: any) => {
+                    const data = doc.data();
+                    if(data.purchaseHistory && Array.isArray(data.purchaseHistory)) {
+                        data.purchaseHistory.forEach((p: any) => {
+                            totalRevenue += (p.amountUSD || 0);
+                        });
+                    }
+                });
+
+                setB2cStats({
+                    revenue: totalRevenue,
+                    newThisMonth,
+                    total: totalCands,
+                    avgLogins: totalCands > 0 ? (totalLogins / totalCands) : 0
+                });
+            } catch (e) {
+                console.error(e);
+            }
         }
         setLoading(false);
     };
@@ -94,14 +141,52 @@ export default function AdminConfigScreen() {
                         onPress={() => setCurrentTab('users')}
                     >
                         <Users size={20} color={currentTab === 'users' ? 'white' : '#94a3b8'} />
-                        <Text style={[styles.mainTabText, currentTab === 'users' && styles.mainTabTextActive]}>Usuarios</Text>
+                        <Text style={[styles.mainTabText, currentTab === 'users' && styles.mainTabTextActive]}>Usuarios ({b2cStats.total})</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.mainTab, currentTab === 'analytics' && styles.mainTabActive]}
+                        onPress={() => setCurrentTab('analytics')}
+                    >
+                        <CreditCard size={20} color={currentTab === 'analytics' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'analytics' && styles.mainTabTextActive]}>Métricas</Text>
                     </TouchableOpacity>
                 </View>
 
-                {currentTab === 'users' ? (
+                {currentTab === 'analytics' ? (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>💰 Ingresos y Uso B2C</Text>
+                        <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap' }}>
+                            <View style={[styles.metricCard, { backgroundColor: '#10b981' }]}>
+                                <Text style={{ color: 'white', fontSize: 14 }}>Ingresos Totales</Text>
+                                <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>${b2cStats.revenue.toFixed(2)}</Text>
+                                <Text style={{ color: '#d1fae5', fontSize: 10 }}>Por venta de créditos</Text>
+                            </View>
+                            <View style={styles.metricCard}>
+                                <Text style={{ color: '#94a3b8', fontSize: 14 }}>Nuevos este mes</Text>
+                                <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>+{b2cStats.newThisMonth}</Text>
+                                <Text style={{ color: '#94a3b8', fontSize: 10 }}>Candidatos registrados</Text>
+                            </View>
+                            <View style={styles.metricCard}>
+                                <Text style={{ color: '#94a3b8', fontSize: 14 }}>Uso de Plataforma</Text>
+                                <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>{Math.round(b2cStats.avgLogins)}</Text>
+                                <Text style={{ color: '#94a3b8', fontSize: 10 }}>Logins promedio por usuario</Text>
+                            </View>
+                        </View>
+                    </View>
+                ) : currentTab === 'users' ? (
                     <AdminUsersTable />
                 ) : (
                     <>
+                        {/* CROSS SUMMARY */}
+                        <View style={[styles.section, { backgroundColor: '#3b82f6' }]}>
+                            <Text style={styles.sectionTitle}>Resumen B2B 🚀</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ color: 'white', fontSize: 16 }}>Empresas Registradas:</Text>
+                                <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{totalB2B}</Text>
+                            </View>
+                            <Text style={{ color: '#dbeafe', fontSize: 12, marginTop: 5 }}>Ir al portal de Empresas para gestionar clientes.</Text>
+                        </View>
+
                         {/* GLOBAL SWITCHES */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Módulos y Visibilidad</Text>
@@ -282,8 +367,9 @@ const styles = StyleSheet.create({
     sectionTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', marginBottom: 15 },
 
     switchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    switchLabel: { color: 'white', fontSize: 15, fontWeight: 'bold' },
-    switchDesc: { color: '#64748b', fontSize: 12 },
+    switchLabel: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    switchDesc: { color: '#94a3b8', fontSize: 13 },
+    metricCard: { flex: 1, minWidth: 100, backgroundColor: '#334155', padding: 15, borderRadius: 12 },
 
     inputBox: { gap: 8 },
     label: { color: '#94a3b8', fontSize: 12 },

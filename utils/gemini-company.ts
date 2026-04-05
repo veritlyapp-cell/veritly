@@ -235,6 +235,60 @@ export const analyzeCandidateForCompany = async (cvText: string, jobDescription:
     }
 };
 
+// 3.5 ANALIZAR CANDIDATO DESDE EXCEL
+export const analyzeExcelRowForCompany = async (rowDataString: string, jobDescription: string, keywords: string = "") => {
+    const prompt = `
+    Actúa como un Senior Recruiter. Analiza los siguientes datos de un candidato ( provenientes de una fila de Excel ) contra la Descripción del Puesto.
+    
+    DESCRIPCIÓN DEL PUESTO:
+    """${jobDescription}"""
+
+    PALABRAS CLAVE ESENCIALES (KEYWORDS):
+    "${keywords}"
+
+    DATOS DEL CANDIDATO (EXCEL ROW):
+    """${rowDataString}"""
+
+    TAREA:
+    1. Extrae DATOS DE CONTACTO:
+       - Nombre: Busca el nombre
+       - Email: Correo
+       - Teléfono: Sólo números
+    2. Evalúa la COINCIDENCIA (0-100) basándote en la información dada. Usa inferencia lógica si la información es escasa pero concisa.
+    3. Genera un RESUMEN breve, PROS (Puntos fuertes) y CONS (Gaps o Puntos débiles).
+    4. Valida si posee las PALABRAS CLAVE ESENCIALES. Responde de forma clara para cada una (Presente o No Presente).
+
+    RESPONDE SOLO JSON:
+    {
+        "name": "Nombre completo detectado o 'Candidato'",
+        "email": "Email o null",
+        "phoneNumber": "Teléfono o null",
+        "matchScore": (0-100),
+        "summary": "Resumen de 2 lineas",
+        "pros": ["Fuerte 1", "Fuerte 2"],
+        "cons": ["Gap 1", "Gap 2"],
+        "keywordsValidation": "Resumen de la validación de keywords (ej: Inglés: Presente, Python: No Presente)"
+    }
+    `;
+
+    try {
+        const response = await fetchWithFallback({
+            contents: [{ parts: [{ text: prompt }] }]
+        });
+        const candidate = response.candidates[0].content.parts[0].text;
+        const jsonString = candidate.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(jsonString);
+
+        if (parsed.score && !parsed.matchScore) {
+            parsed.matchScore = parsed.score;
+        }
+
+        return parsed;
+    } catch (e) {
+        throw new Error(`Análisis Excel falló: ${(e as any)?.message || String(e)}`);
+    }
+};
+
 // 4. ANALIZAR Y DAR SUGERENCIAS SOBRE LA PUBLICACIÓN DEL PUESTO
 export const analyzeJobPosting = async (text: string) => {
     const prompt = `

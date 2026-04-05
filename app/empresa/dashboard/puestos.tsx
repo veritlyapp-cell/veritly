@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaV
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
 
-export default function CompanyDashboard() {
+export default function CompanyJobs() {
     // Note: Auth protection is already handled by the layout (_layout.tsx)
     const router = useRouter();
     const [jobs, setJobs] = useState<any[]>([]);
@@ -144,21 +144,45 @@ export default function CompanyDashboard() {
         }
     };
 
-    const renderBetaBanner = () => (
-        <View style={styles.betaBanner}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Zap color="#f59e0b" size={18} />
-                <Text style={styles.betaText}>
-                    Estás usando <Text style={{fontWeight: 'bold'}}>Veritly Beta</Text>. Disfruta de análisis ilimitados por tiempo limitado.
-                </Text>
+    const renderJobItem = ({ item }: { item: any }) => (
+        <View style={styles.jobCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.jobTitle}>{item.jobTitle}</Text>
+                    <Text style={styles.jobMeta}>{item.location || "Remoto"} • {item.employmentType || "Tiempo Completo"}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: item.status === 'Open' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)' }]}>
+                    <Text style={[styles.statusText, { color: item.status === 'Open' ? '#34d399' : '#94a3b8' }]}>
+                        {item.status === 'Open' ? 'ACTIVO' : 'CERRADO'}
+                    </Text>
+                </View>
             </View>
-        </View>
-    );
 
-    const renderWelcomeSection = () => (
-        <View style={styles.welcomeBox}>
-            <Text style={styles.welcomeTitle}>¡Hola de nuevo! ✨</Text>
-            <Text style={styles.welcomeSub}>Aquí tienes el resumen de tu actividad de reclutamiento.</Text>
+            <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'space-between', alignItems: 'center' }}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => router.push(`/empresa/job/${item.id}`)}>
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>VER CANDIDATOS</Text>
+                    {item.candidateCount > 0 && (
+                        <View style={styles.candidateBadge}>
+                            <Text style={styles.candidateBadgeText}>{item.candidateCount}</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
+                    >
+                        <Pencil color="#94a3b8" size={20} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => handleDeleteJob(item.id, item.jobTitle)}
+                    >
+                        <Trash2 color="#ef4444" size={20} />
+                    </TouchableOpacity>
+                </View>
+            </View>
         </View>
     );
 
@@ -176,64 +200,32 @@ export default function CompanyDashboard() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
             <View style={styles.header}>
-                <Text style={styles.title}>Dashboard</Text>
-                <TouchableOpacity onPress={handleLogout}><LogOut color="#ef4444" size={24} /></TouchableOpacity>
+                <Text style={styles.title}>Mis Puestos</Text>
             </View>
 
             <ScrollView 
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {renderBetaBanner()}
-                {renderWelcomeSection()}
+                <Text style={styles.sectionSubtitle}>Gestiona tus vacantes activas y candidatos evaluados.</Text>
 
-                {/* === METRICS DASHBOARD === */}
-                <View style={styles.metricsContainer}>
-                    {/* Current Plan Card */}
-                    <View style={styles.planCard}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Zap color="#f59e0b" size={20} />
-                                <Text style={styles.planTitle}>Plan Actual: {userPlan}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => router.push('/empresa/dashboard/pricing')}>
-                                <Text style={styles.upgradeText}>Cambiar Plan</Text>
-                            </TouchableOpacity>
+
+
+                {jobs.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <View style={{ backgroundColor: '#1e293b', padding: 20, borderRadius: 50, marginBottom: 20 }}>
+                            <Briefcase color="#3b82f6" size={40} />
                         </View>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / 30) * 100, 100)}%` }]} />
-                        </View>
-                        <Text style={styles.planUsageText}>
-                            {totalCandidates} / 1000 Candidatos Evaluados (Límite Beta)
-                        </Text>
+                        <Text style={styles.emptyText}>No tienes puestos activos</Text>
+                        <Text style={styles.emptySubtext}>Crea tu primer perfil de búsqueda para empezar.</Text>
                     </View>
-
-                    {/* Stats Row */}
-                    <View style={styles.statsRow}>
-                        <TouchableOpacity style={styles.statBox} onPress={() => router.push('/empresa/dashboard/puestos')}>
-                            <Briefcase color="#38bdf8" size={24} style={{ marginBottom: 8 }} />
-                            <Text style={styles.statNumber}>{jobs.length}</Text>
-                            <Text style={styles.statLabel}>Mis Puestos</Text>
-                        </TouchableOpacity>
-                        <View style={styles.statBox}>
-                            <Activity color="#10b981" size={24} style={{ marginBottom: 8 }} />
-                            <Text style={styles.statNumber}>{totalCandidates}</Text>
-                            <Text style={styles.statLabel}>Perfiles Analizados</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Quick Actions */}
-                <View style={styles.quickActions}>
-                    <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-                    <TouchableOpacity 
-                        style={styles.mainActionButton}
-                        onPress={() => router.push('/empresa/dashboard/job/create')}
-                    >
-                        <Plus color="white" size={20} />
-                        <Text style={styles.mainActionButtonText}>Publicar Nuevo Puesto</Text>
-                    </TouchableOpacity>
-                </View>
+                ) : (
+                    jobs.map(job => (
+                        <React.Fragment key={job.id}>
+                            {renderJobItem({ item: job })}
+                        </React.Fragment>
+                    ))
+                )}
             </ScrollView>
 
             <TouchableOpacity style={styles.fab} onPress={() => router.push('/empresa/dashboard/job/create')}>
@@ -253,9 +245,6 @@ const styles = StyleSheet.create({
     emptyText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
     emptySubtext: { color: '#64748b', marginTop: 10 },
     fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#3b82f6', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
-    
-    betaBanner: { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 12, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' },
-    betaText: { color: '#fcd34d', fontSize: 13 },
 
     // List Styles
     jobCard: { backgroundColor: '#1e293b', borderRadius: 12, padding: 15, marginBottom: 15, borderLeftWidth: 4, borderLeftColor: '#3b82f6' },
@@ -281,19 +270,5 @@ const styles = StyleSheet.create({
     statNumber: { fontSize: 32, fontWeight: '900', color: 'white', marginBottom: 4 },
     statLabel: { fontSize: 13, color: '#94a3b8', fontWeight: '500' },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', color: 'white', marginBottom: 15 },
-    welcomeBox: { marginBottom: 25 },
-    welcomeTitle: { fontSize: 24, fontWeight: 'bold', color: 'white', marginBottom: 4 },
-    welcomeSub: { fontSize: 14, color: '#94a3b8' },
-    quickActions: { marginTop: 10 },
-    mainActionButton: {
-        backgroundColor: '#3b82f6',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        borderRadius: 12,
-        gap: 10,
-        marginTop: 10
-    },
-    mainActionButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    sectionSubtitle: { fontSize: 14, color: '#94a3b8', marginBottom: 20 },
 });

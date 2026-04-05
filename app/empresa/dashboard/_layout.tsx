@@ -1,7 +1,10 @@
 import { Drawer } from 'expo-router/drawer';
-import { Briefcase, Settings } from 'lucide-react-native';
+import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { auth } from '../../../config/firebase';
+import { useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRequireRole } from '../../../hooks/useRequireRole';
 
@@ -22,10 +25,35 @@ export default function CompanyDrawerLayout() {
         return null;
     }
 
+    const CustomDrawerContent = (props: any) => {
+        const router = useRouter();
+        
+        const handleLogout = async () => {
+            await auth.signOut();
+            router.replace('/empresa/signin');
+        };
+
+        return (
+            <View style={{ flex: 1 }}>
+                <DrawerContentScrollView {...props}>
+                    <DrawerItemList {...props} />
+                </DrawerContentScrollView>
+                
+                <View style={styles.logoutContainer}>
+                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                        <LogOut color="#ef4444" size={20} />
+                        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
     // Authorized - show dashboard
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <Drawer
+                drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{
                     headerStyle: { backgroundColor: '#0f172a' },
                     headerTintColor: 'white',
@@ -38,8 +66,17 @@ export default function CompanyDrawerLayout() {
                 <Drawer.Screen
                     name="index"
                     options={{
+                        drawerLabel: "Home",
+                        title: "Resumen General",
+                        drawerIcon: ({ color, size }) => <Activity color={color} size={size} />
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="puestos"
+                    options={{
                         drawerLabel: "Mis Puestos",
-                        title: "Mis Puestos de Trabajo",
+                        title: "Gestión de Vacantes",
                         drawerIcon: ({ color, size }) => <Briefcase color={color} size={size} />
                     }}
                 />
@@ -71,6 +108,32 @@ export default function CompanyDrawerLayout() {
                     }}
                 />
 
+                <Drawer.Screen
+                    name="admin"
+                    options={{
+                        drawerLabel: "Admin B2B",
+                        title: "Panel Corporativo",
+                        drawerIcon: ({ color, size }) => <ShieldCheck color={auth.currentUser?.email === 'oscar@veritlyapp.com' ? "#3b82f6" : color} size={size} />,
+                        drawerItemStyle: { display: auth.currentUser?.email === 'oscar@veritlyapp.com' ? 'flex' : 'none' }
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="pricing"
+                    options={{
+                        drawerLabel: "Planes y Precios",
+                        title: "Planes para Empresas",
+                        drawerIcon: ({ color, size }) => <Star color={color} size={size} />
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="terms"
+                    options={{
+                        drawerItemStyle: { display: 'none' }
+                    }}
+                />
+
 
 
                 {/* OCULTO: Recomendaciones (Próximamente) */}
@@ -98,3 +161,23 @@ export default function CompanyDrawerLayout() {
         </GestureHandlerRootView>
     );
 }
+
+const styles = StyleSheet.create({
+    logoutContainer: {
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#334155',
+        marginBottom: 20
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 10
+    },
+    logoutText: {
+        color: '#ef4444',
+        fontSize: 16,
+        fontWeight: 'bold'
+    }
+});

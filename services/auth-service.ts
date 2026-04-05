@@ -214,6 +214,13 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
     try {
         console.log(`🔍 [getCurrentUserRole] Checking role for UID: ${uid.substring(0, 8)}...`);
 
+        // Check user auth to find email
+        const user = auth.currentUser;
+        if (user && user.uid === uid && user.email === 'oscar@veritlyapp.com') {
+            console.log(`👑 [getCurrentUserRole] Forcing 'empresa' role for SuperAdmin`);
+            return 'empresa';
+        }
+
         // Parallel checks for better performance - and BYPASSING CACHE
         // We use getDocFromServer to ensure we don't get a "null" result from local cache 
         // right after account creation.

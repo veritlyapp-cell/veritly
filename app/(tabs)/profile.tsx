@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { Briefcase, Calendar, CheckCircle2, ChevronDown, DollarSign, Globe, Mail, Map, Phone, Trash2, UploadCloud, User, XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -142,6 +143,8 @@ export default function ProfileScreen() {
     // Estados para optimización de perfil
     const [optimizingSuggestions, setOptimizingSuggestions] = useState(false);
     const [profileSuggestions, setProfileSuggestions] = useState<any>(null);
+    const [secretCount, setSecretCount] = useState(0);
+    const router = useRouter();
 
     const [modalType, setModalType] = useState<'none' | 'dept' | 'prov' | 'dist' | 'date' | 'suggestions'>('none');
     const [tempDay, setTempDay] = useState(DAYS[0]);
@@ -359,7 +362,7 @@ export default function ProfileScreen() {
 
                 {/* 4. CV */}
                 <Text style={styles.sectionTitle}>HOJA DE VIDA</Text>
-                <TouchableOpacity style={[styles.uploadCard, hasFile && { borderColor: '#10b981' }]} onPress={extracting ? null : pickDocument}>
+                <TouchableOpacity style={[styles.uploadCard, hasFile && { borderColor: '#10b981' }]} onPress={() => extracting ? null : pickDocument()}>
                     {extracting ? <ActivityIndicator color="#3b82f6" /> : <UploadCloud size={24} color={hasFile ? "#10b981" : "#3b82f6"} />}
                     <View style={{ marginLeft: 15 }}>
                         <Text style={styles.uploadTitle}>{extracting ? "Procesando..." : hasFile ? "CV Cargado" : "Subir PDF"}</Text>
@@ -390,8 +393,8 @@ export default function ProfileScreen() {
                             setSecretCount(prev => {
                                 const newCount = prev + 1;
                                 if (newCount >= 5) {
-                                    if (auth.currentUser?.email === 'test+1@gmail.com' || auth.currentUser?.email === 'oscar@veritlyapp.com') {
-                                        router.push('/admin/dashboard');
+                                    if (auth.currentUser?.email === 'oscarqv88@gmail.com') {
+                                        router.push('/(tabs)/admin_config');
                                         return 0;
                                     } else {
                                         Alert.alert("Acceso Denegado", "No tienes permisos de Super Admin.");

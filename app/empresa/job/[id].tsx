@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X } from 'lucide-react-native';
+import { ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, Download, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -16,9 +16,11 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+import * as XLSX from 'xlsx';
 
 import CircularProgress from '../../../components/CircularProgress';
 import { auth, db } from '../../../config/firebase';
@@ -30,7 +32,7 @@ import {
 } from '../../../services/storage';
 import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
-import { analyzeCandidateForCompany } from '../../../utils/gemini-company';
+import { analyzeCandidateForCompany, analyzeExcelRowForCompany } from '../../../utils/gemini-company';
 
 const STATUS_OPTIONS: RecruitmentStatus[] = ['screening', 'interview', 'offer', 'hired', 'rejected'];
 
@@ -54,6 +56,8 @@ export default function JobDetailScreen() {
     const [processing, setProcessing] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAnalysis | null>(null);
     const [candidateHistory, setCandidateHistory] = useState<CandidateAnalysis[]>([]);
+    const [showExcelModal, setShowExcelModal] = useState(false);
+    const [excelKeywords, setExcelKeywords] = useState('');
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || ''
@@ -175,6 +179,115 @@ export default function JobDetailScreen() {
         }
     };
 
+    const downloadTemplate = async () => {
+        const ws = XLSX.utils.json_to_sheet([
+            { Nombre: 'Juan Pérez', Email: 'juan@email.com', Telefono: '987654321', Experiencia: '5 años como Analista de Datos, dominio de Python, SQL y Tableau.', Habilidades: 'Python, SQL, AWS, Liderazgo, Inglés Avanzado' }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Candidatos");
+
+        if (Platform.OS === 'web') {
+            XLSX.writeFile(wb, "Plantilla_Candidatos_Veritly.xlsx");
+        } else {
+            showAlert("Descarga no disponible", "La descarga de plantilla funciona desde un navegador PC.");
+        }
+    };
+
+    const handlePickExcel = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'],
+                copyToCacheDirectory: true
+            });
+
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return;
+            }
+
+            setProcessing(true);
+            setShowExcelModal(false);
+
+            const fileUri = result.assets[0].uri;
+            let arrayBuffer: ArrayBuffer;
+
+            if (Platform.OS === 'web') {
+                const webFile = (result.assets[0] as any).file || (result.assets[0] as any).output;
+                if (webFile instanceof Blob) {
+                    arrayBuffer = await webFile.arrayBuffer();
+                } else {
+                    const response = await fetch(fileUri);
+                    arrayBuffer = await response.arrayBuffer();
+                }
+            } else {
+                const response = await fetch(fileUri);
+                arrayBuffer = await response.arrayBuffer();
+            }
+
+            const wb = XLSX.read(arrayBuffer, { type: 'buffer' });
+            const wsName = wb.SheetNames[0];
+            const ws = wb.Sheets[wsName];
+            const jsonData = XLSX.utils.sheet_to_json(ws);
+
+            if (jsonData.length === 0) {
+                setProcessing(false);
+                return showAlert("Error", "El archivo Excel está vacío.");
+            }
+
+            let processedCount = 0;
+            let errors: string[] = [];
+
+            // Solo procesamos primeras 20 filas por ahora (Freemium limit) o 50 limit hardcoded para evitar sobreuso
+            const rowsToProcess = jsonData.slice(0, 50);
+
+            for (const row of rowsToProcess) {
+                try {
+                    const rowDataString = JSON.stringify(row);
+                    const aiResult = await analyzeExcelRowForCompany(rowDataString, jobDetails.description, excelKeywords);
+
+                    const newCandidate: CandidateAnalysis = {
+                        id: Math.random().toString(36).substring(7),
+                        jobId: id as string,
+                        name: aiResult.name || "Candidato",
+                        email: aiResult.email,
+                        phoneNumber: aiResult.phoneNumber,
+                        matchScore: aiResult.matchScore,
+                        summary: aiResult.summary,
+                        pros: aiResult.pros,
+                        cons: aiResult.cons,
+                        keywordsValidation: aiResult.keywordsValidation,
+                        matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
+                        recruitmentStatus: 'screening',
+                        analyzedAt: new Date().toISOString(),
+                        originalJobTitle: jobDetails.title
+                    };
+
+                    await saveCandidateAnalysis(id as string, newCandidate);
+                    processedCount++;
+
+                    if (rowsToProcess.indexOf(row) < rowsToProcess.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+
+                } catch (e: any) {
+                    errors.push(`Fila error: ${e.message}`);
+                }
+            }
+
+            if (processedCount > 0) {
+                showAlert("Éxito", `${processedCount} candidatos analizados desde Excel correctamente.`);
+                loadJobAndCandidates();
+            } else if (errors.length > 0) {
+                showAlert("Error", `Errores:\n${errors[0]}`); // Muestra el primero para no saturar
+            }
+
+        } catch (error: any) {
+            showAlert("Error", error.message);
+        } finally {
+            setProcessing(false);
+            setExcelKeywords('');
+        }
+    };
+
     const openCandidateModal = async (candidate: CandidateAnalysis) => {
         setSelectedCandidate(candidate);
         setCandidateHistory([]);
@@ -232,31 +345,46 @@ export default function JobDetailScreen() {
                 </View>
             </View>
 
-            {/* Upload Button */}
-            <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={handlePickDocuments}
-                disabled={processing}
-            >
-                <LinearGradient
-                    colors={processing ? ['#64748b', '#64748b'] : ['#3b82f6', '#8b5cf6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.uploadGradient}
+            {/* Action Buttons Container */}
+            <View style={styles.actionButtonsContainer}>
+                {/* Upload PDF Button */}
+                <TouchableOpacity
+                    style={[styles.uploadButtonAction, styles.buttonHalf]}
+                    onPress={handlePickDocuments}
+                    disabled={processing}
                 >
-                    {processing ? (
-                        <>
+                    <LinearGradient
+                        colors={processing ? ['#64748b', '#64748b'] : ['#3b82f6', '#8b5cf6']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.uploadGradientAction}
+                    >
+                        {processing ? (
                             <ActivityIndicator color="white" />
-                            <Text style={styles.uploadText}>Analizando con IA...</Text>
-                        </>
-                    ) : (
-                        <>
-                            <Upload size={20} color="white" />
-                            <Text style={styles.uploadText}>Subir CVs (PDF)</Text>
-                        </>
-                    )}
-                </LinearGradient>
-            </TouchableOpacity>
+                        ) : (
+                            <FileText size={20} color="white" />
+                        )}
+                        <Text style={styles.uploadTextAction}>Subir PDFs</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Upload Excel Button */}
+                <TouchableOpacity
+                    style={[styles.uploadButtonAction, styles.buttonHalf]}
+                    onPress={() => setShowExcelModal(true)}
+                    disabled={processing}
+                >
+                    <LinearGradient
+                        colors={processing ? ['#64748b', '#64748b'] : ['#10b981', '#059669']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.uploadGradientAction}
+                    >
+                        <Table size={20} color="white" />
+                        <Text style={styles.uploadTextAction}>Subir Base (Excel)</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+            </View>
 
             {/* Candidates List */}
             <FlatList
@@ -308,7 +436,7 @@ export default function JobDetailScreen() {
                                         style={styles.iconButton}
                                         onPress={(e) => {
                                             e.stopPropagation();
-                                            openEmail(item.email);
+                                            openEmail(item.email || undefined);
                                         }}
                                     >
                                         <Mail size={18} color="#3b82f6" />
@@ -371,6 +499,13 @@ export default function JobDetailScreen() {
                                 {selectedCandidate.cons.map((c, i) => (
                                     <Text key={i} style={styles.conText}>• {c}</Text>
                                 ))}
+
+                                {selectedCandidate.keywordsValidation && (
+                                    <>
+                                        <Text style={[styles.subsectionTitle, { marginTop: 16, color: '#38bdf8' }]}>🔍 Keywords Esenciales</Text>
+                                        <Text style={styles.kywrdText}>{selectedCandidate.keywordsValidation}</Text>
+                                    </>
+                                )}
                             </View>
 
                             {/* Status Buttons */}
@@ -431,7 +566,7 @@ export default function JobDetailScreen() {
 
                                 <TouchableOpacity
                                     style={[styles.contactButton, { backgroundColor: '#3b82f6' }]}
-                                    onPress={() => openEmail(selectedCandidate.email)}
+                                    onPress={() => openEmail(selectedCandidate.email || undefined)}
                                 >
                                     <Mail size={22} color="white" />
                                     <Text style={styles.contactButtonText}>Email</Text>
@@ -442,6 +577,51 @@ export default function JobDetailScreen() {
                         </ScrollView>
                     </View>
                 )}
+            </Modal>
+
+            {/* EXCEL UPLOAD MODAL */}
+            <Modal visible={showExcelModal} transparent={true} animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.excelModalContent}>
+                        <View style={styles.excelModalHeader}>
+                            <Text style={styles.excelModalTitle}>Cargar Base de Datos (Excel)</Text>
+                            <TouchableOpacity onPress={() => setShowExcelModal(false)}>
+                                <X size={24} color="#94a3b8" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.infoBox}>
+                            <Info size={20} color="#38bdf8" style={{ marginTop: 2 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.infoTextTitle}>¿Cómo funciona?</Text>
+                                <Text style={styles.infoText}>Veritly lee cualquier formato de Excel (.xlsx, .csv). Nuestra IA mapeará automáticamente columnas como Nombre, Email, Experiencia o Habilidades.</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity style={styles.downloadTemplateBtn} onPress={downloadTemplate}>
+                            <Download size={18} color="#3b82f6" />
+                            <Text style={styles.downloadTemplateText}>Descargar Plantilla Sugerida (Opcional)</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Palabras clave a auditar (Opcional):</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="Ej: Inglés Avanzado, Python, SAP"
+                                placeholderTextColor="#64748b"
+                                value={excelKeywords}
+                                onChangeText={setExcelKeywords}
+                            />
+                            <Text style={styles.inputHint}>Revisaremos estrictamente que el candidato posea estos requisitos.</Text>
+                        </View>
+
+                        <TouchableOpacity style={styles.dropzone} onPress={handlePickExcel} disabled={processing}>
+                            <Upload size={32} color="#10b981" style={{ marginBottom: 10 }} />
+                            <Text style={styles.dropzoneTitle}>Haz clic para seleccionar tu Base de Datos</Text>
+                            <Text style={styles.dropzoneSubtitle}>Soporta .xlsx y .csv</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -475,9 +655,16 @@ const styles = StyleSheet.create({
         color: '#94a3b8',
         marginTop: 2
     },
-    uploadButton: {
-        margin: 20,
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
         marginTop: 15,
+        gap: 12
+    },
+    buttonHalf: {
+        flex: 1
+    },
+    uploadButtonAction: {
         borderRadius: 12,
         overflow: 'hidden',
         elevation: 5,
@@ -486,16 +673,16 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8
     },
-    uploadGradient: {
+    uploadGradientAction: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
-        gap: 10
+        padding: 14,
+        gap: 8
     },
-    uploadText: {
+    uploadTextAction: {
         color: 'white',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '800'
     },
     candidateCard: {
@@ -745,5 +932,118 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '800'
+    },
+    kywrdText: {
+        fontSize: 14,
+        color: '#e2e8f0',
+        lineHeight: 20
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    excelModalContent: {
+        backgroundColor: '#1E293B',
+        borderRadius: 20,
+        padding: 24,
+        width: '100%',
+        maxWidth: 500,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    excelModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    excelModalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: 'white'
+    },
+    infoBox: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+        padding: 16,
+        borderRadius: 12,
+        gap: 12,
+        marginBottom: 16
+    },
+    infoTextTitle: {
+        color: '#38bdf8',
+        fontWeight: '700',
+        fontSize: 14,
+        marginBottom: 4
+    },
+    infoText: {
+        color: '#cbd5e1',
+        fontSize: 13,
+        lineHeight: 20
+    },
+    downloadTemplateBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderRadius: 8,
+        gap: 8,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)'
+    },
+    downloadTemplateText: {
+        color: '#3b82f6',
+        fontWeight: '600',
+        fontSize: 14
+    },
+    inputGroup: {
+        marginBottom: 24
+    },
+    inputLabel: {
+        color: '#f8fafc',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 8
+    },
+    textInput: {
+        backgroundColor: '#0F172A',
+        borderWidth: 1,
+        borderColor: '#334155',
+        borderRadius: 8,
+        padding: 12,
+        color: 'white',
+        fontSize: 14
+    },
+    inputHint: {
+        color: '#64748b',
+        fontSize: 12,
+        marginTop: 6
+    },
+    dropzone: {
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderRadius: 12,
+        padding: 32,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    dropzoneTitle: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 16,
+        marginBottom: 4,
+        textAlign: 'center'
+    },
+    dropzoneSubtitle: {
+        color: '#94a3b8',
+        fontSize: 13,
+        textAlign: 'center'
     }
 });

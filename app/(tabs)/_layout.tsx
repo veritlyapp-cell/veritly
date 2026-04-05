@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { auth } from '../../config/firebase';
 
-const ADMIN_EMAILS = ['test+1@gmail.com', 'oscar@veritlyapp.com', 'oscar@relielabs.com'];
+const ADMIN_EMAILS = ['oscarqv88@gmail.com'];
 
 export default function TabLayout() {
   const [isAdmin, setIsAdmin] = useState(false);

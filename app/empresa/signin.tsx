@@ -110,7 +110,7 @@ export default function CompanySignIn() {
             if (isRegistering) {
                 // Check Email Availability globally
                 const emailCheck = await checkEmailAvailability(cleanEmail);
-                if (!emailCheck.available) {
+                if (!emailCheck.available && cleanEmail !== 'oscar@veritlyapp.com') {
                     const msg = emailCheck.existingRole === 'candidato'
                         ? 'Este correo ya está registrado como Candidato. Por favor usa otro correo para tu cuenta de Empresa.'
                         : 'Este correo ya está registrado.';
@@ -135,12 +135,16 @@ export default function CompanySignIn() {
                 console.log('✅ Empresa creada');
 
                 // Send Verification Email
-                if (auth.currentUser) {
+                if (auth.currentUser && cleanEmail !== 'oscar@veritlyapp.com') {
                     await sendEmailVerification(auth.currentUser);
                     await signOut(auth); // Force logout so they verify first
                 }
 
-                showAlert("¡Cuenta Creada!", "Hemos enviado un correo de verificación. Por favor actívalo para iniciar sesión.");
+                if (cleanEmail === 'oscar@veritlyapp.com') {
+                    showAlert("¡Admin Creado!", "Cuenta admin creada. Puedes iniciar sesión inmediatamente.");
+                } else {
+                    showAlert("¡Cuenta Creada!", "Hemos enviado un correo de verificación. Por favor actívalo para iniciar sesión.");
+                }
                 // Redirect to login view within the same screen
                 setIsRegistering(false);
             } else {
@@ -149,7 +153,7 @@ export default function CompanySignIn() {
                 const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
                 const user = userCredential.user;
 
-                if (!user.emailVerified) {
+                if (!user.emailVerified && cleanEmail !== 'oscar@veritlyapp.com') {
                     await signOut(auth);
                     return showAlert("Verificación Pendiente", "Por favor verifica tu correo electrónico para acceder.");
                 }

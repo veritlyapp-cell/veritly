@@ -5,7 +5,7 @@ import React from 'react';
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
-const HeroLaptop = require('../assets/images/hero_veritly_v2.png');
+const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
 
 // Veritly brand colors
 const VERITLY_CYAN = '#38bdf8';

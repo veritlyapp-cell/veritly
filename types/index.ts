@@ -71,6 +71,7 @@ export interface CandidateAnalysis {
   summary: string;        // Resumen corto
   pros: string[];
   cons: string[];
+  keywordsValidation?: string; // Validación de keywords esenciales
   reasoning?: string;     // Explicación técnica extra
 
   // Archivo
