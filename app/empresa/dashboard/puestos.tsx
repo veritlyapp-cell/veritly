@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -169,6 +170,17 @@ export default function CompanyJobs() {
                 </TouchableOpacity>
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {item.isExternal && (
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={async () => {
+                                await setStringAsync(`https://veritlyapp.com/vacante/${item.id}`);
+                                Alert.alert("¡Enlace copiado!", "Comparte este enlace para recibir postulaciones.");
+                            }}
+                        >
+                            <LinkIcon color="#3b82f6" size={20} />
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         style={styles.iconButton}
                         onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}

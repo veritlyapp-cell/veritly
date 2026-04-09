@@ -1,8 +1,13 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, Download, Info } from 'lucide-react-native';
+import { doc, getDoc, writeBatch, collection } from 'firebase/firestore';
+import { 
+    ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, 
+    Download, Info, LayoutTemplate, List, CheckCircle2, Trash2, 
+    ChevronRight, MoreVertical, CheckSquare, Square, UserX, Clock
+} from 'lucide-react-native';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -23,7 +28,7 @@ import {
 import * as XLSX from 'xlsx';
 
 import CircularProgress from '../../../components/CircularProgress';
-import { auth, db } from '../../../config/firebase';
+import { auth, db, storage } from '../../../config/firebase';
 import {
     getCandidateHistoryForCompany,
     getJobCandidates,
@@ -34,7 +39,19 @@ import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany } from '../../../utils/gemini-company';
 
-const STATUS_OPTIONS: RecruitmentStatus[] = ['screening', 'interview', 'offer', 'hired', 'rejected'];
+const STATUS_OPTIONS: RecruitmentStatus[] = ['new', 'pending_ai', 'screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'];
+
+const STATUS_LABELS: Record<string, string> = {
+    new: 'NUEVO',
+    pending_ai: 'PENDIENTE IA',
+    screening: 'SCREENING',
+    interview: 'ENTREVISTA',
+    offer: 'OFERTA',
+    hired: 'CONTRATADO',
+    rejected: 'DESCARTADO',
+    rejected_salary: 'DESC. SALARIAL',
+    stored: 'ARCHIVADO',
+};
 
 const getStatusColor = (status: RecruitmentStatus) => {
     switch (status) {
@@ -43,6 +60,9 @@ const getStatusColor = (status: RecruitmentStatus) => {
         case 'interview': return '#f59e0b';
         case 'screening': return '#94a3b8';
         case 'rejected': return '#ef4444';
+        case 'rejected_salary': return '#f97316';
+        case 'pending_ai': return '#8b5cf6';
+        case 'new': return '#38bdf8';
         default: return '#64748b';
     }
 };
@@ -51,16 +71,23 @@ export default function JobDetailScreen() {
     const { id, title, description } = useLocalSearchParams();
     const router = useRouter();
 
+    const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
+    const [activeTab, setActiveTab] = useState<'ranking' | 'pipeline'>('ranking');
     const [candidates, setCandidates] = useState<CandidateAnalysis[]>([]);
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [processingStatus, setProcessingStatus] = useState('');
+    const [selectedCVs, setSelectedCVs] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAnalysis | null>(null);
     const [candidateHistory, setCandidateHistory] = useState<CandidateAnalysis[]>([]);
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [excelKeywords, setExcelKeywords] = useState('');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
-        description: description as string || ''
+        description: description as string || '',
+        companyId: ''
     });
 
     useEffect(() => {
@@ -76,7 +103,8 @@ export default function JobDetailScreen() {
                     const data = jobDoc.data();
                     setJobDetails({
                         title: data.jobTitle || 'Vacante',
-                        description: data.optimizedText || data.originalText || ''
+                        description: data.optimizedText || data.originalText || '',
+                        companyId: data.companyId || ''
                     });
                 } else {
                     showAlert("Error", "No se encontró la información del puesto.");
@@ -93,16 +121,15 @@ export default function JobDetailScreen() {
         }
     };
 
-    const showAlert = (title: string, msg: string) => {
+    const showAlert = (title: string, message: string) => {
         if (Platform.OS === 'web') {
-            window.alert(`${title}: ${msg}`);
+            alert(`${title}: ${message}`);
         } else {
-            Alert.alert(title, msg);
+            Alert.alert(title, message);
         }
     };
 
-    const handlePickDocuments = async () => {
-        setProcessing(true);
+    const handleSelectCVs = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'],
@@ -111,28 +138,55 @@ export default function JobDetailScreen() {
             });
 
             if (result.canceled || !result.assets || result.assets.length === 0) {
-                setProcessing(false);
                 return;
             }
 
-            const filesToProcess = result.assets.slice(0, 10);
+            setSelectedCVs(result.assets);
+        } catch (error) {
+            console.error("Error seleccionando CVs", error);
+        }
+    };
+
+    const handleAnalyzeCVs = async () => {
+        if (selectedCVs.length === 0) return;
+        setProcessing(true);
+        try {
+            const filesToProcess = selectedCVs.slice(0, 10);
             let processedCount = 0;
             let errors: string[] = [];
 
-            for (const file of filesToProcess) {
+            for (let i = 0; i < filesToProcess.length; i++) {
+                const file = filesToProcess[i];
+                setProcessingStatus(`Analizando CV ${i + 1} de ${filesToProcess.length}...`);
                 try {
                     let webFile;
                     if (Platform.OS === 'web') {
                         webFile = (file as any).file || (file as any).output;
                     }
 
-                    // Extraer mimeType como string
                     const mimeType = typeof file.mimeType === 'string' ? file.mimeType : 'application/pdf';
-
                     const text = await extractTextFromDocument(file.uri, mimeType, webFile);
 
                     if (!text || text.length < 50) {
                         throw new Error("Texto insuficiente extraído");
+                    }
+
+                    let uploadedUrl = null;
+                    const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                    const fileRef = ref(storage, `cvs_realease/${jobDetails.companyId || 'anon'}/${id}/${Date.now()}_${safeFileName}`);
+                    
+                    try {
+                        let blob;
+                        if (Platform.OS === 'web' && webFile) {
+                            blob = webFile;
+                        } else {
+                            const resp = await fetch(file.uri);
+                            blob = await resp.blob();
+                        }
+                        await uploadBytes(fileRef, blob);
+                        uploadedUrl = await getDownloadURL(fileRef);
+                    } catch (uploadErr) {
+                        console.error("Storage error:", uploadErr);
                     }
 
                     const aiResult = await analyzeCandidateForCompany(text, jobDetails.description);
@@ -140,7 +194,7 @@ export default function JobDetailScreen() {
                     const newCandidate: CandidateAnalysis = {
                         id: Math.random().toString(36).substring(7),
                         jobId: id as string,
-                        name: aiResult.name || "Candidato",
+                        name: aiResult.name || file.name.split('.')[0] || "Candidato",
                         email: aiResult.email,
                         phoneNumber: aiResult.phoneNumber,
                         matchScore: aiResult.matchScore,
@@ -148,36 +202,38 @@ export default function JobDetailScreen() {
                         pros: aiResult.pros,
                         cons: aiResult.cons,
                         matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
-                        recruitmentStatus: 'screening',
+                        recruitmentStatus: 'new',
                         analyzedAt: new Date().toISOString(),
-                        originalJobTitle: jobDetails.title
+                        originalJobTitle: jobDetails.title,
+                        originalFileUrl: uploadedUrl || undefined
                     };
 
                     await saveCandidateAnalysis(id as string, newCandidate);
                     processedCount++;
 
-                    if (filesToProcess.indexOf(file) < filesToProcess.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (i < filesToProcess.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
-
                 } catch (e: any) {
                     errors.push(`${file.name}: ${e.message}`);
                 }
             }
 
             if (processedCount > 0) {
-                showAlert("Éxito", `${processedCount} archivos analizados correctamente.`);
-                loadJobAndCandidates();
+                showAlert("Análisis Completado", `${processedCount} candidatos analizados correctamente y añadidos al Ranking.`);
+                setSelectedCVs([]);
+                await loadJobAndCandidates();
             } else if (errors.length > 0) {
-                showAlert("Error", `Errores:\n${errors.join('\n')}`);
+                showAlert("Errores en el proceso", `No se pudo analizar ningun archivo:\n${errors.join('\n')}`);
             }
-
         } catch (error: any) {
-            showAlert("Error", error.message);
+            showAlert("Error fatal", error.message);
         } finally {
             setProcessing(false);
+            setProcessingStatus('');
         }
     };
+
 
     const downloadTemplate = async () => {
         const ws = XLSX.utils.json_to_sheet([
@@ -200,9 +256,7 @@ export default function JobDetailScreen() {
                 copyToCacheDirectory: true
             });
 
-            if (result.canceled || !result.assets || result.assets.length === 0) {
-                return;
-            }
+            if (result.canceled || !result.assets || result.assets.length === 0) return;
 
             setProcessing(true);
             setShowExcelModal(false);
@@ -212,12 +266,7 @@ export default function JobDetailScreen() {
 
             if (Platform.OS === 'web') {
                 const webFile = (result.assets[0] as any).file || (result.assets[0] as any).output;
-                if (webFile instanceof Blob) {
-                    arrayBuffer = await webFile.arrayBuffer();
-                } else {
-                    const response = await fetch(fileUri);
-                    arrayBuffer = await response.arrayBuffer();
-                }
+                arrayBuffer = await (webFile instanceof Blob ? webFile.arrayBuffer() : fetch(fileUri).then(r => r.arrayBuffer()));
             } else {
                 const response = await fetch(fileUri);
                 arrayBuffer = await response.arrayBuffer();
@@ -235,8 +284,6 @@ export default function JobDetailScreen() {
 
             let processedCount = 0;
             let errors: string[] = [];
-
-            // Solo procesamos primeras 20 filas por ahora (Freemium limit) o 50 limit hardcoded para evitar sobreuso
             const rowsToProcess = jsonData.slice(0, 50);
 
             for (const row of rowsToProcess) {
@@ -267,7 +314,6 @@ export default function JobDetailScreen() {
                     if (rowsToProcess.indexOf(row) < rowsToProcess.length - 1) {
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     }
-
                 } catch (e: any) {
                     errors.push(`Fila error: ${e.message}`);
                 }
@@ -277,9 +323,8 @@ export default function JobDetailScreen() {
                 showAlert("Éxito", `${processedCount} candidatos analizados desde Excel correctamente.`);
                 loadJobAndCandidates();
             } else if (errors.length > 0) {
-                showAlert("Error", `Errores:\n${errors[0]}`); // Muestra el primero para no saturar
+                showAlert("Error", `Errores:\n${errors[0]}`);
             }
-
         } catch (error: any) {
             showAlert("Error", error.message);
         } finally {
@@ -288,45 +333,123 @@ export default function JobDetailScreen() {
         }
     };
 
+    const toggleSelection = (candidateId: string) => {
+        setIsSelectionMode(true);
+        setSelectedIds(prev => 
+            prev.includes(candidateId) 
+                ? prev.filter(cid => cid !== candidateId) 
+                : [...prev, candidateId]
+        );
+    };
+
+    const handleRankToPipeline = async () => {
+        if (selectedIds.length === 0) return;
+        setLoading(true);
+        try {
+            const batch = writeBatch(db);
+            selectedIds.forEach(cid => {
+                const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
+                batch.update(docRef, { recruitmentStatus: 'screening' });
+            });
+            await batch.commit();
+
+            setCandidates(prev => prev.map(c => 
+                selectedIds.includes(c.id) ? { ...c, recruitmentStatus: 'screening' } : c
+            ));
+            setSelectedIds([]);
+            setIsSelectionMode(false);
+            showAlert("Éxito", `${selectedIds.length} candidatos movidos al Pipeline.`);
+        } catch (err) {
+            console.error(err);
+            showAlert("Error", "No se pudieron mover los candidatos.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkMove = async (newStatus: RecruitmentStatus) => {
+        if (selectedIds.length === 0) return;
+        setLoading(true);
+        try {
+            const batch = writeBatch(db);
+            selectedIds.forEach(cid => {
+                const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
+                batch.update(docRef, { recruitmentStatus: newStatus });
+            });
+            await batch.commit();
+
+            setCandidates(prev => prev.map(c => 
+                selectedIds.includes(c.id) ? { ...c, recruitmentStatus: newStatus } : c
+            ));
+            setSelectedIds([]);
+            if (selectedIds.length <= 1) setIsSelectionMode(false);
+            showAlert("Éxito", `${selectedIds.length} candidatos movidos.`);
+        } catch (err) {
+            console.error(err);
+            showAlert("Error", "No se pudieron mover los candidatos.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleQuickDiscard = async (candidateId: string) => {
+        try {
+            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, recruitmentStatus: 'rejected' } : c));
+            await updateCandidateStatus(id as string, candidateId, 'rejected');
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const openCandidateModal = async (candidate: CandidateAnalysis) => {
         setSelectedCandidate(candidate);
         setCandidateHistory([]);
 
         if (candidate.email && auth.currentUser) {
-            const history = await getCandidateHistoryForCompany(auth.currentUser.uid, candidate.email, id as string);
-            setCandidateHistory(history);
+            try {
+                const history = await getCandidateHistoryForCompany(auth.currentUser.uid, candidate.email, id as string);
+                setCandidateHistory(history);
+            } catch (err) {
+                console.error("Error loading candidate history:", err);
+            }
         }
     };
 
     const handleStatusChange = async (newStatus: RecruitmentStatus) => {
         if (!selectedCandidate) return;
-
         setSelectedCandidate({ ...selectedCandidate, recruitmentStatus: newStatus });
         await updateCandidateStatus(id as string, selectedCandidate.id, newStatus);
         setCandidates(prev => prev.map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
     };
 
-    const openWhatsApp = (phone?: string) => {
-        if (!phone) {
-            return showAlert("Sin teléfono", "La IA no detectó un número en el CV.");
-        }
-        const cleanPhone = phone.replace(/[^\d]/g, '');
-        const whatsappUrl = `https://wa.me/${cleanPhone}`;
-
-        if (Platform.OS === 'web') {
-            window.open(whatsappUrl, '_blank');
-        } else {
-            Linking.openURL(whatsappUrl).catch(() =>
-                showAlert("Error", "No se pudo abrir WhatsApp")
-            );
+    const viewCandidateCV = async (cvUrl?: string) => {
+        if (!cvUrl) return showAlert("Sin CV", "Este candidato no tiene un currículum adjunto.");
+        try {
+            if (Platform.OS === 'web') {
+                window.open(cvUrl, '_blank');
+            } else {
+                await Linking.openURL(cvUrl);
+            }
+        } catch (err) {
+            console.error(err);
+            showAlert("Error", "No se pudo abrir el currículum.");
         }
     };
 
     const openEmail = (email?: string) => {
-        if (!email) {
-            return showAlert("Sin email", "No hay email disponible.");
-        }
+        if (!email) return showAlert("Sin email", "No hay email disponible.");
         Linking.openURL(`mailto:${email}`);
+    };
+
+    const openWhatsApp = (phone?: string) => {
+        if (!phone) return showAlert("Sin teléfono", "No hay teléfono disponible.");
+        const cleanPhone = phone.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/${cleanPhone}`;
+        if (Platform.OS === 'web') {
+            window.open(whatsappUrl, '_blank');
+        } else {
+            Linking.openURL(whatsappUrl);
+        }
     };
 
     return (
@@ -335,127 +458,375 @@ export default function JobDetailScreen() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="white" />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.headerTitle}>{jobDetails.title || 'Candidatos'}</Text>
-                    <Text style={styles.headerSubtitle}>{candidates.length} análisis realizados</Text>
-                    <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>* El Score de IA puede variar +/- 5%</Text>
-                </View>
-            </View>
-
-            {/* Action Buttons Container */}
-            <View style={styles.actionButtonsContainer}>
-                {/* Upload PDF Button */}
-                <TouchableOpacity
-                    style={[styles.uploadButtonAction, styles.buttonHalf]}
-                    onPress={handlePickDocuments}
-                    disabled={processing}
-                >
-                    <LinearGradient
-                        colors={processing ? ['#64748b', '#64748b'] : ['#3b82f6', '#8b5cf6']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.uploadGradientAction}
-                    >
-                        {processing ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <FileText size={20} color="white" />
-                        )}
-                        <Text style={styles.uploadTextAction}>Subir PDFs</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-
-                {/* Upload Excel Button */}
-                <TouchableOpacity
-                    style={[styles.uploadButtonAction, styles.buttonHalf]}
-                    onPress={() => setShowExcelModal(true)}
-                    disabled={processing}
-                >
-                    <LinearGradient
-                        colors={processing ? ['#64748b', '#64748b'] : ['#10b981', '#059669']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.uploadGradientAction}
-                    >
-                        <Table size={20} color="white" />
-                        <Text style={styles.uploadTextAction}>Subir Base (Excel)</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-
-            {/* Candidates List */}
-            <FlatList
-                data={candidates}
-                keyExtractor={item => item.id}
-                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.candidateCard}
-                        onPress={() => openCandidateModal(item)}
-                    >
-                        <View style={styles.cardContent}>
-                            {/* Left: Circular Progress */}
-                            <View style={styles.progressContainer}>
-                                <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
-                            </View>
-
-                            {/* Center: Info */}
-                            <View style={styles.cardInfo}>
-                                <Text style={styles.candidateName}>{item.name}</Text>
-                                <Text style={styles.candidateDate}>
-                                    {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
-                                        day: 'numeric',
-                                        month: 'short'
-                                    })}
-                                </Text>
-                                <View style={[styles.statusPill, { backgroundColor: `${getStatusColor(item.recruitmentStatus)}20` }]}>
-                                    <Text style={[styles.statusPillText, { color: getStatusColor(item.recruitmentStatus) }]}>
-                                        {item.recruitmentStatus.toUpperCase()}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {/* Right: Quick Actions */}
-                            <View style={styles.quickActions}>
-                                {item.phoneNumber && (
-                                    <TouchableOpacity
-                                        style={styles.iconButton}
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            openWhatsApp(item.phoneNumber);
-                                        }}
-                                    >
-                                        <MessageSquare size={18} color="#10b981" />
-                                    </TouchableOpacity>
-                                )}
-                                {item.email && (
-                                    <TouchableOpacity
-                                        style={styles.iconButton}
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            openEmail(item.email || undefined);
-                                        }}
-                                    >
-                                        <Mail size={18} color="#3b82f6" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        </View>
+                {isSelectionMode ? (
+                    <TouchableOpacity onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }} style={styles.backButton}>
+                        <X size={24} color="white" />
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <ArrowLeft size={24} color="white" />
                     </TouchableOpacity>
                 )}
-                ListEmptyComponent={
-                    !loading ? (
-                        <View style={styles.emptyState}>
-                            <Upload size={48} color="#64748b" />
-                            <Text style={styles.emptyText}>No hay candidatos analizados</Text>
-                            <Text style={styles.emptySubtext}>Sube CVs para comenzar el análisis con IA</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.headerTitle}>
+                        {isSelectionMode ? `${selectedIds.length} seleccionados` : (jobDetails.title || 'Candidatos')}
+                    </Text>
+                    {!isSelectionMode && (
+                        <>
+                            <Text style={styles.headerSubtitle}>{candidates.length} análisis realizados</Text>
+                            <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>* El Score de IA puede variar +/- 5%</Text>
+                        </>
+                    )}
+                </View>
+                {/* Tabs & View Switching */}
+            <View style={styles.tabsContainer}>
+                <View style={styles.mainTabs}>
+                    <TouchableOpacity 
+                        style={[styles.mainTab, activeTab === 'ranking' && styles.mainTabActive]} 
+                        onPress={() => setActiveTab('ranking')}
+                    >
+                        <Sparkles size={20} color={activeTab === 'ranking' ? '#3b82f6' : '#64748b'} />
+                        <Text style={[styles.mainTabText, activeTab === 'ranking' && styles.mainTabTextActive]}>Ranking IA</Text>
+                        <View style={[styles.countBadge, activeTab === 'ranking' && { backgroundColor: '#3b82f6' }]}>
+                            <Text style={styles.countBadgeText}>{candidates.filter(c => c.recruitmentStatus === 'new').length}</Text>
                         </View>
-                    ) : null
-                }
-            />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.mainTab, activeTab === 'pipeline' && styles.mainTabActive]} 
+                        onPress={() => {
+                            setActiveTab('pipeline');
+                            if (viewMode === 'list') setViewMode('list');
+                        }}
+                    >
+                        <LayoutTemplate size={20} color={activeTab === 'pipeline' ? '#3b82f6' : '#64748b'} />
+                        <Text style={[styles.mainTabText, activeTab === 'pipeline' && styles.mainTabTextActive]}>Pipeline ATS</Text>
+                        <View style={[styles.countBadge, activeTab === 'pipeline' && { backgroundColor: '#10b981' }]}>
+                            <Text style={styles.countBadgeText}>{candidates.filter(c => c.recruitmentStatus !== 'new').length}</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                {activeTab === 'pipeline' && (
+                    <View style={styles.viewToggle}>
+                        <TouchableOpacity 
+                            onPress={() => setViewMode('list')}
+                            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+                        >
+                            <List size={20} color={viewMode === 'list' ? 'white' : '#64748b'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => setViewMode('kanban')}
+                            style={[styles.viewToggleBtn, viewMode === 'kanban' && styles.viewToggleBtnActive]}
+                        >
+                            <LayoutTemplate size={20} color={viewMode === 'kanban' ? 'white' : '#64748b'} />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+
+            {/* Quick Actions Bar (Ranking Context) */}
+            {activeTab === 'ranking' && (
+                <View style={styles.rankingActions}>
+                    {selectedCVs.length > 0 ? (
+                        <View style={{flexDirection: 'row', gap: 10, flex: 1}}>
+                            <TouchableOpacity 
+                                onPress={handleAnalyzeCVs} 
+                                disabled={processing}
+                                style={styles.rankingActionBtn}
+                            >
+                                <LinearGradient
+                                    colors={['#8b5cf6', '#7c3aed']}
+                                    style={styles.rankingActionGradient}
+                                >
+                                    <Sparkles size={18} color="white" />
+                                    <Text style={styles.rankingActionText}>Analizar {selectedCVs.length} CV{selectedCVs.length > 1 ? 's' : ''} con IA</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.rankingActionBtnSecondary, {flex: 0, paddingHorizontal: 15}]} onPress={() => setSelectedCVs([])}>
+                                <X size={20} color="#ef4444" />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <TouchableOpacity 
+                                onPress={handleSelectCVs} 
+                                disabled={processing}
+                                style={styles.rankingActionBtn}
+                            >
+                                <LinearGradient
+                                    colors={['#3b82f6', '#2563eb']}
+                                    style={styles.rankingActionGradient}
+                                >
+                                    <FileText size={18} color="white" />
+                                    <Text style={styles.rankingActionText}>Subir CVs (PDF/Word)</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                onPress={() => setShowExcelModal(true)}
+                                style={styles.rankingActionBtnSecondary}
+                            >
+                                <Table size={18} color="#3b82f6" />
+                                <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            )}
+         </View>
+
+            {/* View Switching */}
+            {activeTab === 'ranking' ? (
+                <FlatList
+                    data={candidates.filter(c => c.recruitmentStatus === 'new').sort((a, b) => b.matchScore - a.matchScore)}
+                    keyExtractor={item => item.id}
+                    renderItem={({ item }) => {
+                        const isSelected = selectedIds.includes(item.id);
+                        return (
+                            <TouchableOpacity
+                                style={[styles.candidateCard, isSelected && styles.candidateCardSelected]}
+                                onPress={() => (isSelectionMode ? toggleSelection(item.id) : openCandidateModal(item))}
+                                onLongPress={() => toggleSelection(item.id)}
+                            >
+                                <View style={styles.cardContent}>
+                                    {isSelectionMode && (
+                                        <View style={{ marginRight: 12 }}>
+                                            {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                        </View>
+                                    )}
+                                    <View style={styles.progressContainer}>
+                                        <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                    </View>
+
+                                    <View style={styles.cardInfo}>
+                                        <Text style={styles.candidateName}>{item.name}</Text>
+                                        <Text style={styles.candidateDate}>
+                                            {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
+                                                day: 'numeric',
+                                                month: 'short'
+                                            })}
+                                        </Text>
+                                        <View style={[styles.statusPill, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
+                                            <Text style={[styles.statusPillText, { color: '#38bdf8' }]}>
+                                                PENDIENTE REVISIÓN
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.quickActions}>
+                                        {!isSelectionMode && (
+                                            <>
+                                                <TouchableOpacity
+                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                                    onPress={(e) => {
+                                                        e.stopPropagation();
+                                                        handleQuickDiscard(item.id);
+                                                    }}
+                                                >
+                                                    <UserX size={18} color="#ef4444" />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={[styles.iconButton, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}
+                                                    onPress={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSelection(item.id);
+                                                    }}
+                                                >
+                                                    <CheckSquare size={18} color="#10b981" />
+                                                </TouchableOpacity>
+                                            </>
+                                        )}
+                                        <TouchableOpacity
+                                            style={styles.iconButton}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                openCandidateModal(item);
+                                            }}
+                                        >
+                                            <ChevronRight size={18} color="#94a3b8" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    }}
+                    ListEmptyComponent={
+                        !loading ? (
+                            <View style={styles.emptyState}>
+                                <Sparkles size={48} color="#64748b" />
+                                <Text style={styles.emptyText}>No hay candidatos en el Ranking</Text>
+                                <Text style={styles.emptySubtext}>Escanea CVs o sube un Excel para comenzar</Text>
+                            </View>
+                        ) : null
+                    }
+                    contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                />
+            ) : viewMode === 'list' ? (
+                <FlatList
+                    data={candidates.filter(c => c.recruitmentStatus !== 'new')}
+                    keyExtractor={item => item.id}
+                    renderItem={({ item }) => {
+                        const isSelected = selectedIds.includes(item.id);
+                        return (
+                            <TouchableOpacity
+                                style={[styles.candidateCard, isSelected && styles.candidateCardSelected]}
+                                onPress={() => (isSelectionMode ? toggleSelection(item.id) : openCandidateModal(item))}
+                                onLongPress={() => toggleSelection(item.id)}
+                            >
+                                <View style={styles.cardContent}>
+                                    {isSelectionMode && (
+                                        <View style={{ marginRight: 12 }}>
+                                            {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                        </View>
+                                    )}
+                                    <View style={styles.progressContainer}>
+                                        <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                    </View>
+
+                                    <View style={styles.cardInfo}>
+                                        <Text style={styles.candidateName}>{item.name}</Text>
+                                        <Text style={styles.candidateDate}>
+                                            {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
+                                                day: 'numeric',
+                                                month: 'short'
+                                            })}
+                                        </Text>
+                                        <View style={[styles.statusPill, { backgroundColor: `${getStatusColor(item.recruitmentStatus)}20` }]}>
+                                            <Text style={[styles.statusPillText, { color: getStatusColor(item.recruitmentStatus) }]}>
+                                                {item.recruitmentStatus.toUpperCase()}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.quickActions}>
+                                        {!isSelectionMode && (
+                                            <>
+                                                <TouchableOpacity
+                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                                    onPress={(e) => {
+                                                        e.stopPropagation();
+                                                        handleQuickDiscard(item.id);
+                                                    }}
+                                                >
+                                                    <UserX size={18} color="#ef4444" />
+                                                </TouchableOpacity>
+                                                {item.phoneNumber && (
+                                                    <TouchableOpacity
+                                                        style={styles.iconButton}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            openWhatsApp(item.phoneNumber);
+                                                        }}
+                                                    >
+                                                        <MessageSquare size={18} color="#10b981" />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </>
+                                        )}
+                                        <TouchableOpacity
+                                            style={styles.iconButton}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                openCandidateModal(item);
+                                            }}
+                                        >
+                                            <ChevronRight size={18} color="#94a3b8" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    }}
+                    ListEmptyComponent={
+                        !loading ? (
+                            <View style={styles.emptyState}>
+                                <LayoutTemplate size={48} color="#64748b" />
+                                <Text style={styles.emptyText}>Pipeline vacío</Text>
+                                <Text style={styles.emptySubtext}>Mueve candidatos desde el Ranking para comenzar</Text>
+                            </View>
+                        ) : null
+                    }
+                    contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                />
+            ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 20, gap: 15, paddingBottom: 40 }}>
+                    {STATUS_OPTIONS.filter(s => s !== 'new' && s !== 'pending_ai').map(status => {
+                        const columnCandidates = candidates.filter(c => c.recruitmentStatus === status);
+                        return (
+                            <View key={status} style={styles.kanbanColumn}>
+                                <View style={[styles.kanbanHeader, { borderTopColor: getStatusColor(status) }]}>
+                                    <Text style={styles.kanbanTitle}>{STATUS_LABELS[status] || status.toUpperCase()}</Text>
+                                    <View style={styles.kanbanBadge}>
+                                        <Text style={styles.kanbanBadgeText}>{columnCandidates.length}</Text>
+                                    </View>
+                                </View>
+                                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
+                                    {columnCandidates.map(candidate => (
+                                        <TouchableOpacity key={candidate.id} style={styles.kanbanCard} onPress={() => openCandidateModal(candidate)}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                <CircularProgress percentage={candidate.matchScore} size={40} strokeWidth={4} />
+                                                <View style={{ marginLeft: 10, flex: 1 }}>
+                                                    <Text style={styles.kanbanCardName} numberOfLines={1}>{candidate.name}</Text>
+                                                </View>
+                                            </View>
+                                            <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    {columnCandidates.length === 0 && (
+                                        <View style={styles.kanbanEmpty}>
+                                            <Text style={styles.kanbanEmptyText}>Arrastra o mueve{'\n'}candidatos aquí</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            </View>
+                        );
+                    })}
+                </ScrollView>
+            )}
+
+            {/* Bulk Actions Floating Bar */}
+            {isSelectionMode && selectedIds.length > 0 && (
+                <View style={styles.bulkBar}>
+                    <Text style={styles.bulkBarText}>{selectedIds.length} seleccionados</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {activeTab === 'ranking' ? (
+                            <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#10b981' }]} onPress={handleRankToPipeline}>
+                                <Sparkles size={16} color="white" />
+                                <Text style={styles.bulkBtnText}>Mover al Pipeline</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#ef4444' }]} onPress={() => handleBulkMove('rejected')}>
+                                    <UserX size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Descartar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#f59e0b' }]} onPress={() => handleBulkMove('interview')}>
+                                    <Clock size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Entrevista</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#10b981' }]} onPress={() => handleBulkMove('offer')}>
+                                    <CheckCircle2 size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Oferta</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#64748b' }]} onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }}>
+                            <X size={16} color="white" />
+                            <Text style={styles.bulkBtnText}>Cancelar</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            )}
+            {/* Loading/Processing Overlay */}
+            {processing && (
+                <View style={styles.processingOverlay}>
+                    <View style={styles.processingCard}>
+                        <ActivityIndicator size="large" color="#3b82f6" />
+                        <Text style={styles.processingTitle}>Procesando Candidatos</Text>
+                        <Text style={styles.processingText}>{processingStatus || 'Analizando con IA...'}</Text>
+                        <Text style={styles.processingWarning}>Por favor no cierres esta ventana</Text>
+                    </View>
+                </View>
+            )}
 
             {/* MODAL */}
             <Modal visible={!!selectedCandidate} animationType="slide" presentationStyle="pageSheet">
@@ -465,21 +836,26 @@ export default function JobDetailScreen() {
                         <ScrollView style={styles.modalContent}>
                             {/* Modal Header */}
                             <View style={styles.modalHeader}>
+                                <TouchableOpacity onPress={() => setSelectedCandidate(null)} style={styles.modalBackButton}>
+                                    <ArrowLeft size={24} color="white" />
+                                </TouchableOpacity>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.modalName}>{selectedCandidate.name}</Text>
                                     {selectedCandidate.email && (
                                         <Text style={styles.modalEmail}>{selectedCandidate.email}</Text>
                                     )}
                                 </View>
-                                <TouchableOpacity onPress={() => setSelectedCandidate(null)} style={styles.closeButton}>
-                                    <X size={28} color="white" />
-                                </TouchableOpacity>
+                                {selectedCandidate.matchScore !== undefined && (
+                                    <CircularProgress percentage={selectedCandidate.matchScore} size={50} strokeWidth={4} />
+                                )}
                             </View>
 
                             {/* Match Score Large */}
                             <View style={styles.matchSection}>
                                 <CircularProgress percentage={selectedCandidate.matchScore} size={140} strokeWidth={10} />
-                                <Text style={styles.matchLabel}>Coincidencia</Text>
+                                <Text style={styles.matchLabel}>
+                                    {selectedCandidate.matchScore === undefined ? 'Análisis Pendiente' : 'Coincidencia'}
+                                </Text>
                             </View>
 
                             {/* AI Analysis Card */}
@@ -526,7 +902,7 @@ export default function JobDetailScreen() {
                                             styles.statusButtonText,
                                             selectedCandidate.recruitmentStatus === status && styles.statusButtonTextActive
                                         ]}>
-                                            {status.toUpperCase()}
+                                            {STATUS_LABELS[status] || status.toUpperCase()}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
@@ -555,6 +931,27 @@ export default function JobDetailScreen() {
                             )}
 
                             {/* Contact Actions */}
+                            <View style={styles.cvSection}>
+                                <TouchableOpacity
+                                    style={styles.cvBigButton}
+                                    onPress={() => {
+                                        const url = selectedCandidate.originalFileUrl;
+                                        if (!url) return showAlert("CV no disponible", "Este candidato fue cargado vía Excel o el archivo no se guardó correctamente.");
+                                        if (Platform.OS === 'web') {
+                                            window.open(url, '_blank');
+                                        } else {
+                                            Linking.openURL(url);
+                                        }
+                                    }}
+                                >
+                                    <FileText size={40} color="white" />
+                                    <View>
+                                        <Text style={styles.cvBigTitle}>Ver Currículum Original</Text>
+                                        <Text style={styles.cvBigSub}>{selectedCandidate.originalFileUrl ? 'Haga clic para abrir el documento' : 'No disponible para este registro'}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+
                             <View style={styles.contactActions}>
                                 <TouchableOpacity
                                     style={styles.contactButton}
@@ -633,9 +1030,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#0F172A'
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
         paddingTop: Platform.OS === 'ios' ? 10 : 20,
         borderBottomWidth: 1,
         borderBottomColor: '#1e293b'
@@ -646,9 +1040,138 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
-        fontWeight: '900',
+        fontWeight: 'bold',
+        color: 'white'
+    },
+    tabsContainer: {
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1e293b',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#0F172A'
+    },
+    mainTabs: {
+        flexDirection: 'row',
+        gap: 20
+    },
+    mainTab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 10,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent'
+    },
+    mainTabActive: {
+        borderBottomColor: '#3b82f6'
+    },
+    mainTabText: {
+        color: '#64748b',
+        fontSize: 16,
+        fontWeight: '600'
+    },
+    mainTabTextActive: {
+        color: 'white'
+    },
+    countBadge: {
+        backgroundColor: '#1e293b',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 10,
+        minWidth: 20,
+        alignItems: 'center'
+    },
+    countBadgeText: {
         color: 'white',
-        letterSpacing: -0.5
+        fontSize: 12,
+        fontWeight: 'bold'
+    },
+    rankingActions: {
+        flexDirection: 'row',
+        padding: 20,
+        gap: 12,
+        alignItems: 'center'
+    },
+    rankingActionBtn: {
+        flex: 1
+    },
+    rankingActionGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        borderRadius: 12
+    },
+    rankingActionText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    rankingActionBtnSecondary: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.2)'
+    },
+    rankingActionTextSecondary: {
+        color: '#3b82f6',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    processingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(15, 23, 42, 0.8)',
+        zIndex: 9999,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    processingCard: {
+        backgroundColor: '#1E293B',
+        padding: 30,
+        borderRadius: 20,
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 320,
+        borderWidth: 1,
+        borderColor: '#334155',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        elevation: 10
+    },
+    processingTitle: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 15,
+        marginBottom: 8
+    },
+    processingText: {
+        color: '#38bdf8',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 15
+    },
+    processingWarning: {
+        color: '#64748b',
+        fontSize: 12,
+        textAlign: 'center'
+    },
+    filterContainer: {
+        paddingHorizontal: 20,
+        paddingVertical: 10
     },
     headerSubtitle: {
         fontSize: 13,
@@ -660,6 +1183,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginTop: 15,
         gap: 12
+    },
+    viewToggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+        borderRadius: 8,
+        padding: 4,
+        gap: 4
+    },
+    viewToggleButton: {
+        padding: 6,
+        borderRadius: 6
+    },
+    viewToggleButtonActive: {
+        backgroundColor: '#3b82f6'
     },
     buttonHalf: {
         flex: 1
@@ -692,6 +1229,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(100, 116, 139, 0.3)',
         overflow: 'hidden'
+    },
+    candidateCardSelected: {
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)'
     },
     cardContent: {
         flexDirection: 'row',
@@ -756,7 +1297,119 @@ const styles = StyleSheet.create({
     emptySubtext: {
         fontSize: 14,
         color: '#64748b',
-        marginTop: 8
+        textAlign: 'center'
+    },
+    kanbanColumn: {
+        width: 280,
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderRadius: 16,
+        padding: 12,
+        height: '100%',
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.2)'
+    },
+    kanbanHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingBottom: 12,
+        marginBottom: 12,
+        borderTopWidth: 3,
+        borderTopColor: '#3b82f6',
+        paddingTop: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(100, 116, 139, 0.2)'
+    },
+    kanbanTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: 'white'
+    },
+    kanbanBadge: {
+        backgroundColor: 'rgba(100, 116, 139, 0.3)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12
+    },
+    kanbanBadgeText: {
+        color: '#cbd5e1',
+        fontSize: 12,
+        fontWeight: 'bold'
+    },
+    kanbanCard: {
+        backgroundColor: '#1e293b',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        elevation: 2,
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4
+    },
+    kanbanCardName: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: 'white'
+    },
+    kanbanCardDate: {
+        fontSize: 11,
+        color: '#94a3b8',
+        marginTop: 4,
+        textAlign: 'right'
+    },
+    kanbanEmpty: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        borderRadius: 12,
+        height: 80
+    },
+    kanbanEmptyText: {
+        color: '#64748b',
+        fontSize: 12,
+        textAlign: 'center'
+    },
+    bulkBar: {
+        position: 'absolute',
+        bottom: 30,
+        left: 20,
+        right: 20,
+        backgroundColor: '#1E293B',
+        borderRadius: 20,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        borderWidth: 1,
+        borderColor: '#3b82f6'
+    },
+    bulkBarText: {
+        color: 'white',
+        fontWeight: '800',
+        marginRight: 15,
+        fontSize: 14
+    },
+    bulkBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        gap: 6
+    },
+    bulkBtnText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700'
     },
     modalContainer: {
         flex: 1,
@@ -772,6 +1425,10 @@ const styles = StyleSheet.create({
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
         borderBottomWidth: 1,
         borderBottomColor: '#1e293b'
+    },
+    modalBackButton: {
+        marginRight: 15,
+        padding: 5
     },
     modalName: {
         fontSize: 24,
@@ -907,11 +1564,35 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700'
     },
+    cvSection: {
+        paddingHorizontal: 20,
+        marginTop: 20
+    },
+    cvBigButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        gap: 15
+    },
+    cvBigTitle: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800'
+    },
+    cvBigSub: {
+        color: '#94a3b8',
+        fontSize: 12,
+        marginTop: 2
+    },
     contactActions: {
         flexDirection: 'row',
         gap: 12,
         margin: 20,
-        marginTop: 30
+        marginTop: 20
     },
     contactButton: {
         flex: 1,

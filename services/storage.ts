@@ -148,10 +148,48 @@ export const getJobCandidates = async (jobId: string) => {
         const q = query(collection(db, "jobs", jobId, "candidates"));
         const querySnapshot = await getDocs(q);
         const candidates: CandidateAnalysis[] = [];
-        querySnapshot.forEach((doc) => {
-            candidates.push(doc.data() as CandidateAnalysis);
+        querySnapshot.forEach((docSnap) => {
+            const raw = docSnap.data();
+
+            // Normalizar candidatos externos (desde formulario /vacante/[id])
+            const isSalaryRejected = raw.recruitmentStatus === 'rejected_salary' || raw.status === 'rejected_salary';
+            const isKillerRejected = raw.recruitmentStatus === 'rejected' && raw.failureReason?.includes('críticos');
+            const isExternalPending = raw.source === 'external_link';
+            
+            let summary = raw.summary || "";
+            if (isSalaryRejected) {
+                summary = `🚫 Descartado automáticamente: Expectativa salarial (S/ ${raw.salaryExpectation?.toLocaleString('es-PE') ?? '–'}) fuera del rango presupuestado.`;
+            } else if (isKillerRejected) {
+                summary = `🚫 Descartado automáticamente: No cumple con preguntas filtro (Killer Questions).`;
+                if (raw.killerAnswers) {
+                    summary += `\nRespuestas: ${Object.values(raw.killerAnswers).join(', ')}`;
+                }
+            } else if (isExternalPending && !summary) {
+                summary = 'Postulante externo pendiente de análisis IA. CV disponible para revisión manual.';
+            }
+
+            const normalized: CandidateAnalysis = {
+                id: docSnap.id,
+                jobId: raw.jobId || jobId,
+                name: raw.name || raw.fullName || 'Candidato Externo',
+                email: raw.email || null,
+                phoneNumber: raw.phone || raw.phoneNumber,
+                matchScore: raw.matchScore ?? (isSalaryRejected || isKillerRejected ? 0 : undefined),
+                matchStatus: raw.matchStatus || (isSalaryRejected || isKillerRejected ? 'red' : 'yellow'),
+                summary: summary,
+                pros: raw.pros || [],
+                cons: raw.cons || [],
+                keywordsValidation: raw.keywordsValidation,
+                originalFileUrl: raw.cvUrl || raw.originalFileUrl,
+                recruitmentStatus: raw.recruitmentStatus || raw.status || 'new',
+                analyzedAt: raw.analyzedAt
+                    ? (typeof raw.analyzedAt === 'string' ? raw.analyzedAt : (raw.analyzedAt.toDate?.().toISOString?.() || new Date().toISOString()))
+                    : (raw.appliedAt?.toDate?.().toISOString?.() || new Date().toISOString()),
+                originalJobTitle: raw.originalJobTitle,
+            };
+            candidates.push(normalized);
         });
-        // Ordenar por score (mayor a menor)
+        // Ordenar por score (mayor a menor), candidatos externos pending_ai van al final
         return candidates.sort((a, b) => b.matchScore - a.matchScore);
     } catch (e) {
         console.error("Error leyendo candidatos: ", e);

@@ -381,7 +381,9 @@ export default function CompanySignIn() {
                                 ) : (
                                     <>
                                         <Text style={styles.primaryButtonText}>
-                                            {isRegistering ? "Registrar Empresa" : "Entrar al Panel"}
+                                            {isRegistering 
+                                                ? (userType === 'empresa' ? "Registrar Empresa" : "Regístrate como Reclutador") 
+                                                : "Entrar al Panel"}
                                         </Text>
                                         {isRegistering ? <UserPlus color="white" size={20} /> : <ArrowRight color="white" size={20} />}
                                     </>

@@ -2,7 +2,7 @@ import { setStringAsync } from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings } from 'lucide-react-native';
+import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings, Plus, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../../config/firebase';
@@ -25,7 +25,10 @@ export default function CreateJob() {
     const [jobData, setJobData] = useState<any>({
         salaryBudget: '',
         salaryTolerance: '10', // Default 10%
-        isExternal: false
+        salaryToleranceDown: '10', // Default 10%
+        isSalaryPublic: false,
+        isExternal: false,
+        killerQuestions: []
     });
     const [optimizedDescription, setOptimizedDescription] = useState('');
 
@@ -107,7 +110,10 @@ export default function CreateJob() {
                     ...data,
                     salaryBudget: data.salaryBudget?.toString() || '',
                     salaryTolerance: data.salaryTolerance?.toString() || '10',
-                    isExternal: data.isExternal || false
+                    salaryToleranceDown: data.salaryToleranceDown?.toString() || '10',
+                    isSalaryPublic: data.isSalaryPublic || false,
+                    isExternal: data.isExternal || false,
+                    killerQuestions: data.killerQuestions || []
                 });
                 setOptimizedDescription(data.optimizedText || '');
                 setRawText(data.originalText || '');
@@ -241,6 +247,9 @@ export default function CreateJob() {
                 ...jobData,
                 salaryBudget: Number(jobData.salaryBudget) || 0,
                 salaryTolerance: Number(jobData.salaryTolerance) || 0,
+                salaryToleranceDown: Number(jobData.salaryToleranceDown) || 0,
+                isSalaryPublic: !!jobData.isSalaryPublic,
+                killerQuestions: (jobData.killerQuestions || []).filter((q: any) => q.question?.trim().length > 0),
                 isExternal: !!jobData.isExternal,
                 originalText: rawText,
                 optimizedText: optimizedDescription,
@@ -260,10 +269,11 @@ export default function CreateJob() {
                 Alert.alert("¡Actualizado!", "Los cambios han sido guardados.");
             } else {
                 // CREAR
-                await addDoc(collection(db, 'jobs'), finalData);
-                Alert.alert("¡Perfil Guardado!", "Ahora puedes subir CVs para analizarlos contra este perfil.");
+                const newDoc = await addDoc(collection(db, 'jobs'), finalData);
+                Alert.alert("¡Perfil Guardado!", "Ahora puedes compartir el link o subir CVs.");
+                router.setParams({ id: newDoc.id }); // Convert to edit mode
             }
-            router.replace('/empresa/dashboard');
+            // router.replace('/empresa/dashboard'); // Removiendo redirección para quedarse en el perfil
         } catch (e: any) {
             Alert.alert("Error al guardar", e.message);
         } finally {
@@ -479,9 +489,19 @@ export default function CreateJob() {
                                                 Los candidatos cuya expectativa supere el presupuesto + tolerancia, serán movidos a "Descartados" automáticamente sin consumir créditos de IA.
                                             </Text>
 
-                                            <View style={{ flexDirection: 'row', gap: 15 }}>
+                                            <TouchableOpacity 
+                                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+                                                onPress={() => setJobData({ ...jobData, isSalaryPublic: !jobData.isSalaryPublic })}
+                                            >
+                                                <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#3b82f6', backgroundColor: jobData.isSalaryPublic ? '#3b82f6' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                                                    {jobData.isSalaryPublic && <Check size={14} color="white" />}
+                                                </View>
+                                                <Text style={{ color: 'white', fontSize: 13 }}>Mostrar rango de sueldo al candidato (Público)</Text>
+                                            </TouchableOpacity>
+
+                                            <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
                                                 <View style={{ flex: 2 }}>
-                                                    <Text style={styles.label}>PRESUPUESTO MAX (S/)</Text>
+                                                    <Text style={styles.label}>PRESUPUESTO (S/)</Text>
                                                     <TextInput
                                                         style={styles.input}
                                                         placeholder="Ej. 3500"
@@ -492,7 +512,7 @@ export default function CreateJob() {
                                                     />
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={styles.label}>TOLERANCIA (%)</Text>
+                                                    <Text style={styles.label}>TOLERANCIA ARRIBA (%)</Text>
                                                     <TextInput
                                                         style={styles.input}
                                                         placeholder="10"
@@ -502,13 +522,107 @@ export default function CreateJob() {
                                                         onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
                                                     />
                                                 </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.label}>TOLERANCIA ABAJO (%)</Text>
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="10"
+                                                        placeholderTextColor="#475569"
+                                                        keyboardType="numeric"
+                                                        value={jobData?.salaryToleranceDown}
+                                                        onChangeText={(t) => setJobData({ ...jobData, salaryToleranceDown: t })}
+                                                    />
+                                                </View>
                                             </View>
                                             
                                              {Number(jobData?.salaryBudget) > 0 && (
-                                                <Text style={{ color: '#10b981', fontSize: 12, marginTop: 5 }}>
-                                                    El sistema aceptará expectativas hasta S/ {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance) / 100))}
-                                                </Text>
+                                                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 8 }}>
+                                                    <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>
+                                                        Rango aceptado: S/ {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - S/ {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
+                                                    </Text>
+                                                    <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
+                                                        Candidatos fuera de este rango serán descartados automáticamente.
+                                                    </Text>
+                                                </View>
                                             )}
+
+                                            {/* --- KILLER QUESTIONS --- */}
+                                            <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#334155', paddingTop: 15 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Killer Questions (Máx 2)</Text>
+                                                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>Preguntas Sí/No que descartan automáticamente.</Text>
+                                                    </View>
+                                                    {(jobData?.killerQuestions?.length || 0) < 2 && (
+                                                        <TouchableOpacity 
+                                                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#3b82f6' }}
+                                                            onPress={() => {
+                                                                const newQs = [...(jobData?.killerQuestions || [])];
+                                                                newQs.push({ question: '', expectedAnswer: 'si' });
+                                                                setJobData({ ...jobData, killerQuestions: newQs });
+                                                            }}
+                                                        >
+                                                            <Plus size={14} color="#3b82f6" />
+                                                            <Text style={{ color: '#3b82f6', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }}>AÑADIR</Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                                
+                                                {jobData?.killerQuestions?.map((q: any, idx: number) => {
+                                                    return (
+                                                        <View key={idx} style={{ marginBottom: 15, padding: 15, backgroundColor: '#0f172a', borderRadius: 12, borderWidth: 1, borderColor: '#1e293b' }}>
+                                                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                                                                <TextInput
+                                                                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                                                    placeholder={`Escribe la pregunta filtro...`}
+                                                                    placeholderTextColor="#475569"
+                                                                    value={q.question}
+                                                                    onChangeText={(t) => {
+                                                                        const newQs = [...(jobData?.killerQuestions || [])];
+                                                                        newQs[idx] = { ...q, question: t };
+                                                                        setJobData({ ...jobData, killerQuestions: newQs });
+                                                                    }}
+                                                                />
+                                                                <TouchableOpacity 
+                                                                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', width: 45, height: 45, borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                                    onPress={() => {
+                                                                        const newQs = (jobData?.killerQuestions || []).filter((_: any, i: number) => i !== idx);
+                                                                        setJobData({ ...jobData, killerQuestions: newQs });
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={18} color="#ef4444" />
+                                                                </TouchableOpacity>
+                                                            </View>
+
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>Respuesta que APRUEBA:</Text>
+                                                                <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 20, padding: 3 }}>
+                                                                    <TouchableOpacity 
+                                                                        style={[styles.answerToggle, q.expectedAnswer === 'si' && styles.answerToggleActive]}
+                                                                        onPress={() => {
+                                                                            const newQs = [...(jobData?.killerQuestions || [])];
+                                                                            newQs[idx] = { ...q, expectedAnswer: 'si' };
+                                                                            setJobData({ ...jobData, killerQuestions: newQs });
+                                                                        }}
+                                                                    >
+                                                                        <Text style={[styles.answerToggleText, q.expectedAnswer === 'si' && styles.answerToggleTextActive]}>SÍ</Text>
+                                                                    </TouchableOpacity>
+                                                                    <TouchableOpacity 
+                                                                        style={[styles.answerToggle, q.expectedAnswer === 'no' && styles.answerToggleActive]}
+                                                                        onPress={() => {
+                                                                            const newQs = [...(jobData?.killerQuestions || [])];
+                                                                            newQs[idx] = { ...q, expectedAnswer: 'no' };
+                                                                            setJobData({ ...jobData, killerQuestions: newQs });
+                                                                        }}
+                                                                    >
+                                                                        <Text style={[styles.answerToggleText, q.expectedAnswer === 'no' && styles.answerToggleTextActive]}>NO</Text>
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    );
+                                                })}
+                                            </View>
                                         </View>
                                     )}
                                 </View>
@@ -565,5 +679,9 @@ const styles = StyleSheet.create({
     keywordTagText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
     switchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
     switchContainerActive: { borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)' },
-    switchToggle: { width: 50, height: 28, borderRadius: 15, justifyContent: 'center', padding: 2 }
+    switchToggle: { width: 50, height: 28, borderRadius: 15, justifyContent: 'center', padding: 2 },
+    answerToggle: { paddingHorizontal: 15, paddingVertical: 5, borderRadius: 15 },
+    answerToggleActive: { backgroundColor: '#3b82f6' },
+    answerToggleText: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold' },
+    answerToggleTextActive: { color: 'white' }
 });

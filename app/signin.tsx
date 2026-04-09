@@ -384,10 +384,10 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.companyLink}>
-                <Text style={[styles.companyLinkText, { color: '#94a3b8' }]}>¿Eres empresa? </Text>
-                <Text style={[styles.companyLinkText, { color: '#10b981', fontWeight: 'bold' }]}>Muy Pronto: Antes de contratar, Veritly</Text>
-              </View>
+              <TouchableOpacity style={styles.companyLink} onPress={() => router.push('/empresa/signin')}>
+                <Text style={[styles.companyLinkText, { color: '#64748b' }]}>¿Reclutador o empresa? </Text>
+                <Text style={[styles.companyLinkText, { color: '#f59e0b', fontWeight: 'bold' }]}>Contrata más inteligente con Veritly →</Text>
+              </TouchableOpacity>
 
             </Animated.View>
           </View>

@@ -42,7 +42,7 @@ export interface UserProfile {
 export type MatchStatus = 'green' | 'yellow' | 'red';
 
 // Estado del proceso de selección (Gestión humana)
-export type RecruitmentStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'stored';
+export type RecruitmentStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'stored' | 'rejected_salary' | 'pending_ai';
 
 // --- EMPLEOS (VACANTES) ---
 export interface JobPosting {

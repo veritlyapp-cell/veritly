@@ -2,24 +2,29 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { Clock } from 'lucide-react-native';
+
 interface CircularProgressProps {
-    percentage: number;
+    percentage?: number | null;
     size?: number;
     strokeWidth?: number;
 }
 
 export default function CircularProgress({ percentage, size = 100, strokeWidth = 8 }: CircularProgressProps) {
+    const isPending = percentage === undefined || percentage === null;
+    const actualPercentage = isPending ? 0 : percentage!;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const progress = circumference - (percentage / 100) * circumference;
+    const progress = circumference - (actualPercentage / 100) * circumference;
 
     const getColorByScore = (score: number) => {
+        if (isPending) return '#64748b'; // Gris para pendiente
         if (score >= 80) return '#10b981'; // Verde
         if (score >= 60) return '#f59e0b'; // Amarillo/Naranja
         return '#ef4444'; // Rojo
     };
 
-    const color = getColorByScore(percentage);
+    const color = getColorByScore(actualPercentage);
 
     return (
         <View style={[styles.container, { width: size, height: size }]}>
@@ -34,22 +39,30 @@ export default function CircularProgress({ percentage, size = 100, strokeWidth =
                     fill="none"
                 />
                 {/* Progress Circle */}
-                <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={color}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={progress}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                />
+                {!isPending && (
+                    <Circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke={color}
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={progress}
+                        strokeLinecap="round"
+                        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                    />
+                )}
             </Svg>
             <View style={styles.textContainer}>
-                <Text style={[styles.percentage, { color }]}>{percentage}</Text>
-                <Text style={styles.label}>%</Text>
+                {isPending ? (
+                    <Clock size={size * 0.4} color="#64748b" />
+                ) : (
+                    <>
+                        <Text style={[styles.percentage, { color, fontSize: size * 0.3, lineHeight: size * 0.35 }]}>{actualPercentage}</Text>
+                        <Text style={[styles.label, { fontSize: size * 0.12 }]}>%</Text>
+                    </>
+                )}
             </View>
         </View>
     );

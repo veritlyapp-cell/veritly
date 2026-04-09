@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Calendar, CheckCircle, ChevronDown, Clock, Sparkles, Star, Upload } from 'lucide-react-native';
+import { Calendar, CheckCircle, ChevronDown, Clock, Sparkles, Star, Upload, ArrowRight, Zap, FileText } from 'lucide-react-native';
 import React from 'react';
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
@@ -174,22 +174,22 @@ export default function VeritlyLandingPage() {
                         {/* Card 1 */}
                         <View style={[styles.glassCard, isDesktop && styles.glassCardDesktop]}>
                             <View style={styles.cardIconContainer}>
-                                <Upload color="#3498db" size={28} />
+                                <FileText color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Publica tu Vacante</Text>
+                            <Text style={styles.cardTitle}>Carga tus Datos</Text>
                             <Text style={styles.cardDescription}>
-                                Define los requisitos, rol y el perfil ideal que estás buscando.
+                                Sube carpetas de CVs (PDF) o listas en Excel. O si prefieres, publica una vacante para recibirlos.
                             </Text>
                         </View>
 
                         {/* Card 2 */}
                         <View style={[styles.glassCard, isDesktop && styles.glassCardDesktop]}>
                             <View style={styles.cardIconContainer}>
-                                <Star color="#3498db" size={28} />
+                                <Sparkles color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>IA Filtra Candidatos</Text>
+                            <Text style={styles.cardTitle}>IA Valida y Califica</Text>
                             <Text style={styles.cardDescription}>
-                                Nuestra IA evalúa cada CV en profundidad contra tus criterios.
+                                Nuestra IA analiza el 100% de la información contra tus criterios de búsqueda.
                             </Text>
                         </View>
 
@@ -198,10 +198,66 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconContainer}>
                                 <CheckCircle color="#3498db" size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Entrevista a los Mejores</Text>
+                            <Text style={styles.cardTitle}>Decide con Rankings</Text>
                             <Text style={styles.cardDescription}>
-                                Obtén un ranking validado con los candidatos más compatibles.
+                                Obtén un ranking inteligente con fortalezas y áreas de mejora por cada perfil.
                             </Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* ========== MINI ATS / RECRUITER SECTION [NEW] ========== */}
+                <View style={[styles.recruiterSection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
+                    <View style={[styles.recruiterContent, isDesktop && { flexDirection: 'row', alignItems: 'center' }]}>
+                        <View style={[styles.recruiterLeft, isDesktop && { flex: 1.2 }]}>
+                            <View style={styles.miniATSBadge}>
+                                <Zap size={14} color="#f59e0b" />
+                                <Text style={styles.miniATSBadgeText}>MINI ATS ÁGIL</Text>
+                            </View>
+                            <Text style={[styles.recruiterTitle, { fontSize: isDesktop ? 42 : 30 }]}>
+                                No es una bolsa de trabajo.{'\n'}Es tu <Text style={{ color: '#38bdf8' }}>Aliado de Selección.</Text>
+                            </Text>
+                            <Text style={styles.recruiterSubtitle}>
+                                Veritly no ofrece candidatos al azar. Ayudamos a reclutadores (empresas o independientes) a validar antes de contratar y elegir con datos reales, no con promesas.
+                            </Text>
+
+                            <View style={styles.recruiterFeatureList}>
+                                <View style={styles.recruiterFeatureItem}>
+                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#10b981" /></View>
+                                    <Text style={styles.featureText}>Análisis Ágil: Sube tus carpetas de CVs o una lista en Excel y deja que la IA haga el trabajo pesado por ti.</Text>
+                                </View>
+                                <View style={styles.recruiterFeatureItem}>
+                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#10b981" /></View>
+                                    <Text style={styles.featureText}>Mini ATS: Gestiona el estado de tus candidatos en un solo lugar, de forma ágil y simple.</Text>
+                                </View>
+                                <View style={styles.recruiterFeatureItem}>
+                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#F59E0B" /></View>
+                                    <Text style={styles.featureText}>
+                                        <Text style={{ color: '#F59E0B', fontWeight: 'bold' }}>PLUS: </Text>
+                                        Publica tu vacante y aplica filtros automáticos de sueldo y Killer Questions. La IA se encargará de <Text style={{ color: 'white', fontWeight: 'bold' }}>analizar y rankear</Text> a quienes logren pasar el filtro inicial.
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.recruiterCTA}
+                                onPress={() => router.push('/empresa/signin?register=true')}
+                            >
+                                <Text style={styles.recruiterCTAText}>Empezar como Reclutador</Text>
+                                <ArrowRight size={18} color="white" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={[styles.recruiterRight, isDesktop && { flex: 1, marginLeft: 40 }]}>
+                            <View style={styles.imageGlowContainer}>
+                                <View style={styles.glowOrb} />
+                                <Image 
+                                    source={{ uri: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop' }} 
+                                    style={styles.recruiterImage} 
+                                    resizeMode="cover" 
+                                />
+                                <View style={styles.imageOverlay} />
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -224,7 +280,6 @@ export default function VeritlyLandingPage() {
                                 <ChevronDown style={{ transform: [{ rotate: '-90deg' }] }} color="white" size={20} />
                             </TouchableOpacity>
                         </View>
-                        {/* Visual element could go here if needed, keeping it text focused for now as per request */}
                     </View>
                 </View>
 
@@ -662,5 +717,123 @@ const styles = StyleSheet.create({
         fontWeight: '400',
         color: '#b0b0b0',
         textAlign: 'center',
+    },
+
+    // ========== RECRUITER SECTION [NEW] ==========
+    recruiterSection: {
+        paddingVertical: 80,
+    },
+    recruiterContent: {
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderRadius: 32,
+        padding: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.1)',
+        overflow: 'hidden',
+    },
+    recruiterLeft: {
+        flex: 1,
+    },
+    recruiterRight: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 40,
+    },
+    miniATSBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    miniATSBadgeText: {
+        color: '#f59e0b',
+        fontWeight: 'bold',
+        fontSize: 11,
+    },
+    recruiterTitle: {
+        color: 'white',
+        fontWeight: '900',
+        lineHeight: 48,
+        marginBottom: 20,
+    },
+    recruiterSubtitle: {
+        color: '#94a3b8',
+        fontSize: 17,
+        lineHeight: 28,
+        marginBottom: 32,
+    },
+    recruiterFeatureList: {
+        gap: 16,
+        marginBottom: 36,
+    },
+    recruiterFeatureItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    featureBullet: {
+        marginTop: 4,
+    },
+    featureText: {
+        color: '#cbd5e1',
+        fontSize: 15,
+        lineHeight: 22,
+        flex: 1,
+    },
+    recruiterCTA: {
+        backgroundColor: '#3b82f6',
+        paddingVertical: 18,
+        paddingHorizontal: 32,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 10,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 6,
+    },
+    recruiterCTAText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    imageGlowContainer: {
+        position: 'relative',
+        width: '100%',
+        height: 300,
+        borderRadius: 24,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.2)',
+    },
+    recruiterImage: {
+        width: '100%',
+        height: '100%',
+    },
+    imageOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    },
+    glowOrb: {
+        position: 'absolute',
+        top: -50,
+        right: -50,
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+        backgroundColor: '#38bdf8',
+        opacity: 0.2,
+        filter: 'blur(40px)',
     },
 });
