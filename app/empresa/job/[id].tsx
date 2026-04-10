@@ -459,11 +459,19 @@ export default function JobDetailScreen() {
             {/* Header */}
             <View style={styles.header}>
                 {isSelectionMode ? (
-                    <TouchableOpacity onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }} style={styles.backButton}>
+                    <TouchableOpacity 
+                        onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }} 
+                        style={styles.backButton}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
                         <X size={24} color="white" />
                     </TouchableOpacity>
                 ) : (
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity 
+                        onPress={() => router.canGoBack() ? router.back() : router.replace('/empresa/dashboard')} 
+                        style={styles.backButton}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
                         <ArrowLeft size={24} color="white" />
                     </TouchableOpacity>
                 )}
@@ -478,7 +486,9 @@ export default function JobDetailScreen() {
                         </>
                     )}
                 </View>
-                {/* Tabs & View Switching */}
+            </View>
+
+            {/* Tabs & View Switching */}
             <View style={styles.tabsContainer}>
                 <View style={styles.mainTabs}>
                     <TouchableOpacity 
@@ -572,7 +582,6 @@ export default function JobDetailScreen() {
                     )}
                 </View>
             )}
-         </View>
 
             {/* View Switching */}
             {activeTab === 'ranking' ? (
@@ -1039,13 +1048,20 @@ const styles = StyleSheet.create({
         backgroundColor: '#0F172A'
     },
     header: {
-        paddingTop: Platform.OS === 'ios' ? 10 : 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        flexDirection: 'row',
+        alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: '#1e293b'
+        borderBottomColor: '#1e293b',
+        backgroundColor: '#0F172A'
     },
     backButton: {
         marginRight: 15,
-        padding: 5
+        padding: 5,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
     headerTitle: {
         fontSize: 24,
