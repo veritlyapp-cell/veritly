@@ -60,6 +60,7 @@ export default function ExternalApplication() {
     const [submitting, setSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState('');
     const [job, setJob] = useState<any>(null);
+    const [applicantCount, setApplicantCount] = useState(0);
     const [companyName, setCompanyName] = useState('');
     const [companyType, setCompanyType] = useState<'empresa' | 'independiente' | ''>('');
     const [user, setUser] = useState<any>(null);
@@ -158,6 +159,12 @@ export default function ExternalApplication() {
                 'Empresa'
             );
             setCompanyType(data?.company?.type || 'empresa');
+
+            // Load applicant count
+            const { getDocs, query, collection } = await import('firebase/firestore');
+            const q = query(collection(db, 'jobs', jobId, 'candidates'));
+            const countSnap = await getDocs(q);
+            setApplicantCount(countSnap.size);
         } catch (e) {
             console.error('Error loading job:', e);
         } finally {
@@ -447,6 +454,18 @@ export default function ExternalApplication() {
                         )}
                     </View>
 
+                    {/* Social Proof Counter */}
+                    <View style={styles.socialProof}>
+                        {applicantCount < 5 ? (
+                            <Text style={styles.socialProofText}>✨ ¡Sé uno de los primeros en postular!</Text>
+                        ) : applicantCount <= 20 ? (
+                            <Text style={styles.socialProofText}>🔥 {applicantCount} personas ya postularon a esta posición.</Text>
+                        ) : (
+                            <Text style={styles.socialProofText}>🚀 Más de {applicantCount} candidatos interesados. ¡No te quedes fuera!</Text>
+                        )}
+                    </View>
+
+
                     {/* Job Description */}
                     {(job.optimizedText || job.originalText) && (
                         <View style={styles.descCard}>
@@ -469,12 +488,7 @@ export default function ExternalApplication() {
                         </View>
                     )}
 
-                    {/* CTA */}
-                    <TouchableOpacity style={styles.applyBtn} onPress={handleClickApply}>
-                        <Send size={20} color="white" />
-                        <Text style={styles.applyBtnText}>POSTULAR A ESTA VACANTE</Text>
-                        <ChevronRight size={20} color="white" />
-                    </TouchableOpacity>
+                    {/* Removed static CTA, now sticky below */}
 
                     {user && (
                         <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 12, marginTop: -10, marginBottom: 20 }}>
@@ -486,7 +500,22 @@ export default function ExternalApplication() {
                         <Zap size={12} color="#f59e0b" />
                         <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text> · Selección Inteligente</Text>
                     </View>
+                    <View style={{ height: Platform.OS === 'web' ? 20 : 100 }} />
                 </ScrollView>
+
+                {/* Sticky CTA for Mobile */}
+                <View style={[styles.stickyCTA, Platform.OS !== 'web' && styles.shadowCTA]}>
+                    <TouchableOpacity style={styles.applyBtn} onPress={handleClickApply}>
+                        <Send size={20} color="white" />
+                        <Text style={styles.applyBtnText}>POSTULAR AHORA</Text>
+                        <ChevronRight size={20} color="white" />
+                    </TouchableOpacity>
+                    {user && (
+                        <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 10, marginTop: 4 }}>
+                            Conectado como {user.email}
+                        </Text>
+                    )}
+                </View>
             </SafeAreaView>
         );
     }
@@ -817,14 +846,26 @@ export default function ExternalApplication() {
                     <Zap size={12} color="#f59e0b" />
                     <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text></Text>
                 </View>
-            </ScrollView>
-        </SafeAreaView>
-    );
-}
+             </ScrollView>
+
+             {/* AI Perception Loading Overlay (Global) */}
+             {submitting && (
+                 <View style={styles.loadingOverlay}>
+                     <View style={styles.loadingBox}>
+                         <ActivityIndicator size="large" color="#3b82f6" />
+                         <Text style={styles.loadingTitle}>Veritly IA</Text>
+                         <Text style={styles.loadingMsg}>Veritly está procesando tu perfil para el reclutador...</Text>
+                         {submitStatus && <Text style={{ color: '#3b82f6', fontSize: 10, marginTop: 15, fontWeight: 'bold' }}>{submitStatus.toUpperCase()}</Text>}
+                     </View>
+                 </View>
+             )}
+         </SafeAreaView>
+     );
+ }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0f172a' },
-    scrollContent: { padding: 20, paddingBottom: 50 },
+    scrollContent: { padding: 20, paddingBottom: 120 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { color: '#94a3b8', marginTop: 12 },
 
@@ -858,9 +899,9 @@ const styles = StyleSheet.create({
     descCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
     descTitle: { color: '#38bdf8', fontWeight: 'bold', fontSize: 14, marginBottom: 12 },
     descText: { color: '#cbd5e1', fontSize: 14, lineHeight: 22 },
-    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    skillTag: { backgroundColor: 'rgba(56,189,248,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)' },
-    skillTagText: { color: '#38bdf8', fontSize: 13 },
+    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, marginBottom: 5 },
+    skillTag: { backgroundColor: 'rgba(56,189,248,0.08)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(56,189,248,0.15)' },
+    skillTagText: { color: '#38bdf8', fontSize: 13, fontWeight: '600' },
 
     // CTA
     applyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#3b82f6', padding: 18, borderRadius: 16, marginVertical: 20, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
@@ -921,6 +962,76 @@ const styles = StyleSheet.create({
     uploadCardError: { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.05)' },
     uploadText: { color: 'white', fontWeight: 'bold', fontSize: 15, textAlign: 'center' },
     uploadHint: { color: '#64748b', fontSize: 12 },
+
+    // Social Proof
+    socialProof: {
+        marginBottom: 20,
+        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        padding: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.15)',
+        alignItems: 'center'
+    },
+    socialProofText: {
+        color: '#3b82f6',
+        fontSize: 13,
+        fontWeight: '700'
+    },
+
+    // Sticky
+    stickyCTA: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#0f172a',
+        padding: 20,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+        borderTopWidth: 1,
+        borderTopColor: '#1e293b'
+    },
+    shadowCTA: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 20
+    },
+
+    // AI Perception Overlay
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        zIndex: 9999,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 30
+    },
+    loadingBox: {
+        backgroundColor: '#1e293b',
+        padding: 32,
+        borderRadius: 28,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#334155',
+        width: '100%',
+        maxWidth: 400
+    },
+    loadingTitle: {
+        color: 'white',
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginTop: 24
+    },
+    loadingMsg: {
+        color: '#94a3b8',
+        fontSize: 15,
+        textAlign: 'center',
+        marginTop: 12,
+        lineHeight: 22
+    },
 
     // Terms
     termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20, paddingHorizontal: 4 },
