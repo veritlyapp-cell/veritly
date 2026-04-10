@@ -599,6 +599,9 @@ export default function JobDetailScreen() {
 
                                     <View style={styles.cardInfo}>
                                         <Text style={styles.candidateName}>{item.name}</Text>
+                                        <Text style={styles.candidateSalary}>
+                                            Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
+                                        </Text>
                                         <Text style={styles.candidateDate}>
                                             {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
                                                 day: 'numeric',
@@ -684,6 +687,9 @@ export default function JobDetailScreen() {
 
                                     <View style={styles.cardInfo}>
                                         <Text style={styles.candidateName}>{item.name}</Text>
+                                        <Text style={styles.candidateSalary}>
+                                            Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
+                                        </Text>
                                         <Text style={styles.candidateDate}>
                                             {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
                                                 day: 'numeric',
@@ -748,7 +754,7 @@ export default function JobDetailScreen() {
                     contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
                 />
             ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 20, gap: 15, paddingBottom: 40 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ padding: 20, gap: 15, paddingBottom: 40 }}>
                     {STATUS_OPTIONS.filter(s => s !== 'new' && s !== 'pending_ai').map(status => {
                         const columnCandidates = candidates.filter(c => c.recruitmentStatus === status);
                         return (
@@ -766,6 +772,9 @@ export default function JobDetailScreen() {
                                                 <CircularProgress percentage={candidate.matchScore} size={40} strokeWidth={4} />
                                                 <View style={{ marginLeft: 10, flex: 1 }}>
                                                     <Text style={styles.kanbanCardName} numberOfLines={1}>{candidate.name}</Text>
+                                                    <Text style={styles.kanbanCardSalary}>
+                                                        {candidate.salaryExpectation ? `S/ ${candidate.salaryExpectation}` : 'S/ N/A'}
+                                                    </Text>
                                                 </View>
                                             </View>
                                             <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
@@ -1252,6 +1261,12 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         letterSpacing: -0.3
     },
+    candidateSalary: {
+        fontSize: 13,
+        color: '#10b981',
+        fontWeight: 'bold',
+        marginBottom: 4
+    },
     candidateDate: {
         fontSize: 12,
         color: '#94a3b8',
@@ -1352,6 +1367,17 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: 'white'
+    },
+    kanbanCardName: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: 'white',
+        marginBottom: 2
+    },
+    kanbanCardSalary: {
+        fontSize: 11,
+        color: '#10b981',
+        fontWeight: '700'
     },
     kanbanCardDate: {
         fontSize: 11,

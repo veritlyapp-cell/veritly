@@ -83,4 +83,5 @@ export interface CandidateAnalysis {
 
   // Datos para historial
   originalJobTitle?: string; // Para saber a qué puesto aplicó antes
+  salaryExpectation?: number | string; // Pretensiones salariales
 }
