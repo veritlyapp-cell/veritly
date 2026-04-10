@@ -217,7 +217,10 @@ export default function CompanyJobs() {
 
             <ScrollView 
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={[
+                    { paddingBottom: 100 },
+                    Platform.OS === 'web' && { maxWidth: 1100, alignSelf: 'center', width: '100%' }
+                ]}
             >
                 <Text style={styles.sectionSubtitle}>Gestiona tus vacantes activas y candidatos evaluados.</Text>
 

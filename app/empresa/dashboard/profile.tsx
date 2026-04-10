@@ -29,7 +29,7 @@ export default function CompanyProfile() {
 
     // Modal Control
     const [modalVisible, setModalVisible] = useState(false);
-    const [modalType, setModalType] = useState<'dep' | 'prov' | 'dist'>('dep');
+    const [modalType, setModalType] = useState<'dep' | 'prov' | 'dist' | 'rubro'>('dep');
 
     // RESPONSABLE
     const [nombreResponsable, setNombreResponsable] = useState('');
@@ -200,7 +200,7 @@ export default function CompanyProfile() {
         }
     };
 
-    const openModal = (type: 'dep' | 'prov' | 'dist') => {
+    const openModal = (type: 'dep' | 'prov' | 'dist' | 'rubro') => {
         if (type === 'prov' && !departamento) return Alert.alert("Atención", "Primero selecciona un Departamento");
         if (type === 'dist' && !provincia) return Alert.alert("Atención", "Primero selecciona una Provincia");
         setModalType(type);
@@ -211,13 +211,15 @@ export default function CompanyProfile() {
         if (modalType === 'dep') { setDepartamento(item); setProvincia(''); setDistrito(''); }
         if (modalType === 'prov') { setProvincia(item); setDistrito(''); }
         if (modalType === 'dist') setDistrito(item);
+        if (modalType === 'rubro') setRubro(item);
         setModalVisible(false);
     };
 
     const getListData = () => {
         if (modalType === 'dep') return departamentosList;
         if (modalType === 'prov') return provinciasList;
-        return distritosList;
+        if (modalType === 'dist') return distritosList;
+        return RUBROS_PERU;
     };
 
     if (initialLoading) {
@@ -233,7 +235,13 @@ export default function CompanyProfile() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
 
-            <ScrollView contentContainerStyle={styles.form}>
+            <ScrollView 
+                contentContainerStyle={[
+                    styles.form,
+                    Platform.OS === 'web' && { maxWidth: 900, alignSelf: 'center', width: '100%' }
+                ]}
+            >
+
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
                 <View style={styles.sectionHeader}>
@@ -341,17 +349,7 @@ export default function CompanyProfile() {
                 <Text style={styles.label}>Rubro / Industria</Text>
                 <TouchableOpacity
                     style={styles.selectButton}
-                    onPress={() => {
-                        setModalType('dep' as any); // Reusing modal structure
-                        Alert.alert(
-                            "Selecciona tu Rubro",
-                            "",
-                            RUBROS_PERU.map(r => ({
-                                text: r,
-                                onPress: () => setRubro(r)
-                            }))
-                        );
-                    }}
+                    onPress={() => openModal('rubro')}
                 >
                     <Text style={{ color: rubro ? 'white' : '#64748b' }}>{rubro || "Seleccionar rubro..."}</Text>
                     <ChevronDown color="#94a3b8" size={20} />
@@ -395,7 +393,10 @@ export default function CompanyProfile() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.optionItem} onPress={() => handleSelect(item)}>
                                     <Text style={{ color: 'white', fontSize: 16 }}>{item}</Text>
-                                    {(modalType === 'dep' && departamento === item) || (modalType === 'prov' && provincia === item) || (modalType === 'dist' && distrito === item) ? <View style={styles.selectedDot} /> : null}
+                                    {(modalType === 'dep' && departamento === item) || 
+                                     (modalType === 'prov' && provincia === item) || 
+                                     (modalType === 'dist' && distrito === item) ||
+                                     (modalType === 'rubro' && rubro === item) ? <View style={styles.selectedDot} /> : null}
                                 </TouchableOpacity>
                             )}
                         />

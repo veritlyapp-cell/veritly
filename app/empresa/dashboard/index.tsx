@@ -182,7 +182,10 @@ export default function CompanyDashboard() {
 
             <ScrollView 
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={[
+                    { paddingBottom: 100 },
+                    Platform.OS === 'web' && { maxWidth: 1100, alignSelf: 'center', width: '100%' }
+                ]}
             >
                 {renderBetaBanner()}
                 {renderWelcomeSection()}
