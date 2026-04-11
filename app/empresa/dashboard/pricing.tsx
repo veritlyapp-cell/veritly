@@ -192,16 +192,16 @@ export default function PricingScreen() {
                     {/* BETA PARTNER PLAN (FREEMIUM REPLACED) */}
                     <View style={[styles.card, { borderColor: '#10b981', borderWidth: 2 }]}>
                         <Text style={styles.planName}>Beta Partner</Text>
-                        <Text style={styles.planPrice}>S/ 0</Text>
-                        <Text style={styles.planDesc}>Acceso completo y gratuito por ser de los primeros usuarios.</Text>
+                        <Text style={styles.planPrice}>{locationInfo.symbol} 0</Text>
+                        <Text style={styles.planDesc}>Plan exclusivo de lanzamiento. Se convertirá en el Plan Free permanente.</Text>
                         
                         <View style={styles.divider} />
                         
                         <View style={styles.features}>
-                            <FeatureItem text="Análisis de Candidatos Ilimitado" color="#10b981" iconColor="#10b981" />
+                            <FeatureItem text="1,000 Créditos de Análisis" color="#10b981" iconColor="#10b981" />
+                            <FeatureItem text="Hasta 2 Vacantes Activas" color="#10b981" iconColor="#10b981" />
                             <FeatureItem text="Soporte VIP Directo" color="#10b981" iconColor="#10b981" />
                             <FeatureItem text="Participa en el Roadmap" color="#10b981" iconColor="#10b981" />
-                            <FeatureItem text="Créditos Gratis para el Futuro" color="#10b981" iconColor="#10b981" />
                         </View>
                         
                         <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
