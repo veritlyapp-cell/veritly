@@ -147,7 +147,7 @@ export default function PricingScreen() {
                         await updateDoc(userRef, {
                             'subscription.plan': planName,
                             'subscription.status': 'Active',
-                            'subscription.jobsLimit': planName === 'Pro' ? 50 : 1500, // Limites según plan
+                            'subscription.jobsLimit': planName === 'Pro' ? 50 : 200, // Limites según plan
                             'subscription.updatedAt': new Date()
                         });
                     }
@@ -180,96 +180,134 @@ export default function PricingScreen() {
                     <Text style={styles.subtitle}>
                         Estamos en fase de lanzamiento. Únete como Beta Partner y ayuda a construir el futuro del reclutamiento con IA.
                     </Text>
+                           <View style={styles.toggleWrapper}>
+                    <TouchableOpacity 
+                        style={[styles.toggleOption, billingPeriod === 'monthly' && styles.toggleOptionActive]}
+                        onPress={() => setBillingPeriod('monthly')}
+                    >
+                        <Text style={[styles.toggleOptionText, billingPeriod === 'monthly' && styles.toggleOptionTextActive]}>MENSUAL</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.toggleOption, billingPeriod === 'annual' && styles.toggleOptionActive]}
+                        onPress={() => setBillingPeriod('annual')}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={[styles.toggleOptionText, billingPeriod === 'annual' && styles.toggleOptionTextActive]}>ANUAL</Text>
+                            <View style={styles.discountBadge}>
+                                <Text style={styles.discountBadgeText}>AHORRA 15%</Text>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-                    {/* PRÓXIMAMENTE: BILLING TOGGLE (OCULTO EN BETA) */}
-                    <View style={[styles.toggleWrapper, { opacity: 0.5 }]}>
-                         <Text style={{color: '#94a3b8', fontSize: 12, fontWeight: 'bold'}}>BIENVENIDO AL LANZAMIENTO</Text>
+            <View style={styles.cardsContainer}>
+                
+                {/* PRECIOS FUTUROS (REFERENCIA INTERNA)
+                    Starter: S/ 19.50 mes / S/ 200 año (Ahorro ~15%)
+                    Gold: S/ 39.50 mes / S/ 400 año (Ahorro ~15%)
+                */}
+
+                {/* BETA PARTNER PLAN */}
+                <View style={[styles.card, { borderColor: '#10b981', borderWidth: 2 }]}>
+                    <Text style={styles.planName}>Beta Partner</Text>
+                    <Text style={styles.planPrice}>{locationInfo.symbol} 0</Text>
+                    <Text style={styles.planDesc}>Plan de lanzamiento. Evolucionará a Plan Free permanente.</Text>
+                    
+                    <View style={styles.divider} />
+                    
+                    <View style={styles.features}>
+                        <FeatureItem text="200 Créditos de Análisis" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Hasta 2 Vacantes Activas" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Soporte VIP Directo" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Acceso a Talent Graph" color="#10b981" iconColor="#10b981" />
+                    </View>
+                    
+                    <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
+                        <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
                     </View>
                 </View>
 
-                <View style={styles.cardsContainer}>
+                {/* PRO PLAN */}
+                <View style={[styles.card, styles.cardPro]}>
+                    <View style={styles.badgeProContainer}>
+                        <Text style={styles.badgeProText}>MÁS POPULAR</Text>
+                    </View>
+                    <Text style={[styles.planName, { color: '#38bdf8' }]}>Pro</Text>
+                    <View style={styles.priceRow}>
+                        <Text style={[styles.planPrice, { color: 'white' }]}>
+                            {locationInfo.symbol} -
+                        </Text>
+                        <Text style={styles.planPriceUnit}>/ mes</Text>
+                    </View>
+                    <Text style={styles.planDesc}>Escala tu reclutamiento con mayor potencia.</Text>
                     
-                    {/* BETA PARTNER PLAN (FREEMIUM REPLACED) */}
-                    <View style={[styles.card, { borderColor: '#10b981', borderWidth: 2 }]}>
-                        <Text style={styles.planName}>Beta Partner</Text>
-                        <Text style={styles.planPrice}>{locationInfo.symbol} 0</Text>
-                        <Text style={styles.planDesc}>Plan exclusivo de lanzamiento. Se convertirá en el Plan Free permanente.</Text>
-                        
-                        <View style={styles.divider} />
-                        
-                        <View style={styles.features}>
-                            <FeatureItem text="1,000 Créditos de Análisis" color="#10b981" iconColor="#10b981" />
-                            <FeatureItem text="Hasta 2 Vacantes Activas" color="#10b981" iconColor="#10b981" />
-                            <FeatureItem text="Soporte VIP Directo" color="#10b981" iconColor="#10b981" />
-                            <FeatureItem text="Participa en el Roadmap" color="#10b981" iconColor="#10b981" />
-                        </View>
-                        
-                        <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
-                            <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
-                        </View>
+                    <View style={styles.dividerPro} />
+                    
+                    <View style={styles.features}>
+                        <FeatureItem text="Más Análisis" color="white" iconColor="#38bdf8" />
+                        <FeatureItem text="+ Vacantes Activas" color="white" iconColor="#38bdf8" />
+                        <FeatureItem text="Mejores funcionalidades" color="white" iconColor="#38bdf8" />
+                        <FeatureItem text="Exportación de Datos" color="white" iconColor="#38bdf8" />
                     </View>
+                    
+                    <TouchableOpacity disabled={true} style={{ opacity: 0.6 }}>
+                        <LinearGradient
+                            colors={['#334155', '#1e293b']}
+                            style={styles.buttonPro}
+                        >
+                            <Text style={styles.buttonProText}>Próximamente</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
 
-                    {/* PRO PLAN (SUGERIDO) */}
-                    <View style={[styles.card, styles.cardPro]}>
-                        <View style={styles.badgeProContainer}>
-                            <Text style={styles.badgeProText}>MÁS POPULAR</Text>
-                        </View>
-                        <Text style={[styles.planName, { color: '#38bdf8' }]}>Pro</Text>
-                        <View style={styles.priceRow}>
-                            <Text style={[styles.planPrice, { color: 'white' }]}>
-                                {locationInfo.symbol} {locationInfo.currency === 'PEN' ? (billingPeriod === 'monthly' ? '180' : '150') : (billingPeriod === 'monthly' ? '49' : '40')}
-                            </Text>
-                            <Text style={styles.planPriceUnit}>/ mes</Text>
-                        </View>
-                        {billingPeriod === 'annual' && <Text style={styles.priceEquivalent}>Facturado anualmente</Text>}
-                        <Text style={styles.planDesc}>La solución ideal para empresas en crecimiento.</Text>
-                        
-                        <View style={styles.dividerPro} />
-                        
-                        <View style={styles.features}>
-                            <FeatureItem text="Límite: 500 Candidatos" color="white" iconColor="#38bdf8" />
-                            <FeatureItem text="Análisis con IA (Alta Velocidad)" color="white" iconColor="#38bdf8" />
-                            <FeatureItem text="Match Completo (Keywords)" color="white" iconColor="#38bdf8" />
-                            <FeatureItem text="Exportación de Reportes" color="white" iconColor="#38bdf8" />
-                            <FeatureItem text="Soporte Email Preferente" color="white" iconColor="#38bdf8" />
-                        </View>
-                        
-                        <TouchableOpacity disabled={true} style={{ opacity: 0.6 }}>
-                            <LinearGradient
-                                colors={['#334155', '#1e293b']}
-                                style={styles.buttonPro}
-                            >
-                                <Text style={styles.buttonProText}>Próximamente</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                {/* GOLD PLAN */}
+                <View style={styles.card}>
+                    <Text style={styles.planName}>Gold</Text>
+                    <View style={styles.priceRow}>
+                        <Text style={styles.planPrice}>
+                            {locationInfo.symbol} -
+                        </Text>
+                        <Text style={styles.planPriceUnit}>/ mes</Text>
                     </View>
+                    <Text style={styles.planDesc}>Control total para agencias y equipos masivos.</Text>
+                    
+                    <View style={styles.divider} />
+                    
+                    <View style={styles.features}>
+                        <FeatureItem text="Análisis Ilimitado" />
+                        <FeatureItem text="Vacantes Ilimitadas" />
+                        <FeatureItem text="Dashboards Avanzados" />
+                        <FeatureItem text="Soporte Premium 24/7" />
+                    </View>
+                    
+                    <View style={[styles.buttonOutline, { opacity: 0.6 }]}>
+                        <Text style={styles.buttonOutlineText}>Próximamente</Text>
+                    </View>
+                </View>
 
-                    {/* GOLD PLAN */}
-                    <View style={styles.card}>
-                        <Text style={styles.planName}>Gold</Text>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.planPrice}>
-                                {locationInfo.symbol} {locationInfo.currency === 'PEN' ? (billingPeriod === 'monthly' ? '400' : '330') : (billingPeriod === 'monthly' ? '109' : '90')}
-                            </Text>
-                            <Text style={styles.planPriceUnit}>/ mes</Text>
-                        </View>
-                        {billingPeriod === 'annual' && <Text style={styles.priceEquivalent}>Facturado anualmente</Text>}
-                        <Text style={styles.planDesc}>Para agencias y equipos de reclutamiento masivo.</Text>
-                        
-                        <View style={styles.divider} />
-                        
-                        <View style={styles.features}>
-                            <FeatureItem text="Límite: 1,500 Candidatos" />
-                            <FeatureItem text="Análisis IA Prioritario" />
-                            <FeatureItem text="Ajuste Cultural IA" />
-                            <FeatureItem text="Dashboards Personalizados" />
-                            <FeatureItem text="Soporte Técnico Premium" />
-                        </View>
-                        
-                        <View style={[styles.buttonOutline, { opacity: 0.6 }]}>
-                            <Text style={styles.buttonOutlineText}>Próximamente</Text>
-                        </View>
+                {/* ENTERPRISE PLAN */}
+                <View style={[styles.card, { backgroundColor: '#0f172a' }]}>
+                    <Text style={styles.planName}>Enterprise</Text>
+                    <Text style={styles.planPrice}>Personalizado</Text>
+                    <Text style={styles.planDesc}>Soluciones a medida para grandes corporaciones.</Text>
+                    
+                    <View style={styles.divider} />
+                    
+                    <View style={styles.features}>
+                        <FeatureItem text="API Privada" />
+                        <FeatureItem text="SSO / SAML" />
+                        <FeatureItem text="Account Manager" />
+                        <FeatureItem text="Contratos Flexibles" />
                     </View>
+                    
+                    <TouchableOpacity 
+                        style={[styles.buttonOutline, { borderColor: '#38bdf8' }]}
+                        onPress={() => window.open('https://wa.me/51987654321', '_blank')}
+                    >
+                        <Text style={[styles.buttonOutlineText, { color: '#38bdf8' }]}>Contactar Vendedor</Text>
+                    </TouchableOpacity>
+                </View>
 
                 </View>
             </ScrollView>
@@ -485,5 +523,17 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginBottom: 16,
         textTransform: 'uppercase',
+    },
+    discountBadge: {
+        backgroundColor: '#10b981',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 8,
+    },
+    discountBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '900',
     },
 });

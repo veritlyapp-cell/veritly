@@ -157,7 +157,7 @@ export default function JobDetailScreen() {
             const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
             const userSnap = await getDoc(userRef);
             const userData = userSnap.data();
-            const creditLimit = userData?.subscription?.creditsLimit || 1000;
+            const creditLimit = userData?.subscription?.creditsLimit || 200;
             const currentUsage = userData?.subscription?.creditsUsage || 0;
 
             if (currentUsage >= creditLimit) {
