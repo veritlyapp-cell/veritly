@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc, writeBatch, collection } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
 import { 
     ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, 
     Download, Info, LayoutTemplate, List, CheckCircle2, Trash2, 
@@ -149,8 +149,22 @@ export default function JobDetailScreen() {
 
     const handleAnalyzeCVs = async () => {
         if (selectedCVs.length === 0) return;
+        if (!auth.currentUser) return;
+
         setProcessing(true);
         try {
+            // Validar Créditos de Análisis
+            const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            const userData = userSnap.data();
+            const creditLimit = userData?.subscription?.creditsLimit || 1000;
+            const currentUsage = userData?.subscription?.creditsUsage || 0;
+
+            if (currentUsage >= creditLimit) {
+                setProcessing(false);
+                return Alert.alert("Límite Alcanzado", `Has consumido tus ${creditLimit} créditos de análisis del plan Beta. Contacta a soporte para ampliar tu plan.`);
+            }
+
             const filesToProcess = selectedCVs.slice(0, 10);
             let processedCount = 0;
             let errors: string[] = [];
@@ -247,6 +261,14 @@ export default function JobDetailScreen() {
                             lastSeenAt: serverTimestamp(),
                             reliabilityIndex: aiResult.matchScore, // Primer score como base
                             source: 'veritly_ats'
+                        }, { merge: true });
+
+                        // Increment Analysis Usage
+                        const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
+                        await setDoc(userRef, {
+                            subscription: {
+                                creditsUsage: increment(1)
+                            }
                         }, { merge: true });
                     }
 

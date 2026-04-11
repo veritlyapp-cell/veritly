@@ -186,8 +186,8 @@ export default function EmpresaAdminDashboard() {
                 </View>
 
                 <View style={{ flex: 1.2 }}>
-                    <Text style={styles.cellValue}>{item.subscription?.plan === 'pro' ? 'PRO' : 'FREE'}</Text>
-                    <Text style={styles.cellSub}>Análisis: {item.analyzedUsage || 0}</Text>
+                    <Text style={styles.cellValue}>{item.subscription?.plan === 'pro' ? 'PRO' : 'BETA'}</Text>
+                    <Text style={styles.cellSub}>Créditos: {item.subscription?.creditsUsage || 0} / {item.subscription?.creditsLimit || 1000}</Text>
                     {item.subscription?.plan === 'pro' && <Text style={{color: '#10b981', fontSize: 10, marginTop:2}}>Upsell / Activo</Text>}
                 </View>
                 

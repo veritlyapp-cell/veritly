@@ -1,7 +1,7 @@
 import { setStringAsync } from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings, Plus, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -269,6 +269,22 @@ export default function CreateJob() {
                 Alert.alert("¡Actualizado!", "Los cambios han sido guardados.");
             } else {
                 // CREAR
+                // Validar Límite de Vacantes Activas
+                const jobsQ = query(
+                    collection(db, 'jobs'), 
+                    where('companyId', '==', auth.currentUser.uid), 
+                    where('status', '==', 'Open')
+                );
+                const jobsSnap = await getDocs(jobsQ);
+                
+                const userSnap = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+                const userData = userSnap.data();
+                const limit = userData?.subscription?.jobsLimit || 2; // Default 2 para Beta
+
+                if (jobsSnap.size >= limit) {
+                    throw new Error(`Has alcanzado el límite de vacantes activas para tu plan (${limit}). Pasa a PRO o cierra una vacante existente para publicar más.`);
+                }
+
                 const newDoc = await addDoc(collection(db, 'jobs'), finalData);
                 Alert.alert("¡Perfil Guardado!", "Ahora puedes compartir el link o subir CVs.");
                 router.setParams({ id: newDoc.id }); // Convert to edit mode
