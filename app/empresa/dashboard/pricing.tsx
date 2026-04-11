@@ -11,6 +11,8 @@ export default function PricingScreen() {
 
     const [loading, setLoading] = useState(false);
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+    const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+    const [priceLoading, setPriceLoading] = useState(true);
 
     // Manejar cierre del modal de Culqi
     useEffect(() => {
@@ -27,6 +29,28 @@ export default function PricingScreen() {
         }
     }, []);
     
+    // Detect Location & Currency
+    useEffect(() => {
+        const detectLocation = async () => {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                if (data.country_code === 'PE') {
+                    setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+                } else {
+                    setLocationInfo({ country: data.country_code || 'US', currency: 'USD', symbol: '$' });
+                }
+            } catch (error) {
+                console.error("Error detectando ubicación:", error);
+                // Default to Peru if fails, or could be USD global
+                setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+            } finally {
+                setPriceLoading(false);
+            }
+        };
+        detectLocation();
+    }, []);
+
     // Configuración de Culqi (Web Only)
     useEffect(() => {
         if (Platform.OS === 'web') {
@@ -68,13 +92,16 @@ export default function PricingScreen() {
         setLoading(true);
 
         Culqi.publicKey = CULQI_PK;
+        
+        const amount = planName === 'Pro' 
+            ? (billingPeriod === 'monthly' ? (locationInfo.currency === 'PEN' ? 180 : 49) : (locationInfo.currency === 'PEN' ? 1800 : 490)) 
+            : (billingPeriod === 'monthly' ? (locationInfo.currency === 'PEN' ? 400 : 109) : (locationInfo.currency === 'PEN' ? 4000 : 1090));
+
         Culqi.settings({
-            title: `Veritly - Plan ${planName} (${billingPeriod === 'monthly' ? 'Mensual' : 'Anual'})`,
-            currency: 'PEN', // Cambiamos a moneda local para Perú por defecto en Culqi
+            title: `Veritly - Plan ${planName}`,
+            currency: locationInfo.currency,
             description: `Suscripción ${billingPeriod === 'monthly' ? 'Mensual' : 'Anual'} ${planName}`,
-            amount: planName === 'Pro' 
-                ? (billingPeriod === 'monthly' ? 1800 : 18000) 
-                : (billingPeriod === 'monthly' ? 4000 : 40000)
+            amount: amount * 100 // Culqi usa céntimos
         });
 
         Culqi.options({
@@ -190,10 +217,11 @@ export default function PricingScreen() {
                         <Text style={[styles.planName, { color: '#38bdf8' }]}>Pro</Text>
                         <View style={styles.priceRow}>
                             <Text style={[styles.planPrice, { color: 'white' }]}>
-                                S/ -
+                                {locationInfo.symbol} {locationInfo.currency === 'PEN' ? (billingPeriod === 'monthly' ? '180' : '150') : (billingPeriod === 'monthly' ? '49' : '40')}
                             </Text>
                             <Text style={styles.planPriceUnit}>/ mes</Text>
                         </View>
+                        {billingPeriod === 'annual' && <Text style={styles.priceEquivalent}>Facturado anualmente</Text>}
                         <Text style={styles.planDesc}>La solución ideal para empresas en crecimiento.</Text>
                         
                         <View style={styles.dividerPro} />
@@ -221,10 +249,11 @@ export default function PricingScreen() {
                         <Text style={styles.planName}>Gold</Text>
                         <View style={styles.priceRow}>
                             <Text style={styles.planPrice}>
-                                S/ -
+                                {locationInfo.symbol} {locationInfo.currency === 'PEN' ? (billingPeriod === 'monthly' ? '400' : '330') : (billingPeriod === 'monthly' ? '109' : '90')}
                             </Text>
                             <Text style={styles.planPriceUnit}>/ mes</Text>
                         </View>
+                        {billingPeriod === 'annual' && <Text style={styles.priceEquivalent}>Facturado anualmente</Text>}
                         <Text style={styles.planDesc}>Para agencias y equipos de reclutamiento masivo.</Text>
                         
                         <View style={styles.divider} />
