@@ -136,6 +136,16 @@ export default function CompanyDrawerLayout() {
 
 
 
+                <Drawer.Screen
+                    name="insights"
+                    options={{
+                        drawerLabel: "Talent Insights",
+                        title: "Insights de Talento",
+                        drawerIcon: ({ color, size }) => <TrendingUp color={color} size={size} />,
+                        drawerItemStyle: { display: auth.currentUser?.email === 'oscar@veritlyapp.com' ? 'flex' : 'none' }
+                    }}
+                />
+
                 {/* OCULTO: Recomendaciones (Próximamente) */}
                 <Drawer.Screen
                     name="recommendations"

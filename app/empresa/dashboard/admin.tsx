@@ -223,7 +223,13 @@ export default function EmpresaAdminDashboard() {
             <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
             
             <View style={styles.header}>
-                <Text style={styles.title}>B2B Admin Dashboard</Text>
+                <View>
+                    <Text style={styles.title}>B2B Admin Dashboard</Text>
+                    <TouchableOpacity onPress={() => router.push('/empresa/dashboard/insights')} style={{flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4}}>
+                         <TrendingUp size={14} color="#38bdf8" />
+                         <Text style={{color: '#38bdf8', fontSize: 12, fontWeight: 'bold'}}>Ver Analytics DNA (Roadmap 2027)</Text>
+                    </TouchableOpacity>
+                </View>
                 <TouchableOpacity onPress={fetchData}>
                     <RefreshCw color="#38bdf8" size={20} />
                 </TouchableOpacity>

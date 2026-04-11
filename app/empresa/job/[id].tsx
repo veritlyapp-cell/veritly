@@ -187,18 +187,43 @@ export default function JobDetailScreen() {
                         uploadedUrl = await getDownloadURL(fileRef);
                     } catch (uploadErr) {
                         console.error("Storage error:", uploadErr);
+                    }                    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+                    const foundEmail = text.match(emailRegex)?.[0]?.toLowerCase();
+                    
+                    let aiResult;
+                    let existingDNASummary = '';
+                    
+                    if (foundEmail) {
+                        setProcessingStatus(`Buscando perfil previo de ${foundEmail}...`);
+                        const { query, collection, where, getDocs } = await import('firebase/firestore');
+                        const q = query(collection(db, 'users_candidatos'), where('email', '==', foundEmail));
+                        const qSnap = await getDocs(q);
+                        if (!qSnap.empty) {
+                            const gd = qSnap.docs[0].data();
+                            if (gd.profileDnaSummary) {
+                                existingDNASummary = gd.profileDnaSummary;
+                                setProcessingStatus(`Perfil de ADN encontrado. Optimizando análisis...`);
+                            }
+                        }
                     }
 
-                    const aiResult = await analyzeCandidateForCompany(text, jobDetails.description);
+                    // Perform analysis (using existing DNA if available to save tokens)
+                    aiResult = await analyzeCandidateForCompany(
+                        existingDNASummary || text, 
+                        jobDetails.description
+                    );
 
                     const newCandidate: CandidateAnalysis = {
                         id: Math.random().toString(36).substring(7),
                         jobId: id as string,
                         name: aiResult.name || file.name.split('.')[0] || "Candidato",
-                        email: aiResult.email,
+                        email: aiResult.email || foundEmail || null,
                         phoneNumber: aiResult.phoneNumber,
                         matchScore: aiResult.matchScore,
                         summary: aiResult.summary,
+                        profileDnaSummary: aiResult.profileDnaSummary || existingDNASummary,
+                        standardizedSkills: aiResult.standardizedSkills,
+                        compensationLogic: aiResult.compensationLogic,
                         pros: aiResult.pros,
                         cons: aiResult.cons,
                         matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
@@ -207,6 +232,23 @@ export default function JobDetailScreen() {
                         originalJobTitle: jobDetails.title,
                         originalFileUrl: uploadedUrl || undefined
                     };
+
+                    // Update Global Talent Graph Profile
+                    if (newCandidate.email) {
+                        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+                        const candidateRef = doc(db, 'users_candidatos', newCandidate.email); // Usamos email como ID para búsqueda rápida en el marketplace
+                        await setDoc(candidateRef, {
+                            email: newCandidate.email,
+                            name: newCandidate.name,
+                            phoneNumber: newCandidate.phoneNumber,
+                            profileDnaSummary: newCandidate.profileDnaSummary,
+                            standardizedSkills: newCandidate.standardizedSkills,
+                            compensationLogic: newCandidate.compensationLogic,
+                            lastSeenAt: serverTimestamp(),
+                            reliabilityIndex: aiResult.matchScore, // Primer score como base
+                            source: 'veritly_ats'
+                        }, { merge: true });
+                    }
 
                     await saveCandidateAnalysis(id as string, newCandidate);
                     processedCount++;

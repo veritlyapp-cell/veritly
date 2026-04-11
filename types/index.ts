@@ -35,6 +35,19 @@ export interface UserProfile {
     email: string;
     phone: string;
   };
+
+  // Marketplace & Talent Graph
+  profileDnaSummary?: string;
+  standardizedSkills?: string[];
+  compensationLogic?: {
+    salaryExpectation: number;
+    flexibilityRange: string;
+  };
+  reliabilityIndex?: number;
+  marketplaceOptIn?: {
+    status: boolean;
+    timestamp: string;
+  };
 }
 
 // --- ESTADOS DEL PROCESO (ATS) ---
@@ -84,4 +97,13 @@ export interface CandidateAnalysis {
   // Datos para historial
   originalJobTitle?: string; // Para saber a qué puesto aplicó antes
   salaryExpectation?: number | string; // Pretensiones salariales
+
+  // Talent Graph / Marketplace Ready
+  profileDnaSummary?: string;
+  standardizedSkills?: string[];
+  compensationLogic?: {
+    salaryExpectation: number;
+    flexibilityRange: string;
+  };
+  reliabilityIndex?: number;
 }

@@ -208,6 +208,12 @@ export const analyzeCandidateForCompany = async (cvText: string, jobDescription:
         "phoneNumber": "Teléfono de 9 dígitos o null",
         "matchScore": (0-100),
         "summary": "Resumen de 2 lineas del perfil",
+        "profileDnaSummary": "Interpretación profunda y semántica del potencial del candidato en 2-3 párrafos (no repetir el CV, resumir talento y fit cultural/técnico)",
+        "standardizedSkills": ["Lista", "de", "habilidades", "NORMALIZADAS", "en", "español", "(ej: 'Ventas' en lugar de 'Sales')"],
+        "compensationLogic": {
+            "salaryExpectation": (número o null),
+            "flexibilityRange": "Interpretación de qué tan flexible parece el candidato respecto al salario (ej: 'Alta', 'Media', 'Baja por seniority')"
+        },
         "pros": ["Punto fuerte 1", "Punto fuerte 2"],
         "cons": ["Faltante 1", "Faltante 2"]
     }
@@ -265,9 +271,15 @@ export const analyzeExcelRowForCompany = async (rowDataString: string, jobDescri
         "phoneNumber": "Teléfono o null",
         "matchScore": (0-100),
         "summary": "Resumen de 2 lineas",
+        "profileDnaSummary": "Interpretación profunda y semántica del perfil",
+        "standardizedSkills": ["Skills", "normalizados"],
+        "compensationLogic": {
+            "salaryExpectation": (número o null),
+            "flexibilityRange": "Nivel de flexibilidad detectado"
+        },
         "pros": ["Fuerte 1", "Fuerte 2"],
         "cons": ["Gap 1", "Gap 2"],
-        "keywordsValidation": "Resumen de la validación de keywords (ej: Inglés: Presente, Python: No Presente)"
+        "keywordsValidation": "Resumen de la validación de keywords"
     }
     `;
 
