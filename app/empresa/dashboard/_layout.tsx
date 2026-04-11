@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck } from 'lucide-react-native';
+import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
