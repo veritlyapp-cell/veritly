@@ -217,10 +217,11 @@ export default function PricingScreen() {
                     <View style={styles.divider} />
                     
                     <View style={styles.features}>
-                        <FeatureItem text="200 Créditos de Análisis" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="Hasta 2 Vacantes Activas" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="200 Análisis de IA" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Hasta 5 Vacantes Activas" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="3 Vacantes Publicables" color="#10b981" iconColor="#10b981" />
                         <FeatureItem text="Soporte VIP Directo" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="Acceso a Talent Graph" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Extensión LinkedIn Sourcing" color="#10b981" iconColor="#10b981" />
                     </View>
                     
                     <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>

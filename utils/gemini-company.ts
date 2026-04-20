@@ -350,3 +350,15 @@ export const analyzeJobPosting = async (text: string) => {
         throw new Error(`Análisis de publicación falló: ${(e as any)?.message || String(e)}`);
     }
 };
+
+// 3.7 ANALIZAR PERFIL CAPTURADO (LinkedIn)
+export const analyzeScrapedProfile = async (profileData: any, jobDescription: string) => {
+    const profileText = `
+    NOMBRE: ${profileData.name}
+    CARGO: ${profileData.role}
+    ACERCA DE: ${profileData.about || 'No especificado'}
+    EXPERIENCIA: ${profileData.experience || 'No especificada'}
+    `;
+    return analyzeCandidateForCompany(profileText, jobDescription);
+};
+

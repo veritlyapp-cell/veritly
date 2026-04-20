@@ -21,7 +21,7 @@ export default function EmpresaAdminDashboard() {
 
     useEffect(() => {
         const user = auth.currentUser;
-        if (user && user.email === 'oscar@veritlyapp.com') {
+        if (user && (user.email === 'oscar@veritlyapp.com' || user.email === 'oscar@relielabs.com')) {
             setIsAdmin(true);
             fetchData();
         } else {
@@ -225,9 +225,9 @@ export default function EmpresaAdminDashboard() {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.title}>B2B Admin Dashboard</Text>
-                    <TouchableOpacity onPress={() => router.push('/empresa/dashboard/insights')} style={{flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4}}>
+                    <TouchableOpacity onPress={() => router.push('/empresa/dashboard/admin_analytics')} style={{flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4}}>
                          <TrendingUp size={14} color="#38bdf8" />
-                         <Text style={{color: '#38bdf8', fontSize: 12, fontWeight: 'bold'}}>Ver Analytics DNA (Roadmap 2027)</Text>
+                         <Text style={{color: '#38bdf8', fontSize: 12, fontWeight: 'bold'}}>Ver Analytics DNA Global (Uso & Mercado)</Text>
                     </TouchableOpacity>
                 </View>
                 <TouchableOpacity onPress={fetchData}>

@@ -9,10 +9,10 @@ const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 // La app probará en este orden hasta que uno funcione.
 // La app probará en este orden hasta que uno funcione.
 const MODELS_TO_TRY = [
-    "gemini-2.5-flash",       // 1. Equilibrio ideal
-    "gemini-2.5-flash-lite",  // 2. Respaldo rápido y eficiente
-    "gemini-2.0-flash",       // 3. Versión anterior estable
-    "gemini-2.5-pro"          // 4. Alta capacidad (si los flash fallan)
+    "gemini-2.5-flash",       // 1. Principal
+    "gemini-2.5-pro",         // 2. Alta capacidad
+    "gemini-2.5-flash-lite",  // 3. Rápido
+    "gemini-3-pro"            // 4. Nueva generación
 ];
 
 // --- FUNCIÓN INTELIGENTE DE PETICIÓN ---
@@ -66,6 +66,11 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 const getBase64 = async (uri: string, webFile?: any): Promise<string> => {
+    // 0. Si ya es un Base64 o Data URI, no hacer fetch
+    if (uri && (uri.startsWith('data:') || uri.length > 500)) {
+        if (uri.startsWith('data:')) return uri.split(',')[1];
+        if (!uri.startsWith('http') && !uri.startsWith('blob:') && !uri.startsWith('file:')) return uri;
+    }
     // 1. Intento directo con objeto File (optimizado para Web)
     if (Platform.OS === 'web' && webFile) {
         // Verificar que sea un Blob válido
@@ -97,15 +102,11 @@ const getBase64 = async (uri: string, webFile?: any): Promise<string> => {
 // 1. LEER DOCUMENTO (PDF, DOCX, TXT)
 export const extractTextFromDocument = async (fileUri: string, mimeType: string = 'application/pdf', webFile?: any) => {
     try {
-        // Validar que el mimeType sea un string válido
-        const validMimeType = (typeof mimeType === 'string' && mimeType.includes('/'))
-            ? mimeType
-            : 'application/pdf';
+        // DOCX Auto-detection: check if URI is base64 and starts with DOCX/ZIP signature
+        const isDocx = (typeof mimeType === 'string' && (mimeType.includes('wordprocessingml') || mimeType.includes('openxmlformats'))) ||
+                       (fileUri && fileUri.startsWith('UEsDBBQ')); // Base64 signature for PK zip (DOCX)
 
-        console.log("📄 Procesando documento con MIME:", validMimeType);
-
-        // DOCX: Usar mammoth para extraer texto (Gemini no soporta DOCX directamente)
-        if (validMimeType.includes('wordprocessingml') || validMimeType.includes('openxmlformats')) {
+        if (isDocx) {
             console.log("📝 Detectado DOCX - Usando mammoth para extraer texto...");
 
             let arrayBuffer: ArrayBuffer;
@@ -139,8 +140,8 @@ export const extractTextFromDocument = async (fileUri: string, mimeType: string 
         const body = {
             contents: [{
                 parts: [
-                    { text: "Eres un experto en RRHH. Extrae del CV: Perfil, Skills y Experiencia. Haz un resumen claro." },
-                    { inlineData: { mimeType: validMimeType, data: base64Data } }
+                    { text: "Eres un experto en RRHH. Resume este CV omitiendo saludos o comentarios como 'Aquí está el resumen'. Muestra SOLAMENTE la información pura: Perfil, Skills y Experiencia." },
+                    { inline_data: { mime_type: mimeType || 'application/pdf', data: base64Data } }
                 ]
             }]
         };
@@ -195,15 +196,19 @@ export const analyzeWithGemini = async (profile: string, jobData: string | any, 
             }
             parts = [
                 { text: basePrompt + "\n\nVACANTE (IMAGEN):" },
-                { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }
+                { inline_data: { mime_type: "image/jpeg", data: imageBase64 } }
             ];
         } else {
             parts = [{ text: `${basePrompt}\n\nVACANTE (${mode}): "${jobData}"` }];
         }
 
         const data = await fetchWithFallback({ contents: [{ parts }] });
-        const cleanJson = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
+        const textResponse = data.candidates[0].content.parts[0].text;
+
+        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("La respuesta de IA no contiene un formato válido.");
+        
+        return JSON.parse(jsonMatch[0]);
 
     } catch (error: any) {
         throw error;
@@ -225,7 +230,7 @@ export const generateInterviewQuestions = async (profile: string, jobData: strin
             if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
                 throw new Error("No se pudo convertir la imagen a base64");
             }
-            parts = [{ text: basePrompt }, { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }];
+            parts = [{ text: basePrompt }, { inline_data: { mime_type: "image/jpeg", data: imageBase64 } }];
         } else {
             parts = [{ text: `${basePrompt}\n\nVACANTE: "${jobData}"` }];
         }

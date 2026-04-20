@@ -5,7 +5,7 @@ import AdminUsersTable from '../../components/AdminUsersTable';
 import { auth } from '../../config/firebase';
 import { AppConfig, getAppConfig, updateAppConfig } from '../../services/credits-service';
 
-const ADMIN_EMAILS = ['oscarqv88@gmail.com'];
+const ADMIN_EMAILS = ['oscar@veritlyapp.com'];
 
 export default function AdminConfigScreen() {
     const [loading, setLoading] = useState(true);
@@ -39,6 +39,8 @@ export default function AdminConfigScreen() {
                 let totalCands = candsSnap.size;
                 let newThisMonth = 0;
                 let totalLogins = 0;
+                let totalCodes = 0;
+                let usedCodes = 0;
                 const currentMonthNum = new Date().getMonth();
 
                 candsSnap.forEach((doc: any) => {
@@ -47,6 +49,9 @@ export default function AdminConfigScreen() {
                         const d = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
                         if(d.getMonth() === currentMonthNum) newThisMonth++;
                     }
+                    if (data.referralId) totalCodes++;
+                    if (data.referredBy || data.referralUsages > 0) usedCodes += (data.referralUsages || 0);
+                    
                     totalLogins += (data.loginCount || 0);
                 });
 
@@ -66,7 +71,9 @@ export default function AdminConfigScreen() {
                     revenue: totalRevenue,
                     newThisMonth,
                     total: totalCands,
-                    avgLogins: totalCands > 0 ? (totalLogins / totalCands) : 0
+                    avgLogins: totalCands > 0 ? (totalLogins / totalCands) : 0,
+                    totalCodes,
+                    usedCodes
                 });
             } catch (e) {
                 console.error(e);
@@ -170,6 +177,20 @@ export default function AdminConfigScreen() {
                                 <Text style={{ color: '#94a3b8', fontSize: 14 }}>Uso de Plataforma</Text>
                                 <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>{Math.round(b2cStats.avgLogins)}</Text>
                                 <Text style={{ color: '#94a3b8', fontSize: 10 }}>Logins promedio por usuario</Text>
+                            </View>
+                        </View>
+
+                        <Text style={[styles.sectionTitle, { marginTop: 25 }]}>📈 Viralidad y Referidos</Text>
+                        <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap' }}>
+                            <View style={[styles.metricCard, { backgroundColor: '#8b5cf6' }]}>
+                                <Text style={{ color: 'white', fontSize: 14 }}>Códigos Generados</Text>
+                                <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>{b2cStats.totalCodes}</Text>
+                                <Text style={{ color: '#ddd6fe', fontSize: 10 }}>Candidatos con código propio</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#f59e0b' }]}>
+                                <Text style={{ color: 'white', fontSize: 14 }}>Invitaciones Exitosas</Text>
+                                <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>{b2cStats.usedCodes}</Text>
+                                <Text style={{ color: '#fef3c7', fontSize: 10 }}>Usuarios unidos por referido</Text>
                             </View>
                         </View>
                     </View>

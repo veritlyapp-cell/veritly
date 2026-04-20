@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
-import { collection, deleteDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon } from 'lucide-react-native';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -145,18 +145,38 @@ export default function CompanyJobs() {
         }
     };
 
-    const renderJobItem = ({ item }: { item: any }) => (
-        <View style={styles.jobCard}>
+    const toggleJobStatus = async (jobId: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'Closed' ? 'Open' : 'Closed';
+        try {
+            await updateDoc(doc(db, 'jobs', jobId), { status: newStatus });
+            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+        } catch (e: any) {
+            console.error('Toggle status error:', e);
+            Alert.alert('Error', 'No se pudo cambiar el estado: ' + e.message);
+        }
+    };
+
+    const renderJobItem = ({ item }: { item: any }) => {
+        const isActive = item.status !== 'Closed';
+        return (
+        <View style={[styles.jobCard, !isActive && { borderLeftColor: '#64748b', opacity: 0.7 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.jobTitle}>{item.jobTitle}</Text>
                     <Text style={styles.jobMeta}>{item.location || "Remoto"} • {item.employmentType || "Tiempo Completo"}</Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: item.status === 'Open' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)' }]}>
-                    <Text style={[styles.statusText, { color: item.status === 'Open' ? '#34d399' : '#94a3b8' }]}>
-                        {item.status === 'Open' ? 'ACTIVO' : 'CERRADO'}
+                <TouchableOpacity
+                    style={[styles.statusBadge, {
+                        backgroundColor: isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)',
+                        flexDirection: 'row', alignItems: 'center', gap: 4
+                    }]}
+                    onPress={() => toggleJobStatus(item.id, item.status || 'Open')}
+                >
+                    <Power size={10} color={isActive ? '#34d399' : '#94a3b8'} />
+                    <Text style={[styles.statusText, { color: isActive ? '#34d399' : '#94a3b8' }]}>
+                        {isActive ? 'ACTIVO' : 'INACTIVO'}
                     </Text>
-                </View>
+                </TouchableOpacity>
             </View>
 
             <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'space-between', alignItems: 'center' }}>
@@ -172,31 +192,35 @@ export default function CompanyJobs() {
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                     {item.isExternal && (
                         <TouchableOpacity
-                            style={styles.iconButton}
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
                             onPress={async () => {
                                 await setStringAsync(`https://veritlyapp.com/vacante/${item.id}`);
-                                Alert.alert("¡Enlace copiado!", "Comparte este enlace para recibir postulaciones.");
+                                Alert.alert("URL copiado", "Comparte este enlace para recibir postulaciones.");
                             }}
                         >
                             <LinkIcon color="#3b82f6" size={20} />
+                            <Text style={{ color: '#3b82f6', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>ENLACE</Text>
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                        style={styles.iconButton}
+                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
                         onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
                     >
                         <Pencil color="#94a3b8" size={20} />
+                        <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={styles.iconButton}
+                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
                         onPress={() => handleDeleteJob(item.id, item.jobTitle)}
                     >
                         <Trash2 color="#ef4444" size={20} />
+                        <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>BORRAR</Text>
                     </TouchableOpacity>
                 </View>
             </View>
         </View>
-    );
+        );
+    };
 
     // Show loading while checking authorization
     if (loading && !refreshing) {

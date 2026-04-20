@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "referer", "operation": "set", "value": "https://www.linkedin.com/" },
+        { "header": "origin", "operation": "set", "value": "https://www.linkedin.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "https://generativelanguage.googleapis.com/*",
+      "resourceTypes": ["xmlhttprequest", "fetch", "sub_frame"]
+    }
+  }
+]

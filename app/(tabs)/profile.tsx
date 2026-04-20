@@ -4,9 +4,12 @@ import { Briefcase, Calendar, CheckCircle2, ChevronDown, DollarSign, Globe, Mail
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AppHeader from '../../components/AppHeader';
-import { auth } from '../../config/firebase';
+import { auth, db, storage } from '../../config/firebase';
 import { getUserProfileFromCloud, saveUserProfileToCloud } from '../../services/storage';
 import { extractTextFromPDF, generateProfileOptimization } from '../../utils/gemini';
+import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // DATOS DE PERÚ (Abreviados para el ejemplo, usa tu lista completa si la tienes a mano)
 const DATA_PERU: any = {
@@ -136,6 +139,8 @@ export default function ProfileScreen() {
     const [interests, setInterests] = useState('');
     const [bio, setBio] = useState('');
     const [fileName, setFileName] = useState('');
+    const [cvUrl, setCvUrl] = useState('');
+    const [cvBase64, setCvBase64] = useState('');
     const [hasFile, setHasFile] = useState(false);
     const [extracting, setExtracting] = useState(false);
     const [saving, setSaving] = useState(false); // Estado de guardado
@@ -151,11 +156,16 @@ export default function ProfileScreen() {
     const [tempMonth, setTempMonth] = useState(MONTHS[0]);
     const [tempYear, setTempYear] = useState(YEARS[10]);
 
-    useEffect(() => { loadProfile(); }, []);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loadProfile(user);
+            }
+        });
+        return unsubscribe;
+    }, []);
 
-    const loadProfile = async () => {
-        const user = auth.currentUser;
-        if (!user) return;
+    const loadProfile = async (user: any) => {
         if (!email) setEmail(user.email || '');
 
         try {
@@ -172,7 +182,12 @@ export default function ProfileScreen() {
                 setModality(data.modality || 'Remoto');
                 setInterests(data.interests || '');
                 setBio(data.bio || '');
-                if (data.fileName) { setFileName(data.fileName); setHasFile(true); }
+                if (data.fileName || data.cvName) { 
+                    setFileName(data.fileName || data.cvName); 
+                    setHasFile(true); 
+                }
+                if (data.cvUrl || data.cv) setCvUrl(data.cvUrl || data.cv);
+                if (data.cvBase64) setCvBase64(data.cvBase64);
             }
         } catch (e) { console.error(e); }
     };
@@ -201,8 +216,20 @@ export default function ProfileScreen() {
 
                 await saveUserProfileToCloud(user.uid, {
                     fullName, birthDate, email, phone, country, department, province, district,
-                    salary, modality, interests, bio, fileName, contextForAI
+                    salary, modality, interests, bio, fileName, cvUrl, cvBase64, contextForAI
                 });
+
+                // También sincronizar con la nueva colección 'users_candidatos'
+                try {
+                    const candidRef = doc(db, 'users_candidatos', user.uid);
+                    await updateDoc(candidRef, {
+                        'profile.cv': cvUrl,
+                        'profile.cvName': fileName,
+                        'cvBase64': cvBase64, // Redundancia para fácil lectura
+                        fullName,
+                        phone
+                    });
+                } catch (ce) { /* Ignorar si no existe aún */ }
             };
 
             // Corremos el guardado contra el reloj
@@ -226,10 +253,73 @@ export default function ProfileScreen() {
             setExtracting(true);
             try {
                 const webFile = Platform.OS === 'web' ? (file as any).file : undefined;
-                const text = await extractTextFromPDF(file.uri, webFile);
+                
+                // 1. Extraer Texto (Con Timeout de 20s)
+                const extractionPromise = extractTextFromPDF(file.uri, file.mimeType || 'application/pdf', webFile);
+                const timeoutExtract = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: La IA tardó demasiado en responder")), 20000));
+                const text: any = await Promise.race([extractionPromise, timeoutExtract]);
                 setBio(text);
-                showAlert("✨ Éxito", "CV leído correctamente.");
-            } catch (e: any) { showAlert("Error IA", e.message); }
+
+                // 2. Convertir a Base64 y Subir a Storage
+                const storageRef = ref(storage, `candidates_cvs/${auth.currentUser?.uid}/${file.name}`);
+                
+                let rawBase64 = "";
+
+                const uploadPromise = async () => {
+                    if (Platform.OS === 'web' && webFile) {
+                        const reader = new FileReader();
+                        rawBase64 = await new Promise<string>((resolve) => {
+                            reader.onload = () => resolve(reader.result as string);
+                            reader.readAsDataURL(webFile);
+                        });
+                    } else {
+                        const response = await fetch(file.uri);
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        rawBase64 = await new Promise<string>((resolve) => {
+                            reader.onload = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+
+                    const base64Data = rawBase64.split(',')[1] || rawBase64;
+                    await uploadString(storageRef, base64Data, 'base64', { contentType: file.mimeType || 'application/pdf' });
+                    return await getDownloadURL(storageRef);
+                };
+
+                const timeoutUpload = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout_Upload")), 8000));
+                
+                try {
+                    const downloadUrl = (await Promise.race([uploadPromise(), timeoutUpload])) as string;
+                    setCvUrl(downloadUrl);
+                    
+                    // Auto-guardado en base de datos al tener URL
+                    const user = auth.currentUser;
+                    if (user) {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { 'profile.cvUrl': downloadUrl, 'profile.fileName': file.name }).catch(() => {});
+                    }
+                    showAlert("✨ Éxito", "CV vinculado a tu cuenta para postulaciones rápidas.");
+                } catch (err) {
+                    // Bypass si el servidor principal demora
+                    if (rawBase64 && file.size < 750 * 1024) {
+                        const base64Data = rawBase64.split(',')[1] || rawBase64;
+                        setCvBase64(base64Data);
+                        const user = auth.currentUser;
+                        if (user) {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { 'profile.cvBase64': base64Data, 'profile.fileName': file.name }).catch(() => {});
+                        }
+                        showAlert("✨ Éxito (Modo Rápido)", "Tu CV se guardó directamente en tu perfil para uso inmediato.");
+                    } else {
+                        throw new Error("El archivo es demasiado grande para carga rápida y el servidor principal no responde.");
+                    }
+                }
+                
+            } catch (e: any) { 
+                console.error("Upload error:", e);
+                showAlert("Error IA/Storage", e.message); 
+            }
             finally { setExtracting(false); }
         } catch (err: any) { showAlert("Error", err.message); setExtracting(false); }
     };
@@ -393,7 +483,7 @@ export default function ProfileScreen() {
                             setSecretCount(prev => {
                                 const newCount = prev + 1;
                                 if (newCount >= 5) {
-                                    if (auth.currentUser?.email === 'oscarqv88@gmail.com') {
+                                    if (auth.currentUser?.email === 'oscar@veritlyapp.com') {
                                         router.push('/(tabs)/admin_config');
                                         return 0;
                                     } else {

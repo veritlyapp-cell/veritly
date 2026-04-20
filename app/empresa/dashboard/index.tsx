@@ -144,12 +144,14 @@ export default function CompanyDashboard() {
         }
     };
 
+    const activeJobs = jobs.filter((j: any) => j.status === 'Open' || !j.status).length;
+
     const renderBetaBanner = () => (
         <View style={styles.betaBanner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Zap color="#f59e0b" size={18} />
                 <Text style={styles.betaText}>
-                    Estás usando <Text style={{fontWeight: 'bold'}}>Veritly Beta</Text>. Disfruta de análisis ilimitados por tiempo limitado.
+                    Estás usando <Text style={{fontWeight: 'bold'}}>Veritly Beta</Text>. Tu plan incluye hasta 5 vacantes activas y 200 análisis de IA.
                 </Text>
             </View>
         </View>
@@ -204,10 +206,10 @@ export default function CompanyDashboard() {
                             </TouchableOpacity>
                         </View>
                         <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / 30) * 100, 100)}%` }]} />
+                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / 200) * 100, 100)}%` }]} />
                         </View>
                         <Text style={styles.planUsageText}>
-                            {totalCandidates} / 1000 Candidatos Evaluados (Límite Beta)
+                            {totalCandidates} / 200 Análisis Utilizados • {activeJobs} / 5 Vacantes Activas
                         </Text>
                     </View>
 
@@ -215,13 +217,13 @@ export default function CompanyDashboard() {
                     <View style={styles.statsRow}>
                         <TouchableOpacity style={styles.statBox} onPress={() => router.push('/empresa/dashboard/puestos')}>
                             <Briefcase color="#38bdf8" size={24} style={{ marginBottom: 8 }} />
-                            <Text style={styles.statNumber}>{jobs.length}</Text>
-                            <Text style={styles.statLabel}>Mis Puestos</Text>
+                            <Text style={styles.statNumber}>{activeJobs}</Text>
+                            <Text style={styles.statLabel}>Vacantes Activas</Text>
                         </TouchableOpacity>
                         <View style={styles.statBox}>
                             <Activity color="#10b981" size={24} style={{ marginBottom: 8 }} />
                             <Text style={styles.statNumber}>{totalCandidates}</Text>
-                            <Text style={styles.statLabel}>Perfiles Analizados</Text>
+                            <Text style={styles.statLabel}>Análisis Realizados</Text>
                         </View>
                     </View>
                 </View>

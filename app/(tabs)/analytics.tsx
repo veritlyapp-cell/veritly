@@ -6,7 +6,7 @@ import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSh
 import { auth, db } from '../../config/firebase';
 
 // --- CONFIGURACIÓN DE SEGURIDAD ---
-const ADMIN_EMAILS = ['oscarqv88@gmail.com'];
+const ADMIN_EMAILS = ['oscar@veritlyapp.com'];
 
 // URLs externas
 const GA_URL = 'https://analytics.google.com/analytics/web/#/p451066061/reports/dashboard?r=firebase-overview';

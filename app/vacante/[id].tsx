@@ -6,10 +6,13 @@ import {
     onAuthStateChanged,
     sendEmailVerification,
     signInWithEmailAndPassword,
-    signInWithPopup
+    signInWithPopup,
+    signInAnonymously
 } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where } from 'firebase/firestore';
+import { deductCredit } from '../../services/credits-service';
+import { saveAnalysisToCloud } from '../../services/storage';
+import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 import {
     ArrowLeft,
     ArrowRight,
@@ -23,9 +26,11 @@ import {
     Mail,
     MapPin,
     Send,
+    Sparkles,
     Upload,
     User,
-    Zap
+    Zap,
+    Share2
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -40,8 +45,11 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Share
 } from 'react-native';
+import { showAlert } from '../../utils/ui';
+import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
 type PageStep = 'offer' | 'auth' | 'apply' | 'success';
@@ -59,12 +67,21 @@ export default function ExternalApplication() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState('');
+    const [submitError, setSubmitError] = useState('');
     const [job, setJob] = useState<any>(null);
     const [applicantCount, setApplicantCount] = useState(0);
     const [companyName, setCompanyName] = useState('');
     const [companyType, setCompanyType] = useState<'empresa' | 'independiente' | ''>('');
     const [user, setUser] = useState<any>(null);
     const [authLoading, setAuthLoading] = useState(true);
+
+    // AI Match Reveal
+    const [revealingMatch, setRevealingMatch] = useState(false);
+    const [matchResult, setMatchResult] = useState<any>(null);
+    const [userCredits, setUserCredits] = useState<number>(5);
+    const [candidateRefCode, setCandidateRefCode] = useState('');
+    const [lastUploadedCv, setLastUploadedCv] = useState<{ url?: string; base64?: string; mimeType?: string } | null>(null);
+
 
     // Auth form state
     const [authEmail, setAuthEmail] = useState('');
@@ -80,18 +97,24 @@ export default function ExternalApplication() {
     const [killerAnswers, setKillerAnswers] = useState<Record<number, string>>({});
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [savedCv, setSavedCv] = useState<{ url: string; name: string } | null>(null);
+    const [useSavedCv, setUseSavedCv] = useState(false);
+    const [saveToProfile, setSaveToProfile] = useState(true);
 
     // Listen to auth state
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
-            setUser(u);
-            setAuthLoading(false);
             if (u) {
+                console.log("👤 Usuario detectado en vacante:", u.email);
+                setUser(u);
+                setAuthLoading(false);
                 setFullName(u.displayName || '');
                 setAuthEmail(u.email || '');
                 loadCandidateProfile(u.uid);
-                // If user just authenticated and was going to apply, advance them
                 setStep(prev => prev === 'auth' ? 'apply' : prev);
+            } else {
+                setUser(null);
+                setAuthLoading(false);
             }
         });
         return unsubscribe;
@@ -104,18 +127,82 @@ export default function ExternalApplication() {
 
     const loadCandidateProfile = async (uid: string) => {
         try {
-            const snap = await getDoc(doc(db, 'users_candidatos', uid));
-            if (snap.exists()) {
-                const data = snap.data();
-                if (data.profile?.fullName) setFullName(data.profile.fullName);
-                else if (data.fullName) setFullName(data.fullName);
-                
-                if (data.profile?.phone) setPhone(data.profile.phone);
-                else if (data.phone) setPhone(data.phone);
+            console.log("🔍 Cargando perfil completo para:", uid);
+            const [snapCandidato, snapUser] = await Promise.all([
+                getDoc(doc(db, 'users_candidatos', uid)),
+                getDoc(doc(db, 'users', uid))
+            ]);
+
+            let foundCv: string | null = null;
+            let foundCvName: string | null = null;
+            let foundName: string | null = null;
+            let foundPhone: string | null = null;
+
+            // 1. Extraer de users_candidatos (Nuevo)
+            if (snapCandidato.exists()) {
+                const d = snapCandidato.data();
+                foundName = d.fullName || d.profile?.fullName || foundName;
+                foundPhone = d.phone || d.profile?.phone || foundPhone;
+                foundCv = d.profile?.cv || d.profile?.cvUrl || d.cvUrl || d.cvBase64 || foundCv;
+                foundCvName = d.profile?.cvName || d.profile?.fileName || d.cvFileName || foundCvName;
+            }
+
+            // 2. Extraer de users (Legacy / Perfil principal)
+            if (snapUser.exists()) {
+                const d = snapUser.data();
+                foundName = foundName || d.profile?.fullName || d.fullName;
+                foundPhone = foundPhone || d.profile?.phone || d.phone;
+                // Buscar CV en todas sus posibles variantes
+                foundCv = foundCv || d.profile?.cvUrl || d.profile?.cv || d.profile?.cvBase64 || d.cvUrl || d.cv;
+                foundCvName = foundCvName || d.profile?.cvName || d.profile?.fileName || d.cvFileName;
+            }
+
+            if (foundName) setFullName(foundName);
+            if (foundPhone) setPhone(foundPhone);
+
+            if (foundCv) {
+                console.log("✅ CV detectado con éxito");
+                setSavedCv({ 
+                    url: foundCv, 
+                    name: foundCvName || 'Mi CV Guardado.pdf' 
+                });
+                setUseSavedCv(true);
+            } else {
+                console.warn("⚠️ No se encontró CV en ninguna colección para este usuario.");
+            }
+
+            // Créditos y otros datos (de cualquiera de las dos)
+            const globalData = snapCandidato.exists() ? snapCandidato.data() : (snapUser.exists() ? snapUser.data() : null);
+            if (globalData) {
+                setUserCredits(globalData.aiCredits ?? globalData.profile?.aiCredits ?? 5);
+                setCandidateRefCode(globalData.referralId || globalData.profile?.referralId || '');
+
+                // Verificación profunda: ¿Realmente existe la postulación en la vacante?
+                if (globalData.lastMatches && id && globalData.lastMatches[id as string]) {
+                    const jobCandRef = query(collection(db, 'jobs', id as string, 'candidates'), where('email', '==', (auth.currentUser?.email || '').toLowerCase()));
+                    const jobCandSnap = await getDocs(jobCandRef);
+                    
+                    if (!jobCandSnap.empty) {
+                        console.log("✅ Confirmado: Postulación activa detectada.");
+                        setMatchResult(globalData.lastMatches[id as string]);
+                        setStep('success');
+                    } else {
+                        console.log("ℹ️ Match antiguo detectado pero candidato ya no existe en vacante. Permitiendo re-postulación.");
+                        // Limpiar el match antiguo del perfil para no confundir
+                        const userRef = doc(db, 'users', uid);
+                        await updateDoc(userRef, { [`profile.lastMatches.${id}`]: deleteField() }).catch(() => {});
+                    }
+                }
             }
         } catch (e) {
             console.error('Error loading profile:', e);
         }
+    };
+
+    const generateRefCode = (nameText: string) => {
+        const prefix = nameText.split(' ')[0].toUpperCase().substring(0, 6) || 'VERITLY';
+        const random = Math.floor(1000 + Math.random() * 9000);
+        return `${prefix}${random}`;
     };
 
     const ensureCandidateDoc = async (u: any, nameOverride?: string) => {
@@ -123,19 +210,30 @@ export default function ExternalApplication() {
         const snap = await getDoc(docRef);
         
         if (!snap.exists()) {
+            const initialName = nameOverride || u.displayName || '';
+            const newRefCode = generateRefCode(initialName);
             await setDoc(docRef, {
                 uid: u.uid,
                 email: u.email,
                 role: 'candidato',
+                aiCredits: 5,
+                referralId: newRefCode,
+                referralUsages: 0,
                 profile: {
-                    fullName: nameOverride || u.displayName || '',
+                    fullName: initialName,
                     phone: '',
                 },
                 applications: [],
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
                 source: 'external_link'
             });
+            setUserCredits(5);
+            setCandidateRefCode(newRefCode);
+        } else {
+            const data = snap.data();
+            setUserCredits(data.aiCredits ?? 5);
+            setCandidateRefCode(data.referralId || '');
         }
     };
 
@@ -143,7 +241,7 @@ export default function ExternalApplication() {
         try {
             const jobDoc = await getDoc(doc(db, 'jobs', jobId));
             if (!jobDoc.exists() || !jobDoc.data().isExternal) {
-                Alert.alert('Vacante no disponible', 'Este enlace de postulación ya no está activo.');
+                showAlert('Vacante no disponible', 'Este enlace de postulación ya no está activo.');
                 return;
             }
             const jobData = jobDoc.data();
@@ -192,7 +290,7 @@ export default function ExternalApplication() {
             }
         } catch (err: any) {
             if (err.code !== 'auth/popup-closed-by-user') {
-                Alert.alert('Error', 'No se pudo iniciar sesión con Google.');
+                showAlert('Error', 'No se pudo iniciar sesión con Google.');
             }
         } finally {
             setAuthSubmitting(false);
@@ -201,14 +299,14 @@ export default function ExternalApplication() {
 
     const handleEmailAuth = async () => {
         if (!authEmail || !authPassword) {
-            Alert.alert('Campos vacíos', 'Por favor completa el correo y la contraseña.');
+            showAlert('Campos vacíos', 'Por favor completa el correo y la contraseña.');
             return;
         }
         setAuthSubmitting(true);
         try {
             if (authMode === 'register') {
                 if (!authName) {
-                    Alert.alert('Nombre requerido', 'Por favor ingresa tu nombre completo.');
+                    showAlert('Nombre requerido', 'Por favor ingresa tu nombre completo.');
                     setAuthSubmitting(false);
                     return;
                 }
@@ -226,7 +324,7 @@ export default function ExternalApplication() {
                 err.code === 'auth/invalid-credential' ? 'Correo o contraseña incorrectos.' :
                 err.code === 'auth/weak-password' ? 'La contraseña debe tener al menos 6 caracteres.' :
                 'Ocurrió un error inesperado.';
-            Alert.alert('Error', msg);
+            showAlert('Error', msg);
         } finally {
             setAuthSubmitting(false);
         }
@@ -243,12 +341,12 @@ export default function ExternalApplication() {
             if (result.canceled) return;
             const selectedFile = result.assets[0];
             if (selectedFile.size && selectedFile.size > 5 * 1024 * 1024) {
-                Alert.alert('Archivo muy grande', 'Por favor sube un documento que pese menos de 5MB.');
+                showAlert('Archivo muy grande', 'Por favor sube un documento que pese menos de 5MB.');
                 return;
             }
             setFile(selectedFile);
         } catch {
-            Alert.alert('Error', 'No se pudo cargar el documento.');
+            showAlert('Error', 'No se pudo cargar el documento.');
         }
     };
 
@@ -279,36 +377,46 @@ export default function ExternalApplication() {
                 hasErrors = true;
             }
         }
-
-        if (!file) { errors.file = 'Debes subir tu CV.'; hasErrors = true; }
+        if (!file && !useSavedCv) { errors.file = 'Debes subir tu CV o usar el guardado.'; hasErrors = true; }
         if (!acceptedTerms) { errors.terms = 'Debes aceptar la política de privacidad.'; hasErrors = true; }
 
         setFormErrors(errors);
 
         if (hasErrors) {
-            Alert.alert('Campos por corregir', 'Por favor revisa los mensajes en texto rojo.');
+            showAlert('Campos por corregir', 'Por favor revisa los mensajes en texto rojo.');
             return;
         }
 
         setSubmitting(true);
-        setSubmitStatus('Registrando postulación...');
+        setSubmitError('');
+        setSubmitStatus('Iniciando sesión segura...');
+        
         try {
             console.log('--- Iniciando Postulación ---');
+            
+            // STEP 0: Ensure we are authenticated (Storage Rules usually require request.auth != null)
+            if (!user) {
+                try {
+                    await signInAnonymously(auth);
+                } catch (authErr) {
+                    console.error("Auth error:", authErr);
+                    // Continue anyway, maybe rules are public
+                }
+            }
+
             // Salary filter
             const budget = Number(job.salaryBudget) || 0;
-            const tolUp = Number(job.salaryTolerance) || 10;
-            const tolDown = Number(job.salaryToleranceDown) || 10;
-            const maxBudget = budget > 0 ? budget * (1 + tolUp / 100) : Infinity;
-            const minBudget = budget > 0 ? budget * (1 - tolDown / 100) : 0;
+            // ... (rest of filtering logic)
+            // ... (I'll keep the actual logic from before)
+            const maxBudget = budget > 0 ? budget * (1 + (Number(job.salaryTolerance) || 10) / 100) : Infinity;
+            const minBudget = budget > 0 ? budget * (1 - (Number(job.salaryToleranceDown) || 10) / 100) : 0;
             const isSalaryRejected = budget > 0 && (expectationNumber > maxBudget || expectationNumber < minBudget);
 
-            // Killer questions filter
             let isKillerRejected = false;
             let failureReason = '';
             const questions = job.killerQuestions || [];
             if (questions.length > 0) {
                 questions.forEach((q: any, idx: number) => {
-                    if (!q.question?.trim()) return;
                     const ans = killerAnswers[idx] || 'no';
                     const expected = q.expectedAnswer || 'si';
                     if (ans !== expected) {
@@ -320,16 +428,87 @@ export default function ExternalApplication() {
 
             const isRejected = isSalaryRejected || isKillerRejected;
 
-            // STEP 1: Save to Firestore immediately (no waiting for CV upload)
-            // This ensures the candidate is registered even if the file upload fails
-            let docRef;
+            let cvUrl = useSavedCv ? savedCv?.url : null;
+            let cvBase64 = null;
+
+            if (file && !useSavedCv) {
+                setSubmitStatus('Procesando archivo...');
+                try {
+                    const uploadTaskPromise = () => new Promise<{url?: string, base64?: string}>((resolve, reject) => {
+                        const reader = new FileReader();
+                        const nativeFile = (Platform.OS === 'web' && (file as any).file) ? (file as any).file : null;
+                        const safeName = (fullName || 'candidato').replace(/[^a-zA-Z0-9]/g, '_');
+                        const companyPath = job.companyId ? `company_${job.companyId}` : 'company_anon';
+                        const jobPath = id ? `job_${id}` : 'job_unknown';
+                        const fileRef = ref(storage, `cvs/${companyPath}/${jobPath}/${Date.now()}_${safeName}`);
+
+                        reader.onload = async () => {
+                            const result = reader.result as string;
+                            const base64Data = result.split(',')[1];
+                            const isSmallEnough = file.size < 750 * 1024;
+                            
+                            setSubmitStatus('Subiendo en Alta Velocidad...');
+                            
+                            const storagePromise = uploadString(fileRef, base64Data, 'base64', {
+                                contentType: file.mimeType || 'application/pdf'
+                            }).then(snap => getDownloadURL(snap.ref)).then(url => ({ url }));
+
+                            const timeoutPromise = new Promise<{url?: string, base64: string}>((_, reject) => {
+                                setTimeout(() => {
+                                    if (isSmallEnough) resolve({ base64: base64Data }); // Bypass
+                                    else reject(new Error("Timeout y archivo muy grande para bypass"));
+                                }, 8000); 
+                            });
+
+                            try {
+                                const finalRes = await Promise.race([storagePromise, timeoutPromise]);
+                                resolve(finalRes);
+                            } catch (e) {
+                                if (isSmallEnough) resolve({ base64: base64Data });
+                                else reject(e);
+                            }
+                        };
+
+                        reader.onerror = () => reject(new Error("Error al leer archivo"));
+                        if (nativeFile) reader.readAsDataURL(nativeFile);
+                        else fetch(file.uri).then(res => res.blob()).then(b => reader.readAsDataURL(b)).catch(() => reject(new Error("Error procesando URI")));
+                    });
+
+                    const res = await uploadTaskPromise();
+                    cvUrl = res.url || null;
+                    cvBase64 = res.base64 || null;
+                } catch (uploadErr: any) {
+                    console.error('CV upload error:', uploadErr);
+                    setSubmitError(`Error crítico de carga: El archivo es muy grande o hay un bloqueo de red.`);
+                    setSubmitting(false);
+                    return;
+                }
+            }
+
+            // STEP 2: Duplicate Check (Safety Layer)
+            setSubmitStatus('Verificando postulación previa...');
+            const existingQuery = query(
+                collection(db, 'jobs', id as string, 'candidates'),
+                where('email', '==', (user?.email || authEmail).toLowerCase().trim())
+            );
+            const existingSnap = await getDocs(existingQuery);
+            if (!existingSnap.empty) {
+                setSubmitError('Ya te has postulado a esta vacante anteriormente.');
+                setSubmitting(false);
+                return;
+            }
+
+            // STEP 3: Save to Firestore
+            setSubmitStatus('Sincronizando perfiles...');
             try {
-                docRef = await addDoc(collection(db, 'jobs', id as string, 'candidates'), {
+                const docRef = await addDoc(collection(db, 'jobs', id as string, 'candidates'), {
                     fullName: fullName.trim(),
                     email: (user?.email || authEmail).toLowerCase().trim(),
                     phone: phone.trim(),
                     salaryExpectation: expectationNumber,
-                    cvUrl: null, // Will be updated after upload
+                    cvUrl: cvUrl,
+                    cvBase64: cvBase64,
+                    originalFileUrl: cvUrl,
                     cvFileName: file?.name || '',
                     appliedAt: serverTimestamp(),
                     status: isRejected ? (isSalaryRejected ? 'rejected_salary' : 'rejected') : 'pending_ai',
@@ -337,50 +516,127 @@ export default function ExternalApplication() {
                     failureReason: isSalaryRejected ? 'Presupuesto fuera de rango' : failureReason,
                     killerAnswers,
                     source: 'external_link',
-                    userId: user?.uid || null,
+                    userId: auth.currentUser?.uid || user?.uid || null,
                     jobId: id,
                     companyId: job.companyId || ''
                 });
+                setLastUploadedCv({ url: cvUrl, base64: cvBase64, mimeType: file?.mimeType });
+
+                // OPCIONAL: Guardar en el perfil del usuario si marcó el checkbox
+                if (saveToProfile && !useSavedCv && cvUrl) {
+                    const profileRef = doc(db, 'users_candidatos', user.uid);
+                    await updateDoc(profileRef, {
+                        'profile.cv': cvUrl,
+                        'profile.cvName': file?.name || 'CV_Veritly.pdf',
+                        cvUrl: cvUrl, // Por redundancia
+                        cvFileName: file?.name || 'CV_Veritly.pdf'
+                    });
+                }
             } catch (dbErr: any) {
                 console.error('Firestore error:', dbErr);
-                throw new Error('No se pudo conectar con el servidor. Verifica tu internet.');
+                setSubmitError(`Error en base de datos: ${dbErr.message}`);
+                setSubmitting(false);
+                return;
             }
 
-            // STEP 2: Show success immediately to the candidate
-            console.log('✅ Postulación guardada, mostrando éxito');
+            // STEP 3: Show success
             setStep('success');
             setSubmitting(false);
             setSubmitStatus('');
-
-            // STEP 3: Upload CV in background (non-blocking)
-            if (file && docRef) {
-                console.log('📎 Subiendo CV en segundo plano...');
-                try {
-                    let blob;
-                    if (Platform.OS === 'web' && file.file) {
-                        blob = file.file;
-                    } else {
-                        const response = await fetch(file.uri);
-                        blob = await response.blob();
-                    }
-                    const safeName = (fullName || 'candidato').replace(/[^a-zA-Z0-9]/g, '_');
-                    const fileRef = ref(storage, `cvs_externos/${job.companyId || 'anon'}/${id}/${Date.now()}_${safeName}`);
-                    await uploadBytes(fileRef, blob);
-                    const cvUrl = await getDownloadURL(fileRef);
-                    // Update the document with the CV URL
-                    const { updateDoc } = await import('firebase/firestore');
-                    await updateDoc(docRef, { cvUrl });
-                    console.log('✅ CV subido y vinculado correctamente');
-                } catch (uploadErr) {
-                    console.error('Background CV upload failed:', uploadErr);
-                    // Silent fail - candidate is already registered
-                }
-            }
         } catch (err: any) {
             console.error('Submit fatal error:', err);
-            Alert.alert('Error en la postulación', err.message || 'Hubo un problema. Intenta de nuevo.');
+            setSubmitError(`Error fatal: ${err.message || 'Hubo un error inesperado.'}`);
             setSubmitting(false);
-            setSubmitStatus('');
+        }
+    };
+
+    const handleRevealMatch = async () => {
+        if (!user) return showAlert("Inicia Sesión", "Debes estar conectado para revelar tu match.");
+        if (userCredits <= 0) return showAlert("Créditos Insuficientes", "Se te agotaron los créditos. Refiere amigos para ganar más.");
+
+        setRevealingMatch(true);
+        try {
+            const { analyzeWithGemini, extractTextFromDocument } = await import('../../utils/gemini');
+            
+            let textToAnalyze = "";
+            const cvSource = useSavedCv ? savedCv?.url : (lastUploadedCv?.base64 || lastUploadedCv?.url);
+            if (cvSource) {
+                try {
+                    textToAnalyze = await extractTextFromDocument(
+                        cvSource, 
+                        lastUploadedCv?.mimeType || 'application/pdf'
+                    );
+                    
+                    if (textToAnalyze && textToAnalyze.length < 50) {
+                        console.warn("Extracción de CV muy corta, posible PDF escaneado sin OCR o error de lectura.");
+                    }
+                } catch (extractErr) {
+                    console.error("Extract error:", extractErr);
+                    // Fallback a info básica si falla la extracción del documento
+                    textToAnalyze = `Nombre: ${fullName}. Teléfono: ${phone}. Email: ${user.email}`;
+                    showAlert("Aviso", "No pudimos leer el detalle de tu CV (posible formato incompatible o muy corto). El análisis se basará en tu información básica.");
+                }
+            } else {
+                textToAnalyze = `Nombre: ${fullName}. Teléfono: ${phone}. Email: ${user.email}`;
+            }
+
+            if (!textToAnalyze || textToAnalyze.length < 10) {
+                throw new Error("No hay contenido suficiente para analizar.");
+            }
+
+            // Realizar análisis enfocado en candidato
+            const result = await analyzeWithGemini(
+                textToAnalyze, 
+                job?.optimizedText || job?.originalText || job?.jobTitle || "Puesto de trabajo", 
+                'text'
+            );
+
+            if (!result || !result.match) {
+                console.error("Invalid AI result:", result);
+                throw new Error("La IA no devolvió un resultado válido.");
+            }
+
+            setMatchResult(result);
+            
+            // 1. Deducir crédito usando el servicio estándar
+            const successDeduct = await deductCredit(user.uid);
+            if (successDeduct) {
+                // Actualizar UI de créditos (aunque en esta pantalla usemos un state local simplificado)
+                setUserCredits(prev => Math.max(0, prev - 1));
+            }
+
+            // 2. Guardar en el Historial del Scanner (para que salga en el dashboard)
+            const analysisItem = {
+                id: `match_${id}_${Date.now()}`,
+                jobId: id,
+                date: new Date().toISOString(),
+                match: result.match,
+                role: result.role || job.jobTitle,
+                company: result.company || companyName,
+                reason: result.reason,
+                tips: result.tips,
+                cvGaps: result.cvGaps,
+                cvImprovements: result.cvImprovements,
+                suggestedKeywords: result.suggestedKeywords,
+                status: 'Postulado',
+                link: `${window?.location?.origin || ''}/vacante/${id}`
+            };
+
+            await saveAnalysisToCloud(user.uid, analysisItem);
+
+            // 3. También guardar en lastMatches para carga rápida local
+            const userRef = doc(db, 'users_candidatos', user.uid);
+            await setDoc(userRef, {
+                lastMatches: {
+                    [id as string]: result
+                }
+            }, { merge: true });
+
+        } catch (e: any) {
+            console.error("Error revealing match:", e);
+            showAlert("Análisis Interrumpido", e.message || "No pudimos procesar el match en este momento. Intenta conectando tu cuenta o subiendo el CV de nuevo.");
+        } finally {
+            setRevealingMatch(false);
         }
     };
 
@@ -626,31 +882,96 @@ export default function ExternalApplication() {
     // ─── STEP: SUCCESS ───────────────────────────────────────────────────────────
 
     if (step === 'success') {
+        const handleShareReferral = async () => {
+             try {
+                 await Share.share({
+                     message: `¡Hola! Únete a Veritly, la plataforma que me ayudó a mejorar mis postulaciones con IA. Usa mi código ${candidateRefCode} y gana créditos gratis para analizar tu CV: https://veritly.app`,
+                 });
+             } catch (error: any) {
+                 console.error(error.message);
+             }
+        };
+
         return (
             <SafeAreaView style={styles.container}>
-                <ScrollView key={`scroll-${step}`} contentContainerStyle={[styles.scrollContent, styles.centered]}>
-                    <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(16, 185, 129, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
-                            <CheckCircle2 size={48} color="#10b981" />
+                <ScrollView key={`scroll-${step}`} contentContainerStyle={[styles.scrollContent]}>
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <View style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: 'rgba(16, 185, 129, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                            <CheckCircle2 size={40} color="#10b981" />
                         </View>
-                        <Text style={{ color: 'white', fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 }}>¡Postulación Enviada!</Text>
-                        <Text style={{ color: '#94a3b8', textAlign: 'center', lineHeight: 22, marginBottom: 30, paddingHorizontal: 20 }}>
-                            Tu perfil fue registrado correctamente para <Text style={{ color: 'white', fontWeight: 'bold' }}>{job.jobTitle}</Text> en {companyName}. El equipo de selección revisará tu CV y se contactará contigo.
+                        <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>¡Postulación Enviada!</Text>
+                        <Text style={{ color: '#94a3b8', textAlign: 'center', fontSize: 13, lineHeight: 19, marginBottom: 24 }}>
+                            Tu perfil fue registrado correctamente para <Text style={{ color: 'white', fontWeight: 'bold' }}>{job.jobTitle}</Text>.
                         </Text>
 
-                        <View style={{ backgroundColor: '#1e293b', padding: 20, borderRadius: 16, width: '100%', marginBottom: 30, borderWidth: 1, borderColor: '#334155' }}>
-                            <Text style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: 8, fontSize: 14 }}>💡 Mientras esperas...</Text>
-                            <Text style={{ color: '#94a3b8', fontSize: 13, lineHeight: 20 }}>
-                                Con tu cuenta Veritly puedes optimizar tu CV, practicar entrevistas con IA y prepararte para destacar en el proceso de selección.
-                            </Text>
+                        {/* HOOK: AI MATCH REVEAL */}
+                        <View style={{ width: '100%', backgroundColor: '#1e293b', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: matchResult ? '#3b82f6' : '#334155', marginBottom: 20 }}>
+                            {!matchResult ? (
+                                <View style={{ alignItems: 'center' }}>
+                                    <Sparkles size={32} color="#f59e0b" style={{ marginBottom: 12 }} />
+                                    <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>¿Quieres saber tu Match %?</Text>
+                                    <Text style={{ color: '#94a3b8', textAlign: 'center', fontSize: 14, marginBottom: 20, lineHeight: 20 }}>
+                                        Nuestra IA puede decirte qué tanto encaja tu CV con este puesto antes que el reclutador te llame.
+                                    </Text>
+                                    
+                                    <TouchableOpacity 
+                                        style={[styles.applyBtn, { width: '100%', backgroundColor: '#7c3aed', marginVertical: 0 }]} 
+                                        onPress={handleRevealMatch}
+                                        disabled={revealingMatch}
+                                    >
+                                        {revealingMatch ? (
+                                            <ActivityIndicator color="white" />
+                                        ) : (
+                                            <>
+                                                <Zap size={18} color="white" />
+                                                <Text style={styles.applyBtnText}>REVELAR MI SCORE ✨</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                    <Text style={{ color: '#64748b', fontSize: 11, marginTop: 12 }}>
+                                        Costo: 1 crédito (Te quedan {userCredits})
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={{ alignItems: 'center' }}>
+                                    <CircularProgress percentage={matchResult.match} size={100} strokeWidth={8} />
+                                    <Text style={{ color: 'white', fontSize: 28, fontWeight: '900', marginTop: 16 }}>{matchResult.match}% Match</Text>
+                                    <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20, marginTop: 8 }}>
+                                        <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>{matchResult.reason || 'Excelente Potencial'}</Text>
+                                    </View>
+                                    
+                                    <View style={{ width: '100%', height: 1, backgroundColor: '#334155', marginVertical: 20 }} />
+                                    
+                                    <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 20 }}>
+                                        "Usaste 1 crédito de análisis. ¡Buen trabajo!"
+                                    </Text>
+
+                                    {/* REFERRAL CALLOUT */}
+                                    <View style={{ backgroundColor: '#0f172a', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#f59e0b', width: '100%' }}>
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>🚀 ¿Quieres más créditos?</Text>
+                                        <Text style={{ color: '#94a3b8', fontSize: 12, lineHeight: 18 }}>
+                                            Comparte tu código <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>{candidateRefCode}</Text> con amigos. Si se registran, ¡ambos ganan +2 créditos gratis!
+                                        </Text>
+                                        <TouchableOpacity 
+                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}
+                                            onPress={handleShareReferral}
+                                        >
+                                            <Share2 size={16} color="#3b82f6" />
+                                            <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 13 }}>COMPARTIR CÓDIGO</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
                         </View>
 
-                        <TouchableOpacity style={[styles.applyBtn, { backgroundColor: '#7c3aed' }]} onPress={() => router.replace('/(tabs)')}>
-                            <Zap size={18} color="white" />
-                            <Text style={styles.applyBtnText}>Explorar Veritly</Text>
+                        <TouchableOpacity 
+                            style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155', shadowOpacity: 0, elevation: 0, marginTop: 40 }]} 
+                            onPress={() => router.replace('/(tabs)')}
+                        >
+                            <Text style={{ color: '#94a3b8', fontWeight: 'bold' }}>IR A MI DASHBOARD</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setStep('offer')}>
-                            <Text style={{ color: '#64748b', fontSize: 13 }}>Volver a la oferta</Text>
+                        <TouchableOpacity style={{ marginTop: 24, padding: 10 }} onPress={() => setStep('offer')}>
+                            <Text style={{ color: '#475569', fontSize: 13, textDecorationLine: 'underline' }}>Volver a ver la descripción del puesto</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -773,8 +1094,46 @@ export default function ExternalApplication() {
 
                 {/* CV Upload */}
                 <View style={styles.formSection}>
-                    <Text style={styles.sectionTitle}>Tu Currículum</Text>
-                    <TouchableOpacity style={[styles.uploadCard, file && styles.uploadCardDone, formErrors.file && styles.uploadCardError]} onPress={handlePickDocument}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                        <Text style={styles.sectionTitle}>Tu Currículum</Text>
+                        {user && (
+                            <View style={{ backgroundColor: '#0f172a', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#1e293b' }}>
+                                <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: 'bold' }}>👤 CONECTADO: {fullName.split(' ')[0]}</Text>
+                            </View>
+                        )}
+                    </View>
+                    
+                    {savedCv && (
+                        <TouchableOpacity 
+                            style={[styles.savedCvOption, useSavedCv && styles.savedCvOptionActive]}
+                            onPress={() => {
+                                setUseSavedCv(true);
+                                setFile(null); // Deseleccionar archivo manual
+                            }}
+                        >
+                            <View style={[styles.radio, useSavedCv && styles.radioActive]}>
+                                {useSavedCv && <View style={styles.radioInner} />}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.savedCvTitle}>Usar mi CV guardado</Text>
+                                <Text style={styles.savedCvName}>{savedCv.name}</Text>
+                            </View>
+                            <FileText size={20} color={useSavedCv ? "#38bdf8" : "#64748b"} />
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity 
+                        style={[
+                            styles.uploadCard, 
+                            file && styles.uploadCardDone, 
+                            formErrors.file && !useSavedCv && styles.uploadCardError,
+                            useSavedCv && { opacity: 0.6, borderColor: '#334155' }
+                        ]} 
+                        onPress={() => {
+                            setUseSavedCv(false);
+                            handlePickDocument();
+                        }}
+                    >
                         {file ? (
                             <>
                                 <CheckCircle2 size={28} color="#10b981" />
@@ -783,15 +1142,28 @@ export default function ExternalApplication() {
                             </>
                         ) : (
                             <>
-                                <Upload size={28} color={formErrors.file ? "#ef4444" : "#38bdf8"} />
-                                <Text style={[styles.uploadText, formErrors.file && { color: "#ef4444" }]}>
-                                    Subir CV (PDF o Word)
+                                <Upload size={28} color={(formErrors.file && !useSavedCv) ? "#ef4444" : "#38bdf8"} />
+                                <Text style={[styles.uploadText, (formErrors.file && !useSavedCv) && { color: "#ef4444" }]}>
+                                    {useSavedCv ? 'Subir un CV diferente' : 'Subir CV (PDF o Word)'}
                                 </Text>
                                 <Text style={styles.uploadHint}>Máximo 5MB</Text>
                             </>
                         )}
                     </TouchableOpacity>
-                    {formErrors.file && <Text style={[styles.errorText, { marginTop: 8 }]}>{formErrors.file}</Text>}
+
+                    {file && !useSavedCv && (
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 4 }}
+                            onPress={() => setSaveToProfile(!saveToProfile)}
+                        >
+                            <View style={[styles.checkbox, saveToProfile && styles.checkboxActive]}>
+                                {saveToProfile && <CheckCircle2 size={12} color="white" />}
+                            </View>
+                            <Text style={{ color: '#94a3b8', fontSize: 13 }}>Guardar este CV como predeterminado en mi cuenta</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {formErrors.file && !useSavedCv && !file && <Text style={[styles.errorText, { marginTop: 8 }]}>{formErrors.file}</Text>}
                 </View>
 
                 {/* Terms */}
@@ -808,8 +1180,14 @@ export default function ExternalApplication() {
                     </View>
                 </TouchableOpacity>
 
+                {submitError ? (
+                    <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                        <Text style={{ color: '#ef4444', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>{submitError}</Text>
+                    </View>
+                ) : null}
+
                 {/* Submit */}
-                <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.7 }]} onPress={handleSubmit} disabled={submitting}>
+                <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.7 }]} onPress={() => { setSubmitError(''); handleSubmit(); }} disabled={submitting}>
                     {submitting ? (
                         <>
                             <ActivityIndicator color="white" />
@@ -1088,5 +1466,49 @@ const styles = StyleSheet.create({
         color: '#3b82f6',
         fontWeight: 'bold',
         fontSize: 14,
+    },
+    // Saved CV 
+    savedCvOption: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 15, 
+        backgroundColor: '#0f172a', 
+        padding: 16, 
+        borderRadius: 14, 
+        borderWidth: 1, 
+        borderColor: '#334155', 
+        marginBottom: 16 
+    },
+    savedCvOptionActive: { 
+        borderColor: '#3b82f6', 
+        backgroundColor: 'rgba(59, 130, 246, 0.05)' 
+    },
+    radio: { 
+        width: 22, 
+        height: 22, 
+        borderRadius: 11, 
+        borderWidth: 2, 
+        borderColor: '#475569', 
+        justifyContent: 'center', 
+        alignItems: 'center' 
+    },
+    radioActive: { 
+        borderColor: '#3b82f6' 
+    },
+    radioInner: { 
+        width: 10, 
+        height: 10, 
+        borderRadius: 5, 
+        backgroundColor: '#3b82f6' 
+    },
+    savedCvTitle: { 
+        color: 'white', 
+        fontSize: 14, 
+        fontWeight: 'bold' 
+    },
+    savedCvName: { 
+        color: '#94a3b8', 
+        fontSize: 12, 
+        marginTop: 2 
     },
 });

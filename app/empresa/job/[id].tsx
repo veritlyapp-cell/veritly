@@ -5,7 +5,8 @@ import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, server
 import { 
     ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, 
     Download, Info, LayoutTemplate, List, CheckCircle2, Trash2, 
-    ChevronRight, MoreVertical, CheckSquare, Square, UserX, Clock
+    ChevronRight, MoreVertical, CheckSquare, Square, UserX, Clock,
+    Briefcase, Target
 } from 'lucide-react-native';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
@@ -37,12 +38,13 @@ import {
 } from '../../../services/storage';
 import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
-import { analyzeCandidateForCompany, analyzeExcelRowForCompany } from '../../../utils/gemini-company';
+import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
 
 const STATUS_OPTIONS: RecruitmentStatus[] = ['new', 'pending_ai', 'screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'];
 
 const STATUS_LABELS: Record<string, string> = {
     new: 'NUEVO',
+    sourcing_pending: 'IMPORTADO LI',
     pending_ai: 'PENDIENTE IA',
     screening: 'SCREENING',
     interview: 'ENTREVISTA',
@@ -62,6 +64,7 @@ const getStatusColor = (status: RecruitmentStatus) => {
         case 'rejected': return '#ef4444';
         case 'rejected_salary': return '#f97316';
         case 'pending_ai': return '#8b5cf6';
+        case 'sourcing_pending': return '#4245c2';
         case 'new': return '#38bdf8';
         default: return '#64748b';
     }
@@ -89,6 +92,16 @@ export default function JobDetailScreen() {
         description: description as string || '',
         companyId: ''
     });
+
+    // Edit Candidate State
+    const [isEditingCandidate, setIsEditingCandidate] = useState(false);
+    const [editForm, setEditForm] = useState({
+        email: '',
+        phoneNumber: '',
+        salaryExpectation: '',
+        notes: ''
+    });
+    const [savingEdit, setSavingEdit] = useState(false);
 
     useEffect(() => {
         loadJobAndCandidates();
@@ -365,7 +378,7 @@ export default function JobDetailScreen() {
                         summary: aiResult.summary,
                         pros: aiResult.pros,
                         cons: aiResult.cons,
-                        keywordsValidation: aiResult.keywordsValidation,
+                        keywordsValidation: aiResult.keywordsValidation || null,
                         matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
                         recruitmentStatus: 'screening',
                         analyzedAt: new Date().toISOString(),
@@ -446,13 +459,152 @@ export default function JobDetailScreen() {
                 selectedIds.includes(c.id) ? { ...c, recruitmentStatus: newStatus } : c
             ));
             setSelectedIds([]);
-            if (selectedIds.length <= 1) setIsSelectionMode(false);
+            if (isSelectionMode) setIsSelectionMode(false);
             showAlert("Éxito", `${selectedIds.length} candidatos movidos.`);
-        } catch (err) {
-            console.error(err);
-            showAlert("Error", "No se pudieron mover los candidatos.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        const executeBulkDelete = async () => {
+            setLoading(true);
+            try {
+                const batch = writeBatch(db);
+                selectedIds.forEach(cid => {
+                    const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
+                    batch.delete(docRef);
+                });
+                await batch.commit();
+                setCandidates(prev => prev.filter(c => !selectedIds.includes(c.id)));
+                setSelectedIds([]);
+                setIsSelectionMode(false);
+                showAlert("Eliminados", "Los candidatos han sido eliminados satisfactoriamente.");
+            } catch (err) {
+                console.error(err);
+                showAlert("Error", "No se pudieron eliminar los candidatos.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`¿Estás seguro de eliminar permanentemente a ${selectedIds.length} candidatos? Esta acción no se puede deshacer.`)) {
+                executeBulkDelete();
+            }
+        } else {
+            Alert.alert(
+                "Eliminar Candidatos",
+                `¿Estás seguro de eliminar permanentemente a ${selectedIds.length} candidatos? Esta acción no se puede deshacer.`,
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Eliminar", style: "destructive", onPress: executeBulkDelete }
+                ]
+            );
+        }
+    };
+
+    const handleCleanupPipeline = async () => {
+        if (!auth.currentUser) return;
+        
+        Alert.alert(
+            "Limpieza de Pipeline",
+            "¿Estás seguro de que deseas ELIMINAR TODOS los candidatos de esta vacante? Esta acción no se puede deshacer.",
+            [
+                { text: "Cancelar", style: "cancel" },
+                { 
+                    text: "ELIMINAR TODO", 
+                    style: "destructive",
+                    onPress: async () => {
+                        setLoading(true);
+                        try {
+                            const q = query(collection(db, 'jobs', id as string, 'candidates'));
+                            const snap = await getDocs(q);
+                            const batch = writeBatch(db);
+                            
+                            snap.docs.forEach((docSnap) => {
+                                batch.delete(docSnap.ref);
+                            });
+                            
+                            await batch.commit();
+                            setCandidates([]);
+                            showAlert("Éxito", "El pipeline ha sido vaciado completamente.");
+                        } catch (err) {
+                            console.error(err);
+                            showAlert("Error", "No se pudo limpiar el pipeline.");
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+
+    const handleAnalyzeIndividualCandidate = async (candidate: CandidateAnalysis) => {
+        if (!auth.currentUser || processing) return;
+        setProcessing(true);
+        setProcessingStatus(`Analizando perfil para ${candidate.name}...`);
+        
+        try {
+            let textToAnalyze = "";
+            const cvBase64 = (candidate as any).cvBase64;
+            
+            // Case 1: LinkedIn Sourced (captured text)
+            if ((candidate as any).about || candidate.role) {
+                textToAnalyze = `CARGO EN LINKEDIN: ${candidate.role || 'No especificado'}
+                RESUMEN/ABOUT: ${(candidate as any).about || 'No hay descripción disponible.'}
+                EXPERIENCIA DETALLADA: ${(candidate as any).experience || 'No se capturó historial detallado.'}`;
+            } 
+            // Case 2: External Applicant (CV PDF/Word)
+            else if (candidate.originalFileUrl || cvBase64) {
+                setProcessingStatus(`Extrayendo texto del Currículum...`);
+                // Passing base64 if URL is not available
+                textToAnalyze = await extractTextFromDocument(candidate.originalFileUrl || cvBase64);
+            }
+            // Case 3: Excel or manual with some summary
+            else if (candidate.summary && !candidate.summary.includes('🚫')) {
+                 textToAnalyze = candidate.summary;
+            }
+
+            if (!textToAnalyze) throw new Error("No hay contenido suficiente para analizar automáticamente. Verifica que el candidato tenga un CV adjunto o perfil de LinkedIn capturado.");
+
+            setProcessingStatus(`Ejecutando IA Veritly DNA...`);
+            const aiResult = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+            
+            const updatedCandidate = {
+                ...candidate,
+                matchScore: Number(aiResult.matchScore) || 0,
+                summary: aiResult.summary || "Sin resumen",
+                profileDnaSummary: aiResult.profileDnaSummary || "",
+                standardizedSkills: aiResult.standardizedSkills || [],
+                phoneNumber: aiResult.phoneNumber || candidate.phoneNumber || null,
+                email: aiResult.email || candidate.email || null,
+                pros: aiResult.pros || [],
+                cons: aiResult.cons || [],
+                keywordsValidation: aiResult.keywordsValidation || null,
+                matchStatus: Number(aiResult.matchScore) >= 80 ? 'green' : Number(aiResult.matchScore) >= 60 ? 'yellow' : 'red',
+                recruitmentStatus: candidate.recruitmentStatus === 'sourcing_pending' ? 'screening' : candidate.recruitmentStatus,
+                analyzedAt: new Date().toISOString()
+            };
+
+            const docRef = doc(db, 'jobs', id as string, 'candidates', candidate.id);
+            // Sanitize to avoid undefined errors in Firebase
+            const sanitizedData = Object.fromEntries(
+                Object.entries(updatedCandidate).filter(([_, v]) => v !== undefined)
+            );
+            await setDoc(docRef, sanitizedData, { merge: true });
+            
+            setCandidates(prev => prev.map(c => c.id === candidate.id ? (updatedCandidate as any) : c));
+            setSelectedCandidate(updatedCandidate as any);
+            showAlert("Éxito", "Análisis completado satisfactoriamente.");
+        } catch (err: any) {
+            console.error("Error en análisis individual:", err);
+            showAlert("Error de Análisis", err.message);
+        } finally {
+            setProcessing(false);
+            setProcessingStatus('');
         }
     };
 
@@ -468,6 +620,13 @@ export default function JobDetailScreen() {
     const openCandidateModal = async (candidate: CandidateAnalysis) => {
         setSelectedCandidate(candidate);
         setCandidateHistory([]);
+        setIsEditingCandidate(false);
+        setEditForm({
+            email: candidate.email || '',
+            phoneNumber: candidate.phoneNumber || '',
+            salaryExpectation: candidate.salaryExpectation?.toString() || '',
+            notes: (candidate as any).notes || ''
+        });
 
         if (candidate.email && auth.currentUser) {
             try {
@@ -479,12 +638,139 @@ export default function JobDetailScreen() {
         }
     };
 
+    const handleSaveCandidateEdit = async () => {
+        if (!selectedCandidate) return;
+        setSavingEdit(true);
+        try {
+            const updatedData = {
+                email: editForm.email,
+                phoneNumber: editForm.phoneNumber,
+                salaryExpectation: editForm.salaryExpectation ? Number(editForm.salaryExpectation) : null,
+                notes: editForm.notes,
+                updatedAt: serverTimestamp()
+            };
+
+            const docRef = doc(db, 'jobs', id as string, 'candidates', selectedCandidate.id);
+            await setDoc(docRef, updatedData, { merge: true });
+
+            // Update local state
+            setCandidates(prev => prev.map(c => 
+                c.id === selectedCandidate.id ? { ...c, ...updatedData, salaryExpectation: updatedData.salaryExpectation || undefined } : c
+            ));
+            setSelectedCandidate({ 
+                ...selectedCandidate, 
+                ...updatedData, 
+                salaryExpectation: updatedData.salaryExpectation || undefined,
+                notes: updatedData.notes
+            } as any);
+            
+            setIsEditingCandidate(false);
+            showAlert("Éxito", "Perfil del candidato actualizado.");
+        } catch (err) {
+            console.error(err);
+            showAlert("Error", "No se pudieron guardar los cambios.");
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
     const handleStatusChange = async (newStatus: RecruitmentStatus) => {
         if (!selectedCandidate) return;
         setSelectedCandidate({ ...selectedCandidate, recruitmentStatus: newStatus });
         await updateCandidateStatus(id as string, selectedCandidate.id, newStatus);
         setCandidates(prev => prev.map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
     };
+
+    const handleBulkAnalyze = async () => {
+
+        if (selectedIds.length === 0) return;
+        
+        const toAnalyze = candidates.filter(c => selectedIds.includes(c.id) && (c.recruitmentStatus === 'sourcing_pending' || !c.matchScore));
+        
+        if (toAnalyze.length === 0) {
+            return showAlert("Información", "Los candidatos seleccionados ya han sido analizados o no tienen datos suficientes.");
+        }
+
+        try {
+            setProcessing(true);
+            let count = 0;
+            for (const cand of toAnalyze) {
+                setProcessingStatus(`Analizando ${++count}/${toAnalyze.length}: ${cand.name}`);
+                
+                let textToAnalyze = "";
+                const cvBase64 = (cand as any).cvBase64;
+
+                // 1. LinkedIn Sourced
+                if ((cand as any).about || cand.role) {
+                    textToAnalyze = `CARGO EN LINKEDIN: ${cand.role || 'No especificado'}
+                    RESUMEN/ABOUT: ${(cand as any).about || 'No hay descripción disponible.'}
+                    EXPERIENCIA DETALLADA: ${(cand as any).experience || 'No se capturó historial detallado.'}`;
+                } 
+                // 2. CV Document
+                else if (cand.originalFileUrl || cvBase64) {
+                    try {
+                        textToAnalyze = await extractTextFromDocument(cand.originalFileUrl || cvBase64);
+                    } catch (e) {
+                        console.error("Text extraction failed for bulk candidate:", cand.id, e);
+                    }
+                }
+                // 3. Fallback to summary
+                if (!textToAnalyze && cand.summary) {
+                    textToAnalyze = cand.summary;
+                }
+
+                if (!textToAnalyze) {
+                    console.log(`Skipping ${cand.name} - no content to analyze`);
+                    continue;
+                }
+
+                const analysis = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+
+                const docRef = doc(db, 'jobs', id as string, 'candidates', cand.id);
+                
+                // Prioritize existing data to avoid overwriting with AI defaults
+                const finalName = (cand.name && cand.name !== 'Candidato' && cand.name !== 'Candidato Externo') 
+                    ? cand.name 
+                    : (analysis.name || cand.name);
+
+                const bulkUpdateData = {
+                    ...analysis,
+                    name: finalName,
+                    phoneNumber: cand.phoneNumber || analysis.phoneNumber || null,
+                    email: cand.email || analysis.email || null,
+                    matchScore: Number(analysis.matchScore) || 0,
+                    keywordsValidation: analysis.keywordsValidation || null,
+                    matchStatus: Number(analysis.matchScore) >= 80 ? 'green' : Number(analysis.matchScore) >= 60 ? 'yellow' : 'red',
+                    recruitmentStatus: cand.recruitmentStatus === 'sourcing_pending' ? 'screening' : cand.recruitmentStatus,
+                    analyzedAt: new Date().toISOString()
+                };
+
+                const sanitizedBulkData = Object.fromEntries(
+                    Object.entries(bulkUpdateData).filter(([_, v]) => v !== undefined)
+                );
+
+                await setDoc(docRef, sanitizedBulkData, { merge: true });
+                
+                // Update local state for each processed candidate
+                setCandidates(prev => prev.map(c => 
+                    c.id === cand.id ? { ...c, ...sanitizedBulkData } : c
+                ));
+                
+                // Rate limit safety
+                if (toAnalyze.length > 1) await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+            loadJobAndCandidates();
+            showAlert("Proceso Terminado", `${count} candidatos analizados con éxito.`);
+        } catch (err: any) {
+            showAlert("Error en análisis masivo", err.message);
+        } finally {
+            setProcessing(false);
+            setProcessingStatus('');
+        }
+    }
 
     const viewCandidateCV = async (cvUrl?: string) => {
         if (!cvUrl) return showAlert("Sin CV", "Este candidato no tiene un currículum adjunto.");
@@ -562,7 +848,7 @@ export default function JobDetailScreen() {
                         <Sparkles size={20} color={activeTab === 'ranking' ? '#3b82f6' : '#64748b'} />
                         <Text style={[styles.mainTabText, activeTab === 'ranking' && styles.mainTabTextActive]}>Ranking IA</Text>
                         <View style={[styles.countBadge, activeTab === 'ranking' && { backgroundColor: '#3b82f6' }]}>
-                            <Text style={styles.countBadgeText}>{candidates.filter(c => c.recruitmentStatus === 'new').length}</Text>
+                            <Text style={styles.countBadgeText}>{candidates.filter(c => ['new', 'sourcing_pending', 'pending_ai'].includes(c.recruitmentStatus)).length}</Text>
                         </View>
                     </TouchableOpacity>
                     <TouchableOpacity 
@@ -575,7 +861,9 @@ export default function JobDetailScreen() {
                         <LayoutTemplate size={20} color={activeTab === 'pipeline' ? '#3b82f6' : '#64748b'} />
                         <Text style={[styles.mainTabText, activeTab === 'pipeline' && styles.mainTabTextActive]}>Pipeline ATS</Text>
                         <View style={[styles.countBadge, activeTab === 'pipeline' && { backgroundColor: '#10b981' }]}>
-                            <Text style={styles.countBadgeText}>{candidates.filter(c => c.recruitmentStatus !== 'new').length}</Text>
+                            <Text style={styles.countBadgeText}>
+                                {candidates.filter(c => ['screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'].includes(c.recruitmentStatus)).length}
+                            </Text>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -593,6 +881,19 @@ export default function JobDetailScreen() {
                             style={[styles.viewToggleBtn, viewMode === 'kanban' && styles.viewToggleBtnActive]}
                         >
                             <LayoutTemplate size={20} color={viewMode === 'kanban' ? 'white' : '#64748b'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => {
+                                if (isSelectionMode) {
+                                    setIsSelectionMode(false);
+                                    setSelectedIds([]);
+                                } else {
+                                    setIsSelectionMode(true);
+                                }
+                            }}
+                            style={[styles.viewToggleBtn, isSelectionMode && { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6' }]}
+                        >
+                            <CheckSquare size={20} color={isSelectionMode ? '#3b82f6' : '#64748b'} />
                         </TouchableOpacity>
                     </View>
                 )}
@@ -644,13 +945,22 @@ export default function JobDetailScreen() {
                             </TouchableOpacity>
                         </>
                     )}
+                    {activeTab === 'ranking' && (
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginLeft: 10 }} 
+                            onPress={handleCleanupPipeline}
+                        >
+                            <Trash2 size={14} color="#ef4444" />
+                            <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>LIMPIAR PIPELINE</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
             {/* View Switching */}
             {activeTab === 'ranking' ? (
                 <FlatList
-                    data={candidates.filter(c => c.recruitmentStatus === 'new').sort((a, b) => b.matchScore - a.matchScore)}
+                    data={candidates.filter(c => (c.recruitmentStatus === 'new' || c.recruitmentStatus === 'sourcing_pending')).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))}
                     keyExtractor={item => item.id}
                     renderItem={({ item }) => {
                         const isSelected = selectedIds.includes(item.id);
@@ -681,9 +991,9 @@ export default function JobDetailScreen() {
                                                 month: 'short'
                                             })}
                                         </Text>
-                                        <View style={[styles.statusPill, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
-                                            <Text style={[styles.statusPillText, { color: '#38bdf8' }]}>
-                                                PENDIENTE REVISIÓN
+                                        <View style={[styles.statusPill, { backgroundColor: item.recruitmentStatus === 'sourcing_pending' ? 'rgba(66, 69, 194, 0.15)' : 'rgba(56, 189, 248, 0.1)' }]}>
+                                            <Text style={[styles.statusPillText, { color: item.recruitmentStatus === 'sourcing_pending' ? '#38bdf8' : '#38bdf8' }]}>
+                                                {item.recruitmentStatus === 'sourcing_pending' ? 'IMPORTADO LINKEDIN' : 'PENDIENTE REVISIÓN'}
                                             </Text>
                                         </View>
                                     </View>
@@ -780,35 +1090,38 @@ export default function JobDetailScreen() {
                                         {!isSelectionMode && (
                                             <>
                                                 <TouchableOpacity
-                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', alignItems: 'center', minWidth: 60 }]}
                                                     onPress={(e) => {
                                                         e.stopPropagation();
                                                         handleQuickDiscard(item.id);
                                                     }}
                                                 >
                                                     <UserX size={18} color="#ef4444" />
+                                                    <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: 'bold', marginTop: 2 }}>DESCARTAR</Text>
                                                 </TouchableOpacity>
                                                 {item.phoneNumber && (
                                                     <TouchableOpacity
-                                                        style={styles.iconButton}
+                                                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
                                                         onPress={(e) => {
                                                             e.stopPropagation();
                                                             openWhatsApp(item.phoneNumber);
                                                         }}
                                                     >
                                                         <MessageSquare size={18} color="#10b981" />
+                                                        <Text style={{ color: '#10b981', fontSize: 9, fontWeight: 'bold', marginTop: 2 }}>WHATSAPP</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </>
                                         )}
                                         <TouchableOpacity
-                                            style={styles.iconButton}
+                                            style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
                                             onPress={(e) => {
                                                 e.stopPropagation();
                                                 openCandidateModal(item);
                                             }}
                                         >
                                             <ChevronRight size={18} color="#94a3b8" />
+                                            <Text style={{ color: '#94a3b8', fontSize: 9, fontWeight: 'bold', marginTop: 2 }}>VER MÁS</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -839,23 +1152,36 @@ export default function JobDetailScreen() {
                                     </View>
                                 </View>
                                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
-                                    {columnCandidates.map(candidate => (
-                                        <TouchableOpacity key={candidate.id} style={styles.kanbanCard} onPress={() => openCandidateModal(candidate)}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                                <CircularProgress percentage={candidate.matchScore} size={40} strokeWidth={4} />
-                                                <View style={{ marginLeft: 10, flex: 1 }}>
-                                                    <Text style={styles.kanbanCardName} numberOfLines={1}>{candidate.name}</Text>
-                                                    <Text style={styles.kanbanCardSalary}>
-                                                        {candidate.salaryExpectation ? `S/ ${candidate.salaryExpectation}` : 'S/ N/A'}
-                                                    </Text>
+                                    {columnCandidates.map(candidate => {
+                                        const isSelected = selectedIds.includes(candidate.id);
+                                        return (
+                                            <TouchableOpacity 
+                                                key={candidate.id} 
+                                                style={[styles.kanbanCard, isSelected && styles.candidateCardSelected]} 
+                                                onPress={() => (isSelectionMode ? toggleSelection(candidate.id) : openCandidateModal(candidate))}
+                                                onLongPress={() => toggleSelection(candidate.id)}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                    {isSelectionMode && (
+                                                        <View style={{ marginRight: 8 }}>
+                                                            {isSelected ? <CheckSquare size={18} color="#3b82f6" /> : <Square size={18} color="#64748b" />}
+                                                        </View>
+                                                    )}
+                                                    <CircularProgress percentage={candidate.matchScore} size={36} strokeWidth={3} />
+                                                    <View style={{ marginLeft: 10, flex: 1 }}>
+                                                        <Text style={styles.kanbanCardName} numberOfLines={1}>{candidate.name}</Text>
+                                                        <Text style={styles.kanbanCardSalary}>
+                                                            {candidate.salaryExpectation ? `S/ ${candidate.salaryExpectation}` : 'S/ N/A'}
+                                                        </Text>
+                                                    </View>
                                                 </View>
-                                            </View>
-                                            <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
+                                                <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                     {columnCandidates.length === 0 && (
                                         <View style={styles.kanbanEmpty}>
-                                            <Text style={styles.kanbanEmptyText}>Arrastra o mueve{'\n'}candidatos aquí</Text>
+                                            <Text style={styles.kanbanEmptyText}>Sin candidatos{'\n'}en esta etapa</Text>
                                         </View>
                                     )}
                                 </ScrollView>
@@ -870,14 +1196,29 @@ export default function JobDetailScreen() {
                 <View style={styles.bulkBar}>
                     <Text style={styles.bulkBarText}>{selectedIds.length} seleccionados</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#8b5cf6' }]} onPress={handleBulkAnalyze}>
+                            <Sparkles size={16} color="white" />
+                            <Text style={styles.bulkBtnText}>Analizar IA</Text>
+                        </TouchableOpacity>
+
                         {activeTab === 'ranking' ? (
-                            <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#10b981' }]} onPress={handleRankToPipeline}>
-                                <Sparkles size={16} color="white" />
-                                <Text style={styles.bulkBtnText}>Mover al Pipeline</Text>
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#10b981' }]} onPress={handleRankToPipeline}>
+                                    <FileText size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Mover al Pipeline</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#ef4444' }]} onPress={handleBulkDelete}>
+                                    <Trash2 size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Eliminar</Text>
+                                </TouchableOpacity>
+                            </>
                         ) : (
                             <>
-                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#ef4444' }]} onPress={() => handleBulkMove('rejected')}>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#ef4444' }]} onPress={handleBulkDelete}>
+                                    <Trash2 size={16} color="white" />
+                                    <Text style={styles.bulkBtnText}>Eliminar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#94a3b8' }]} onPress={() => handleBulkMove('rejected')}>
                                     <UserX size={16} color="white" />
                                     <Text style={styles.bulkBtnText}>Descartar</Text>
                                 </TouchableOpacity>
@@ -923,22 +1264,120 @@ export default function JobDetailScreen() {
                                 </TouchableOpacity>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.modalName}>{selectedCandidate.name}</Text>
-                                    {selectedCandidate.email && (
-                                        <Text style={styles.modalEmail}>{selectedCandidate.email}</Text>
-                                    )}
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={styles.modalEmail}>{selectedCandidate.email || 'Sin email'}</Text>
+                                        <TouchableOpacity onPress={() => setIsEditingCandidate(!isEditingCandidate)}>
+                                            <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: 'bold' }}>
+                                                {isEditingCandidate ? '[ CANCELAR ]' : '[ EDITAR PERFIL ]'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                                 {selectedCandidate.matchScore !== undefined && (
                                     <CircularProgress percentage={selectedCandidate.matchScore} size={50} strokeWidth={4} />
                                 )}
                             </View>
 
+                            {/* EDIT FORM (Conditionally Shown) */}
+                            {isEditingCandidate && (
+                                <View style={styles.editSection}>
+                                    <Text style={styles.editSectionTitle}>Editar Datos del Candidato</Text>
+                                    
+                                    <Text style={styles.modalLabel}>Correo Electrónico</Text>
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={editForm.email}
+                                        onChangeText={(t) => setEditForm({ ...editForm, email: t })}
+                                        placeholder="email@ejemplo.com"
+                                        placeholderTextColor="#64748b"
+                                    />
+
+                                    <Text style={styles.modalLabel}>Teléfono / WhatsApp</Text>
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={editForm.phoneNumber}
+                                        onChangeText={(t) => setEditForm({ ...editForm, phoneNumber: t })}
+                                        placeholder="+51 900..."
+                                        placeholderTextColor="#64748b"
+                                    />
+
+                                    <Text style={styles.modalLabel}>Expectativa Salarial (S/.)</Text>
+                                    <TextInput
+                                        style={styles.modalInput}
+                                        value={editForm.salaryExpectation}
+                                        onChangeText={(t) => setEditForm({ ...editForm, salaryExpectation: t })}
+                                        placeholder="3500"
+                                        keyboardType="numeric"
+                                        placeholderTextColor="#64748b"
+                                    />
+
+                                    <Text style={styles.modalLabel}>Notas del Reclutador</Text>
+                                    <TextInput
+                                        style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
+                                        value={editForm.notes}
+                                        onChangeText={(t) => setEditForm({ ...editForm, notes: t })}
+                                        placeholder="Escribe tus observaciones aquí..."
+                                        multiline
+                                        placeholderTextColor="#64748b"
+                                    />
+
+                                    <TouchableOpacity 
+                                        style={styles.saveEditBtn} 
+                                        onPress={handleSaveCandidateEdit}
+                                        disabled={savingEdit}
+                                    >
+                                        {savingEdit ? <ActivityIndicator color="white" /> : <Text style={styles.saveEditBtnText}>Guardar Cambios</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
                             {/* Match Score Large */}
                             <View style={styles.matchSection}>
-                                <CircularProgress percentage={selectedCandidate.matchScore} size={140} strokeWidth={10} />
+                                <CircularProgress percentage={selectedCandidate.matchScore || 0} size={140} strokeWidth={10} />
                                 <Text style={styles.matchLabel}>
-                                    {selectedCandidate.matchScore === undefined ? 'Análisis Pendiente' : 'Coincidencia'}
+                                    {selectedCandidate.matchScore === undefined || selectedCandidate.matchScore === 0 ? 'Análisis Pendiente' : 'Coincidencia'}
                                 </Text>
+                                
+                                {(!selectedCandidate.matchScore || selectedCandidate.matchScore === 0) && (
+                                    <TouchableOpacity 
+                                        style={{ marginTop: 20, backgroundColor: '#8b5cf6', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#8b5cf6', shadowOpacity: 0.4, shadowRadius: 10, elevation: 5 }} 
+                                        onPress={() => handleAnalyzeIndividualCandidate(selectedCandidate)}
+                                        disabled={processing}
+                                    >
+                                        <Sparkles size={20} color="white" />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>RE-ANALIZAR CON IA ✨</Text>
+                                    </TouchableOpacity>
+                                )}
+
                             </View>
+
+                            {/* LinkedIn Sourced Info */}
+                            {((selectedCandidate as any).about || selectedCandidate.role) && (
+                                <View style={{ marginHorizontal: 20, marginBottom: 20, padding: 15, backgroundColor: 'rgba(66, 69, 194, 0.1)', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#4245c2' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                        <Briefcase size={16} color="#38bdf8" />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Perfil Capturado de LinkedIn</Text>
+                                    </View>
+                                    <Text style={{ color: '#cbd5e1', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>{selectedCandidate.role}</Text>
+                                    <Text style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic' }} numberOfLines={5}>
+                                        "{(selectedCandidate as any).about || 'Sin descripción adicional.'}"
+                                    </Text>
+                                    
+                                    {(selectedCandidate as any).experience && (
+                                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                                            <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '800', marginBottom: 6, letterSpacing: 1 }}>EXPERIENCIA CAPTURADA</Text>
+                                            <Text style={{ color: '#94a3b8', fontSize: 11 }} numberOfLines={8}>{(selectedCandidate as any).experience}</Text>
+                                        </View>
+                                    )}
+
+                                    <TouchableOpacity 
+                                        style={{ marginTop: 15, backgroundColor: 'rgba(66, 69, 194, 0.2)', padding: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#4245c2' }}
+                                        onPress={() => (selectedCandidate as any).linkedinUrl ? Linking.openURL((selectedCandidate as any).linkedinUrl) : null}
+                                    >
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13 }}>Ver Perfil Completo en LinkedIn 🔗</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
                             {/* AI Analysis Card */}
                             <View style={styles.aiCard}>
@@ -1012,24 +1451,81 @@ export default function JobDetailScreen() {
                                 </>
                             )}
 
+                            {/* CV Preview OR Profile Text (Web Only) */}
+                            {Platform.OS === 'web' && (
+                                <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
+                                    {(selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cvBase64) ? (
+                                        <>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <FileText size={18} color="#38bdf8" />
+                                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Vista Previa del CV</Text>
+                                            </View>
+                                            <View style={{ height: 600, backgroundColor: '#1e293b', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#4245c2' }}>
+                                        {(() => {
+                                                    const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url || '';
+                                                    const base64 = (selectedCandidate as any).cvBase64 || '';
+                                                    
+                                                    if (!url && !base64) return null;
+                                                    
+                                                    let iframeSrc = '';
+                                                    if (url) {
+                                                        const isWord = url.toLowerCase().includes('.doc') || url.toLowerCase().includes('.docx');
+                                                        iframeSrc = isWord ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true` : url;
+                                                    } else if (base64) {
+                                                        // Detect if it's already a data URI or just raw base64
+                                                        iframeSrc = base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`;
+                                                    }
+                                                    
+                                                    return (
+                                                        <iframe 
+                                                            key={selectedCandidate.id} src={iframeSrc}
+                                                            style={{ width: '100%', height: '100%', border: 'none' }}
+                                                        />
+                                                    );
+                                                })()}
+                                            </View>
+                                        </>
+                                    ) : ((selectedCandidate as any).experience || (selectedCandidate as any).about) ? (
+                                        <View style={{ padding: 15, backgroundColor: 'rgba(56, 189, 248, 0.05)', borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.2)' }}>
+                                             <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold', marginBottom: 10 }}>TEXTO CAPTURADO (VIRTUAL CV)</Text>
+                                             <Text style={{ color: '#94a3b8', fontSize: 12 }}>{((selectedCandidate as any).experience || '').substring(0, 1000)}...</Text>
+                                        </View>
+                                    ) : (
+                                        <View style={{ padding: 20, backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', alignItems: 'center' }}>
+                                            <Info size={24} color="#ef4444" style={{ marginBottom: 10 }} />
+                                            <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: 'bold', textAlign: 'center' }}>CV NO DETECTADO EN EL REGISTRO</Text>
+                                            <Text style={{ color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 4 }}>Si el candidato dice haberlo subido, es posible que la carga fallara por conexión.</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
+
                             {/* Contact Actions */}
                             <View style={styles.cvSection}>
+
                                 <TouchableOpacity
                                     style={styles.cvBigButton}
                                     onPress={() => {
-                                        const url = selectedCandidate.originalFileUrl;
-                                        if (!url) return showAlert("CV no disponible", "Este candidato fue cargado vía Excel o el archivo no se guardó correctamente.");
+                                        const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url;
+                                        const base64 = (selectedCandidate as any).cvBase64;
+                                        
+                                        if (!url && !base64) return showAlert("CV no disponible", "Este candidato no tiene un archivo adjunto (puede ser de LinkedIn o Excel).");
+                                        
+                                        const target = url || (base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`);
+                                        
                                         if (Platform.OS === 'web') {
-                                            window.open(url, '_blank');
+                                            window.open(target, '_blank');
                                         } else {
-                                            Linking.openURL(url);
+                                            Linking.openURL(target);
                                         }
                                     }}
                                 >
                                     <FileText size={40} color="white" />
                                     <View>
-                                        <Text style={styles.cvBigTitle}>Ver Currículum Original</Text>
-                                        <Text style={styles.cvBigSub}>{selectedCandidate.originalFileUrl ? 'Haga clic para abrir el documento' : 'No disponible para este registro'}</Text>
+                                        <Text style={styles.cvBigTitle}>Ver Documento Original</Text>
+                                        <Text style={styles.cvBigSub}>{(selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url) ? 'Haga clic para descargar/abrir' : 'Solo datos capturados (LinkedIn/Excel)'}</Text>
+
                                     </View>
                                 </TouchableOpacity>
                             </View>
@@ -1099,6 +1595,20 @@ export default function JobDetailScreen() {
                             <Text style={styles.dropzoneTitle}>Haz clic para seleccionar tu Base de Datos</Text>
                             <Text style={styles.dropzoneSubtitle}>Soporta .xlsx y .csv</Text>
                         </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* PROCESSING OVERLAY (Modal to show above other modals) */}
+            <Modal transparent visible={processing} animationType="fade">
+                <View style={[styles.processingOverlay, { backgroundColor: 'rgba(15, 23, 42, 0.9)' }]}>
+                    <View style={styles.processingCard}>
+                        <ActivityIndicator size="large" color="#3b82f6" />
+                        <Text style={styles.processingTitle}>Procesando con IA</Text>
+                        <Text style={styles.processingText}>{processingStatus}</Text>
+                        <Text style={{ color: '#64748b', fontSize: 11, textAlign: 'center' }}>
+                            Por favor espera unos segundos...
+                        </Text>
                     </View>
                 </View>
             </Modal>
@@ -1832,5 +2342,50 @@ const styles = StyleSheet.create({
         color: '#94a3b8',
         fontSize: 13,
         textAlign: 'center'
+    },
+    // Candidate Edit Form Styles
+    editSection: {
+        backgroundColor: '#1E293B',
+        padding: 20,
+        marginHorizontal: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#3b82f6',
+        marginTop: 10,
+        marginBottom: 20
+    },
+    editSectionTitle: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 15
+    },
+    modalLabel: {
+        color: '#94a3b8',
+        fontSize: 13,
+        fontWeight: 'bold',
+        marginBottom: 6,
+        marginTop: 10
+    },
+    modalInput: {
+        backgroundColor: '#0F172A',
+        borderWidth: 1,
+        borderColor: '#334155',
+        borderRadius: 8,
+        padding: 12,
+        color: 'white',
+        fontSize: 14
+    },
+    saveEditBtn: {
+        backgroundColor: '#3b82f6',
+        padding: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 20
+    },
+    saveEditBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14
     }
 });

@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp } from 'lucide-react-native';
+import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
@@ -66,8 +66,8 @@ export default function CompanyDrawerLayout() {
                 <Drawer.Screen
                     name="index"
                     options={{
-                        drawerLabel: "Home",
-                        title: "Resumen General",
+                        drawerLabel: "Home / Créditos",
+                        title: "Resumen de Cuenta",
                         drawerIcon: ({ color, size }) => <Activity color={color} size={size} />
                     }}
                 />
@@ -82,20 +82,20 @@ export default function CompanyDrawerLayout() {
                 />
 
                 <Drawer.Screen
-                    name="job/create"
+                    name="indicadores"
                     options={{
-                        drawerLabel: "Match Perfil",
-                        title: "Análisis de Perfil",
-                        drawerIcon: ({ color, size }) => <Briefcase color={color} size={size} />,
-                        drawerItemStyle: { display: 'none' } // Making it hidden from menu to enforce flow via FAB? Or keep separate?
-                        // User said: "Area de Flujo de Trabajo: Mis Puestos". "Match Perfil" is an action. 
-                        // I will keep it visible as requested before ("Match Perfil"), or hide it if "Mis Puestos" is the only main area.
-                        // "Menu Lateral: Mis Puestos, Configuración". 
-                        // I will HIDE "Match Perfil" from the drawer and access it via FAB in "Mis Puestos" to be cleaner.
-                        // Wait, user asked for "Match Perfil" name previously.
-                        // New request: "Menu Lateral: Mis Puestos... Configuración... Recomendaciones".
-                        // It seems "Match Perfil" (Create) should be reached FROM "Mis Puestos".
-                        // I will hide it from Drawer to strictly follow "Menu Lateral" request.
+                        drawerLabel: "Indicadores",
+                        title: "Indicadores de Reclutamiento",
+                        drawerIcon: ({ color, size }) => <BarChart3 color={color} size={size} />
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="pricing"
+                    options={{
+                        drawerLabel: "Planes y Créditos",
+                        title: "Planes para Empresas",
+                        drawerIcon: ({ color, size }) => <Star color={color} size={size} />
                     }}
                 />
 
@@ -113,17 +113,18 @@ export default function CompanyDrawerLayout() {
                     options={{
                         drawerLabel: "Admin B2B",
                         title: "Panel Corporativo",
-                        drawerIcon: ({ color, size }) => <ShieldCheck color={auth.currentUser?.email === 'oscar@veritlyapp.com' ? "#3b82f6" : color} size={size} />,
-                        drawerItemStyle: { display: auth.currentUser?.email === 'oscar@veritlyapp.com' ? 'flex' : 'none' }
+                        drawerIcon: ({ color, size }) => <ShieldCheck color="#3b82f6" size={size} />,
+                        drawerItemStyle: { display: (auth.currentUser?.email === 'oscar@veritlyapp.com') ? 'flex' : 'none' }
                     }}
                 />
 
                 <Drawer.Screen
-                    name="pricing"
+                    name="insights"
                     options={{
-                        drawerLabel: "Planes y Precios",
-                        title: "Planes para Empresas",
-                        drawerIcon: ({ color, size }) => <Star color={color} size={size} />
+                        drawerLabel: "Talent Insights",
+                        title: "Insights de Talento",
+                        drawerIcon: ({ color, size }) => <TrendingUp color="#10b981" size={size} />,
+                        drawerItemStyle: { display: (auth.currentUser?.email === 'oscar@veritlyapp.com' || auth.currentUser?.email === 'oscar@relielabs.com') ? 'flex' : 'none' }
                     }}
                 />
 
@@ -134,24 +135,23 @@ export default function CompanyDrawerLayout() {
                     }}
                 />
 
-
-
                 <Drawer.Screen
-                    name="insights"
+                    name="job/create"
                     options={{
-                        drawerLabel: "Talent Insights",
-                        title: "Insights de Talento",
-                        drawerIcon: ({ color, size }) => <TrendingUp color={color} size={size} />,
-                        drawerItemStyle: { display: auth.currentUser?.email === 'oscar@veritlyapp.com' ? 'flex' : 'none' }
+                        drawerItemStyle: { display: 'none' }
                     }}
                 />
 
-                {/* OCULTO: Recomendaciones (Próximamente) */}
                 <Drawer.Screen
                     name="recommendations"
                     options={{
-                        drawerLabel: "Recomendaciones",
-                        title: "Recomendaciones Veritly",
+                        drawerItemStyle: { display: 'none' }
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="admin_analytics"
+                    options={{
                         drawerItemStyle: { display: 'none' }
                     }}
                 />

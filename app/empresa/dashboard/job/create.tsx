@@ -346,7 +346,7 @@ export default function CreateJob() {
                                     {rawText && rawText.length > 0 && (
                                         <TouchableOpacity onPress={async () => {
                                             await setStringAsync(rawText);
-                                            Alert.alert("¡Copiado!", "El texto se ha copiado al portapapeles.");
+                                            Alert.alert("Texto copiado", "El contenido se ha copiado al portapapeles.");
                                         }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                 <Copy size={16} color="#38bdf8" />
@@ -459,7 +459,7 @@ export default function CreateJob() {
                                     <Text style={styles.label}>DESCRIPCIÓN OPTIMIZADA (Editable)</Text>
                                     <TouchableOpacity onPress={async () => {
                                         await setStringAsync(optimizedDescription);
-                                        Alert.alert("¡Copiado!", "La descripción se ha copiado al portapapeles.");
+                                        Alert.alert("Texto copiado", "La descripción optimizada se ha copiado al portapapeles.");
                                     }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                             <Copy size={16} color="#38bdf8" />
