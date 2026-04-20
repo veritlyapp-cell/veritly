@@ -18,8 +18,12 @@ export const handler = async (event) => {
     if (!event.body) throw new Error('Cuerpo vacío');
     const { prompt } = JSON.parse(event.body);
     
-    // Usamos el API Key de Veritly (o fallback si no está en el env)
-    const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "AIzaSyCfIkb9a9omsPEGhD4aoyDV562HetYAse0";
+    // Usamos el API Key configurado en el servidor (Netlify)
+    const API_KEY = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    
+    if (!API_KEY) {
+        throw new Error('Configuración incompleta: Falta la variable GEMINI_API_KEY en el servidor.');
+    }
     const model = "gemini-1.5-flash"; // El más estable y rápido
 
     const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${API_KEY}`;
