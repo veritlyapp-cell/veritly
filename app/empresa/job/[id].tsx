@@ -804,7 +804,7 @@ export default function JobDetailScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
             {/* Header */}
             <View style={styles.header}>
@@ -814,7 +814,7 @@ export default function JobDetailScreen() {
                         style={styles.backButton}
                         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
-                        <X size={24} color="white" />
+                        <X size={24} color="#111827" />
                     </TouchableOpacity>
                 ) : (
                     <TouchableOpacity 
@@ -822,7 +822,7 @@ export default function JobDetailScreen() {
                         style={styles.backButton}
                         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
-                        <ArrowLeft size={24} color="white" />
+                        <ArrowLeft size={24} color="#111827" />
                     </TouchableOpacity>
                 )}
                 <View style={{ flex: 1 }}>
@@ -1625,7 +1625,7 @@ export default function JobDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0F172A'
+        backgroundColor: '#FFFFFF'
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
@@ -1634,8 +1634,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: '#1e293b',
-        backgroundColor: '#0F172A'
+        borderBottomColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF'
     },
     backButton: {
         marginRight: 15,
@@ -1646,17 +1646,17 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: 'white'
+        color: '#111827'
     },
     tabsContainer: {
         paddingHorizontal: 20,
         paddingBottom: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#1e293b',
+        borderBottomColor: '#E5E7EB',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#0F172A'
+        backgroundColor: '#FFFFFF'
     },
     mainTabs: {
         flexDirection: 'row',
@@ -1671,18 +1671,18 @@ const styles = StyleSheet.create({
         borderBottomColor: 'transparent'
     },
     mainTabActive: {
-        borderBottomColor: '#3b82f6'
+        borderBottomColor: '#4F46E5'
     },
     mainTabText: {
-        color: '#64748b',
+        color: '#6B7280',
         fontSize: 16,
         fontWeight: '600'
     },
     mainTabTextActive: {
-        color: 'white'
+        color: '#111827'
     },
     countBadge: {
-        backgroundColor: '#1e293b',
+        backgroundColor: '#F3F4F6',
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 10,
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     countBadgeText: {
-        color: 'white',
+        color: '#111827',
         fontSize: 12,
         fontWeight: 'bold'
     },
