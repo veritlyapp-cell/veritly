@@ -459,7 +459,7 @@ export default function CompanySignIn() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0f172a'
+        backgroundColor: '#F8FAFF'
     },
     mainContent: {
         flex: 1,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     // LEFT PANEL
     formPanel: {
         flex: 1,
-        backgroundColor: '#0f172a',
+        backgroundColor: '#F8FAFF',
         padding: 24,
         justifyContent: 'center',
     },
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
         zIndex: 10
     },
     logoSmall: { width: 32, height: 32 },
-    brandName: { color: 'white', fontWeight: 'bold', fontSize: 18, letterSpacing: 1 },
+    brandName: { color: '#111827', fontWeight: 'bold', fontSize: 18, letterSpacing: 1 },
 
     formContainer: {
         maxWidth: 420,
@@ -498,12 +498,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: 'white',
+        color: '#111827',
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#94a3b8',
+        color: '#6B7280',
         marginBottom: 32,
         lineHeight: 24,
     },
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
         marginBottom: 20
     },
     label: {
-        color: '#e2e8f0',
+        color: '#374151',
         fontSize: 14,
         fontWeight: '500',
         marginBottom: 8,
@@ -523,20 +523,20 @@ const styles = StyleSheet.create({
     inputGroup: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1e293b',
+        backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#E5E7EB',
         borderRadius: 12,
         paddingHorizontal: 16,
         height: 50,
         gap: 12,
     },
     inputError: {
-        borderColor: '#ef4444',
+        borderColor: '#DC2626',
     },
     input: {
         flex: 1,
-        color: 'white',
+        color: '#111827',
         fontSize: 16,
         height: '100%'
     },
@@ -549,16 +549,16 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         paddingHorizontal: 4
     },
-    termsText: { color: '#94a3b8', fontSize: 13, flex: 1 },
-    linkText: { color: '#10b981', fontWeight: '600' },
+    termsText: { color: '#6B7280', fontSize: 13, flex: 1 },
+    linkText: { color: '#4F46E5', fontWeight: '600' },
 
     // Forgot Password
     forgotPass: { alignSelf: 'flex-end', marginBottom: 20 },
-    forgotPassText: { color: '#10b981', fontSize: 14, fontWeight: '500' },
+    forgotPassText: { color: '#4F46E5', fontSize: 14, fontWeight: '500' },
 
     // Buttons
     primaryButton: {
-        backgroundColor: '#10b981',
+        backgroundColor: '#4F46E5',
         height: 50,
         borderRadius: 12,
         flexDirection: 'row',
@@ -566,9 +566,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 10,
         marginTop: 10,
-        shadowColor: '#10b981',
+        shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 4
     },
@@ -578,8 +578,8 @@ const styles = StyleSheet.create({
     // Social
     socialSection: { marginTop: 32 },
     divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: '#334155' },
-    dividerText: { color: '#64748b', paddingHorizontal: 16, fontSize: 12, fontWeight: '500' },
+    dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+    dividerText: { color: '#9CA3AF', paddingHorizontal: 16, fontSize: 12, fontWeight: '500' },
     socialButtons: { flexDirection: 'row', gap: 16 },
     socialBtn: {
         flex: 1,
@@ -589,11 +589,11 @@ const styles = StyleSheet.create({
         gap: 10,
         height: 48,
         borderRadius: 12,
-        backgroundColor: '#1e293b',
+        backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: '#334155'
+        borderColor: '#E5E7EB'
     },
-    socialBtnText: { color: 'white', fontWeight: '600' },
+    socialBtnText: { color: '#374151', fontWeight: '600' },
     socialIcon: { fontSize: 18 },
 
     // Footer Actions
@@ -603,14 +603,14 @@ const styles = StyleSheet.create({
         marginTop: 32,
         gap: 6
     },
-    footerText: { color: '#94a3b8' },
-    footerLink: { color: '#10b981', fontWeight: 'bold' },
+    footerText: { color: '#6B7280' },
+    footerLink: { color: '#4F46E5', fontWeight: 'bold' },
     companyLink: {
         alignSelf: 'center',
         marginTop: 20,
         padding: 10
     },
-    companyLinkText: { color: '#64748b', fontSize: 13 },
+    companyLinkText: { color: '#9CA3AF', fontSize: 13 },
 
     // RIGHT PANEL (Desktop)
     brandPanel: {
@@ -672,12 +672,12 @@ const styles = StyleSheet.create({
     // Toggle Styles
     toggleContainer: {
         flexDirection: 'row',
-        backgroundColor: '#1e293b',
+        backgroundColor: '#FFFFFF',
         borderRadius: 10,
         padding: 4,
         marginBottom: 25,
         borderWidth: 1,
-        borderColor: '#334155'
+        borderColor: '#E5E7EB'
     },
     toggleBtn: {
         flex: 1,
@@ -686,10 +686,10 @@ const styles = StyleSheet.create({
         borderRadius: 8
     },
     toggleBtnActive: {
-        backgroundColor: '#10b981'
+        backgroundColor: '#4F46E5'
     },
     toggleText: {
-        color: '#94a3b8',
+        color: '#9CA3AF',
         fontWeight: '600',
         fontSize: 14
     },

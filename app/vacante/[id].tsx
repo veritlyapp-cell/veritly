@@ -669,7 +669,7 @@ export default function ExternalApplication() {
     if (step === 'offer') {
         return (
             <SafeAreaView style={styles.container}>
-                <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
                 <ScrollView key={`scroll-${step}`} contentContainerStyle={styles.scrollContent}>
                     {/* Company branding */}
                     <View style={styles.brandHeader}>
@@ -781,7 +781,7 @@ export default function ExternalApplication() {
     if (step === 'auth') {
         return (
             <SafeAreaView style={styles.container}>
-                <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
                 <ScrollView key={`scroll-${step}`} contentContainerStyle={styles.scrollContent}>
                     {/* Back to offer */}
                     <TouchableOpacity onPress={() => setStep('offer')} style={styles.backBtn}>
@@ -1242,117 +1242,117 @@ export default function ExternalApplication() {
  }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
     scrollContent: { padding: 20, paddingBottom: 120 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    loadingText: { color: '#94a3b8', marginTop: 12 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
+    loadingText: { color: '#6B7280', marginTop: 12 },
 
     // Back button
     backBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 6 },
-    backBtnText: { color: '#94a3b8', fontSize: 14 },
+    backBtnText: { color: '#6B7280', fontSize: 14 },
 
     // Brand Header
     brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
-    companyAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
-    companyAvatarText: { color: '#38bdf8', fontWeight: 'bold', fontSize: 22 },
+    companyAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center' },
+    companyAvatarText: { color: '#4F46E5', fontWeight: 'bold', fontSize: 22 },
     brandInfo: { flex: 1, gap: 2 },
-    brandName: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    brandName: { color: '#111827', fontWeight: 'bold', fontSize: 16 },
     brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    brandType: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
-    brandSeparator: { color: '#475569', fontSize: 12 },
-    brandTag: { color: '#94a3b8', fontSize: 12 },
+    brandType: { color: '#6B7280', fontSize: 12, fontWeight: '500' },
+    brandSeparator: { color: '#D1D5DB', fontSize: 12 },
+    brandTag: { color: '#6B7280', fontSize: 12 },
 
     // Job Card
-    jobCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
+    jobCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
     jobBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-    jobBadgeText: { color: '#3b82f6', fontSize: 12, fontWeight: 'bold' },
-    jobTitle: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 14 },
+    jobBadgeText: { color: '#4F46E5', fontSize: 12, fontWeight: 'bold' },
+    jobTitle: { color: '#111827', fontSize: 24, fontWeight: 'bold', marginBottom: 14 },
     infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-    infoText: { color: '#94a3b8', fontSize: 14 },
+    infoText: { color: '#6B7280', fontSize: 14 },
 
-    errorText: { color: '#ef4444', fontSize: 12, marginTop: -8, marginBottom: 12 },
-    inputError: { borderColor: '#ef4444' },
+    errorText: { color: '#DC2626', fontSize: 12, marginTop: -8, marginBottom: 12 },
+    inputError: { borderColor: '#DC2626' },
 
     // Description
-    descCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
-    descTitle: { color: '#38bdf8', fontWeight: 'bold', fontSize: 14, marginBottom: 12 },
-    descText: { color: '#cbd5e1', fontSize: 14, lineHeight: 22 },
+    descCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+    descTitle: { color: '#4F46E5', fontWeight: 'bold', fontSize: 14, marginBottom: 12 },
+    descText: { color: '#374151', fontSize: 14, lineHeight: 22 },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, marginBottom: 5 },
-    skillTag: { backgroundColor: 'rgba(56,189,248,0.08)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(56,189,248,0.15)' },
-    skillTagText: { color: '#38bdf8', fontSize: 13, fontWeight: '600' },
+    skillTag: { backgroundColor: 'rgba(79,70,229,0.08)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(79,70,229,0.15)' },
+    skillTagText: { color: '#4F46E5', fontSize: 13, fontWeight: '600' },
 
     // CTA
-    applyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#3b82f6', padding: 18, borderRadius: 16, marginVertical: 20, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+    applyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#4F46E5', padding: 18, borderRadius: 16, marginVertical: 20, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
     applyBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 
     // Footer
     footerPowered: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 10 },
-    footerPoweredText: { color: '#64748b', fontSize: 11 },
-
+    footerPoweredText: { color: '#9CA3AF', fontSize: 11 },
+    
     // Auth card
-    authCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: '#334155' },
-    authTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-    authSub: { color: '#94a3b8', textAlign: 'center', fontSize: 13, marginBottom: 24, lineHeight: 19 },
-    googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', padding: 14, borderRadius: 12, marginBottom: 6 },
-    googleBtnText: { color: '#0f172a', fontWeight: 'bold', fontSize: 15 },
+    authCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+    authTitle: { color: '#111827', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+    authSub: { color: '#6B7280', textAlign: 'center', fontSize: 13, marginBottom: 24, lineHeight: 19 },
+    googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', padding: 14, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: '#E5E7EB' },
+    googleBtnText: { color: '#111827', fontWeight: 'bold', fontSize: 15 },
     divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 18, gap: 10 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: '#334155' },
-    dividerText: { color: '#64748b', fontSize: 12 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14, height: 50, marginBottom: 12 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+    dividerText: { color: '#9CA3AF', fontSize: 12 },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, height: 50, marginBottom: 12 },
     inputIcon: { marginRight: 10 },
-    authInput: { flex: 1, color: 'white', fontSize: 15 },
-    authSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#3b82f6', padding: 16, borderRadius: 12, marginTop: 8 },
+    authInput: { flex: 1, color: '#111827', fontSize: 15 },
+    authSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#4F46E5', padding: 16, borderRadius: 12, marginTop: 8 },
     authSubmitText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 
     // Apply form
     applyHeader: { marginBottom: 24 },
-    applyTitle: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-    applySub: { color: '#94a3b8', fontSize: 14, marginTop: 4 },
-    userPill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start' },
-    userPillText: { color: '#10b981', fontSize: 12, fontWeight: '500' },
+    applyTitle: { color: '#111827', fontSize: 24, fontWeight: 'bold' },
+    applySub: { color: '#6B7280', fontSize: 14, marginTop: 4 },
+    userPill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(5,150,105,0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start' },
+    userPillText: { color: '#059669', fontSize: 12, fontWeight: '500' },
 
-    formSection: { backgroundColor: '#1e293b', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
-    sectionTitle: { color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 16 },
-    label: { color: '#94a3b8', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 4 },
-    input: { backgroundColor: '#0f172a', color: 'white', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#334155', marginBottom: 12, fontSize: 15 },
+    formSection: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+    sectionTitle: { color: '#111827', fontWeight: 'bold', fontSize: 16, marginBottom: 16 },
+    label: { color: '#6B7280', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 4 },
+    input: { backgroundColor: '#F9FAFB', color: '#111827', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, fontSize: 15 },
 
     // Salary
-    salaryRangeHint: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(56,189,248,0.08)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)', marginBottom: 14 },
-    salaryRangeText: { color: '#38bdf8', fontSize: 12, fontWeight: '600' },
+    salaryRangeHint: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(79,70,229,0.06)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(79,70,229,0.15)', marginBottom: 14 },
+    salaryRangeText: { color: '#4F46E5', fontSize: 12, fontWeight: '600' },
     salaryRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-    currencyBadge: { backgroundColor: '#334155', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, height: 50, borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
-    currencyText: { color: '#10b981', fontWeight: 'bold', fontSize: 16 },
-    salaryInput: { flex: 1, backgroundColor: '#0f172a', color: 'white', padding: 14, borderTopRightRadius: 10, borderBottomRightRadius: 10, borderWidth: 1, borderColor: '#334155', fontSize: 16 },
-    helperText: { color: '#64748b', fontSize: 11, marginTop: 4 },
+    currencyBadge: { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, height: 50, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+    currencyText: { color: '#059669', fontWeight: 'bold', fontSize: 16 },
+    salaryInput: { flex: 1, backgroundColor: '#F9FAFB', color: '#111827', padding: 14, borderTopRightRadius: 10, borderBottomRightRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 },
+    helperText: { color: '#9CA3AF', fontSize: 11, marginTop: 4 },
 
     // Killer questions
-    killerCard: { backgroundColor: '#0f172a', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#334155' },
-    killerQuestion: { color: 'white', fontSize: 15, fontWeight: '500', marginBottom: 14, lineHeight: 22 },
+    killerCard: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+    killerQuestion: { color: '#111827', fontSize: 15, fontWeight: '500', marginBottom: 14, lineHeight: 22 },
     killerBtnsRow: { flexDirection: 'row', gap: 10 },
-    killerBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' },
-    killerBtnActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-    killerBtnText: { color: '#94a3b8', fontWeight: 'bold', fontSize: 15 },
+    killerBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
+    killerBtnActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+    killerBtnText: { color: '#9CA3AF', fontWeight: 'bold', fontSize: 15 },
     killerBtnTextActive: { color: 'white' },
 
     // Upload
-    uploadCard: { borderWidth: 2, borderColor: '#334155', borderStyle: 'dashed', borderRadius: 16, padding: 28, alignItems: 'center', gap: 10, backgroundColor: 'rgba(56,189,248,0.03)' },
-    uploadCardDone: { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.05)', borderStyle: 'solid' },
-    uploadCardError: { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.05)' },
-    uploadText: { color: 'white', fontWeight: 'bold', fontSize: 15, textAlign: 'center' },
-    uploadHint: { color: '#64748b', fontSize: 12 },
+    uploadCard: { borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 16, padding: 28, alignItems: 'center', gap: 10, backgroundColor: 'rgba(79,70,229,0.02)' },
+    uploadCardDone: { borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.04)', borderStyle: 'solid' },
+    uploadCardError: { borderColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.04)' },
+    uploadText: { color: '#111827', fontWeight: 'bold', fontSize: 15, textAlign: 'center' },
+    uploadHint: { color: '#9CA3AF', fontSize: 12 },
 
     // Social Proof
     socialProof: {
         marginBottom: 20,
-        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        backgroundColor: 'rgba(79, 70, 229, 0.06)',
         padding: 14,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(59, 130, 246, 0.15)',
+        borderColor: 'rgba(79, 70, 229, 0.12)',
         alignItems: 'center'
     },
     socialProofText: {
-        color: '#3b82f6',
+        color: '#4F46E5',
         fontSize: 13,
         fontWeight: '700'
     },
@@ -1363,17 +1363,17 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#0f172a',
+        backgroundColor: '#FFFFFF',
         padding: 20,
         paddingTop: 12,
         paddingBottom: Platform.OS === 'ios' ? 34 : 20,
         borderTopWidth: 1,
-        borderTopColor: '#1e293b'
+        borderTopColor: '#E5E7EB'
     },
     shadowCTA: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.06,
         shadowRadius: 10,
         elevation: 20
     },
@@ -1381,30 +1381,35 @@ const styles = StyleSheet.create({
     // AI Perception Overlay
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
         zIndex: 9999,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 30
     },
     loadingBox: {
-        backgroundColor: '#1e293b',
+        backgroundColor: '#FFFFFF',
         padding: 32,
         borderRadius: 28,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#E5E7EB',
+        shadowColor: '#111827',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        elevation: 8,
         width: '100%',
         maxWidth: 400
     },
     loadingTitle: {
-        color: 'white',
+        color: '#111827',
         fontSize: 22,
         fontWeight: 'bold',
         marginTop: 24
     },
     loadingMsg: {
-        color: '#94a3b8',
+        color: '#6B7280',
         fontSize: 15,
         textAlign: 'center',
         marginTop: 12,
@@ -1413,23 +1418,23 @@ const styles = StyleSheet.create({
 
     // Terms
     termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20, paddingHorizontal: 4 },
-    checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#475569', justifyContent: 'center', alignItems: 'center', marginTop: 1 },
-    checkboxActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-    checkboxError: { borderColor: '#ef4444' },
-    termsText: { color: '#94a3b8', fontSize: 13, lineHeight: 19 },
+    checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+    checkboxActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+    checkboxError: { borderColor: '#DC2626' },
+    termsText: { color: '#6B7280', fontSize: 13, lineHeight: 19 },
 
     // Submit
-    submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#10b981', padding: 18, borderRadius: 16, marginBottom: 20, shadowColor: '#10b981', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 8 },
+    submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#059669', padding: 18, borderRadius: 16, marginBottom: 20, shadowColor: '#059669', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8 },
     submitBtnText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
 
     // --- RECRUITER BANNER STYLES ---
     recruiterBanner: {
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        backgroundColor: '#F9FAFB',
         borderRadius: 20,
         padding: 24,
         marginVertical: 40,
         borderWidth: 1,
-        borderColor: 'rgba(245, 158, 11, 0.2)',
+        borderColor: '#E5E7EB',
         borderStyle: 'dashed',
     },
     recruiterBannerHeader: {
@@ -1439,19 +1444,19 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     recruiterBannerTag: {
-        color: '#f59e0b',
+        color: '#D97706',
         fontSize: 12,
         fontWeight: 'bold',
         letterSpacing: 0.5,
     },
     recruiterBannerTitle: {
-        color: 'white',
+        color: '#111827',
         fontSize: 18,
         fontWeight: '900',
         marginBottom: 10,
     },
     recruiterBannerBody: {
-        color: '#94a3b8',
+        color: '#6B7280',
         fontSize: 14,
         lineHeight: 20,
         marginBottom: 20,
@@ -1463,46 +1468,46 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     recruiterBannerBtnText: {
-        color: '#3b82f6',
+        color: '#4F46E5',
         fontWeight: 'bold',
         fontSize: 14,
     },
-    // Saved CV 
+    // Saved CV
     savedCvOption: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         gap: 15, 
-        backgroundColor: '#0f172a', 
+        backgroundColor: '#FFFFFF', 
         padding: 16, 
         borderRadius: 14, 
         borderWidth: 1, 
-        borderColor: '#334155', 
+        borderColor: '#E5E7EB', 
         marginBottom: 16 
     },
     savedCvOptionActive: { 
-        borderColor: '#3b82f6', 
-        backgroundColor: 'rgba(59, 130, 246, 0.05)' 
+        borderColor: '#4F46E5', 
+        backgroundColor: 'rgba(79, 70, 229, 0.04)' 
     },
     radio: { 
         width: 22, 
         height: 22, 
         borderRadius: 11, 
         borderWidth: 2, 
-        borderColor: '#475569', 
+        borderColor: '#D1D5DB', 
         justifyContent: 'center', 
         alignItems: 'center' 
     },
     radioActive: { 
-        borderColor: '#3b82f6' 
+        borderColor: '#4F46E5' 
     },
     radioInner: { 
         width: 10, 
         height: 10, 
         borderRadius: 5, 
-        backgroundColor: '#3b82f6' 
+        backgroundColor: '#4F46E5' 
     },
     savedCvTitle: { 
-        color: 'white', 
+        color: '#111827', 
         fontSize: 14, 
         fontWeight: 'bold' 
     },
