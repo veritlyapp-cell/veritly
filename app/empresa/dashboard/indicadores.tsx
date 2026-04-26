@@ -352,7 +352,7 @@ export default function IndicadoresDashboard() {
     if (loading && !refreshing) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#3b82f6" />
+                <ActivityIndicator size="large" color="#4F46E5" />
                 <Text style={styles.loadingText}>Calculando indicadores...</Text>
             </View>
         );
@@ -361,7 +361,7 @@ export default function IndicadoresDashboard() {
     // ===== RENDER =====
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             <ScrollView
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#3b82f6" />}
                 contentContainerStyle={[
@@ -740,116 +740,114 @@ export default function IndicadoresDashboard() {
 
 // ============ STYLES ============
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    centered: { flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' },
-    loadingText: { color: '#38bdf8', marginTop: 15, fontWeight: 'bold' },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    centered: { flex: 1, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: '#4F46E5', marginTop: 15, fontWeight: 'bold' },
     scrollContent: { padding: 20, paddingBottom: 50 },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 10 },
-    title: { color: 'white', fontSize: 26, fontWeight: '900' },
-    subtitle: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
+    title: { color: '#111827', fontSize: 26, fontWeight: '900' },
+    subtitle: { color: '#6B7280', fontSize: 13, marginTop: 2 },
 
-    // Filter toggle button
-    filterToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1e293b', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
-    filterToggleActive: { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.08)' },
-    filterToggleText: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },
+    filterToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+    filterToggleActive: { borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.06)' },
+    filterToggleText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
 
-    // Filters Panel
-    filtersPanel: { backgroundColor: '#1e293b', borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 2, borderColor: '#3b82f6', shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
+    filtersPanel: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 2, borderColor: '#4F46E5', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     filtersPanelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-    filtersPanelTitle: { color: 'white', fontSize: 16, fontWeight: '800' },
-    clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: 'rgba(239, 68, 68, 0.1)' },
-    clearFiltersText: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
+    filtersPanelTitle: { color: '#111827', fontSize: 16, fontWeight: '800' },
+    clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: 'rgba(220, 38, 38, 0.08)' },
+    clearFiltersText: { color: '#DC2626', fontSize: 12, fontWeight: '600' },
 
     filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 6 },
-    filterLabel: { color: '#cbd5e1', fontSize: 13, fontWeight: '600' },
+    filterLabel: { color: '#374151', fontSize: 13, fontWeight: '600' },
 
     dateRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
     dateInputWrap: { flex: 1 },
-    dateInputLabel: { color: '#64748b', fontSize: 10, fontWeight: '600', marginBottom: 4 },
-    dateInput: { backgroundColor: '#0f172a', color: 'white', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#334155', fontSize: 13 },
+    dateInputLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '600', marginBottom: 4 },
+    dateInput: { backgroundColor: '#F9FAFB', color: '#111827', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 13 },
 
     quickDatesRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-    quickDateBtn: { backgroundColor: 'rgba(56, 189, 248, 0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.2)' },
-    quickDateText: { color: '#38bdf8', fontSize: 11, fontWeight: '600' },
+    quickDateBtn: { backgroundColor: 'rgba(79, 70, 229, 0.06)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(79, 70, 229, 0.15)' },
+    quickDateText: { color: '#4F46E5', fontSize: 11, fontWeight: '600' },
 
     jobFilterScroll: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-    jobFilterChip: { backgroundColor: '#0f172a', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#334155', flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 200 },
-    jobFilterChipActive: { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)' },
-    jobFilterChipText: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
-    jobFilterChipTextActive: { color: '#38bdf8' },
+    jobFilterChip: { backgroundColor: '#F9FAFB', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 200 },
+    jobFilterChipActive: { borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.08)' },
+    jobFilterChipText: { color: '#6B7280', fontSize: 12, fontWeight: '500' },
+    jobFilterChipTextActive: { color: '#4F46E5' },
     jobStatusDot: { width: 6, height: 6, borderRadius: 3 },
 
     statusFilterRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-    statusFilterBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155' },
-    statusFilterBtnActive: { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)' },
-    statusFilterText: { color: '#94a3b8', fontSize: 12, fontWeight: '600' },
-    statusFilterTextActive: { color: '#38bdf8' },
+    statusFilterBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
+    statusFilterBtnActive: { borderColor: '#4F46E5', backgroundColor: 'rgba(79, 70, 229, 0.08)' },
+    statusFilterText: { color: '#6B7280', fontSize: 12, fontWeight: '600' },
+    statusFilterTextActive: { color: '#4F46E5' },
 
-    activeFiltersSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(56, 189, 248, 0.06)', padding: 10, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.15)' },
-    activeFiltersText: { color: '#38bdf8', fontSize: 11, fontWeight: '500', flex: 1 },
+    activeFiltersSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(79, 70, 229, 0.05)', padding: 10, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(79, 70, 229, 0.12)' },
+    activeFiltersText: { color: '#4F46E5', fontSize: 11, fontWeight: '500', flex: 1 },
 
     // KPI Cards
     kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    kpiCard: { flex: 1, backgroundColor: '#1e293b', borderRadius: 16, padding: 18, borderLeftWidth: 4, borderWidth: 1, borderColor: '#334155', alignItems: 'center' },
-    kpiValue: { color: 'white', fontSize: 28, fontWeight: '900', marginVertical: 6 },
-    kpiLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '600', textAlign: 'center', textTransform: 'uppercase' },
+    kpiCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, borderLeftWidth: 4, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+    kpiValue: { color: '#111827', fontSize: 28, fontWeight: '900', marginVertical: 6 },
+    kpiLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', textAlign: 'center', textTransform: 'uppercase' },
 
     // Sections
-    section: { backgroundColor: '#1e293b', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
+    section: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
-    sectionTitle: { color: 'white', fontSize: 16, fontWeight: '800' },
+    sectionTitle: { color: '#111827', fontSize: 16, fontWeight: '800' },
 
     // Funnel
     funnelRow: { marginBottom: 12 },
     funnelLabelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
     funnelDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-    funnelLabel: { color: '#cbd5e1', fontSize: 13, flex: 1, fontWeight: '500' },
-    funnelCount: { color: 'white', fontWeight: '800', fontSize: 14, minWidth: 30, textAlign: 'right' },
-    funnelBarBg: { height: 8, backgroundColor: '#0f172a', borderRadius: 4, overflow: 'hidden' },
+    funnelLabel: { color: '#374151', fontSize: 13, flex: 1, fontWeight: '500' },
+    funnelCount: { color: '#111827', fontWeight: '800', fontSize: 14, minWidth: 30, textAlign: 'right' },
+    funnelBarBg: { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
     funnelBarFill: { height: '100%', borderRadius: 4 },
 
     // Sources
     sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    sourceCard: { width: '47%' as any, backgroundColor: '#0f172a', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
-    sourceValue: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 8, marginBottom: 4 },
-    sourceLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '600', textAlign: 'center' },
+    sourceCard: { width: '47%' as any, backgroundColor: '#F9FAFB', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+    sourceValue: { color: '#111827', fontSize: 24, fontWeight: '900', marginTop: 8, marginBottom: 4 },
+    sourceLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', textAlign: 'center' },
 
     // Highlights
     highlightRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-    highlightCard: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#334155' },
-    highlightValue: { color: 'white', fontSize: 20, fontWeight: '900' },
-    highlightLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
-    topCandidateCard: { backgroundColor: 'rgba(245, 158, 11, 0.08)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.2)', marginTop: 10, alignItems: 'center' },
-    topCandidateLabel: { color: '#fcd34d', fontSize: 12, fontWeight: '700', marginBottom: 6 },
-    topCandidateName: { color: 'white', fontSize: 16, fontWeight: '800' },
-    topCandidateScore: { color: '#f59e0b', fontSize: 14, fontWeight: '700', marginTop: 4 },
+    highlightCard: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+    highlightValue: { color: '#111827', fontSize: 20, fontWeight: '900' },
+    highlightLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600' },
+    topCandidateCard: { backgroundColor: 'rgba(245, 158, 11, 0.06)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.2)', marginTop: 10, alignItems: 'center' },
+    topCandidateLabel: { color: '#B45309', fontSize: 12, fontWeight: '700', marginBottom: 6 },
+    topCandidateName: { color: '#111827', fontSize: 16, fontWeight: '800' },
+    topCandidateScore: { color: '#D97706', fontSize: 14, fontWeight: '700', marginTop: 4 },
 
     // Job Breakdown
-    jobBreakdownCard: { backgroundColor: '#0f172a', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#334155' },
+    jobBreakdownCard: { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
     jobBreakdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    jobBreakdownTitle: { color: 'white', fontSize: 14, fontWeight: '700', flex: 1, marginRight: 10 },
+    jobBreakdownTitle: { color: '#111827', fontSize: 14, fontWeight: '700', flex: 1, marginRight: 10 },
     jobBreakdownBadges: { flexDirection: 'row', gap: 6 },
-    jobBreakdownBadge: { backgroundColor: 'rgba(59, 130, 246, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-    jobBreakdownBadgeText: { color: '#3b82f6', fontSize: 11, fontWeight: '700' },
+    jobBreakdownBadge: { backgroundColor: 'rgba(79, 70, 229, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+    jobBreakdownBadgeText: { color: '#4F46E5', fontSize: 11, fontWeight: '700' },
     jobStatusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
     jobBreakdownStats: { flexDirection: 'row', justifyContent: 'space-around' },
     jobStat: { alignItems: 'center' },
-    jobStatValue: { color: 'white', fontSize: 16, fontWeight: '800' },
-    jobStatLabel: { color: '#64748b', fontSize: 10, fontWeight: '600', marginTop: 2 },
+    jobStatValue: { color: '#111827', fontSize: 16, fontWeight: '800' },
+    jobStatLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '600', marginTop: 2 },
 
     // Salary Range
-    salaryRangeRow: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1e293b' },
-    salaryChip: { flex: 1, backgroundColor: '#1e293b', borderRadius: 10, padding: 10, alignItems: 'center' },
-    salaryChipLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '600', marginBottom: 4 },
-    salaryChipValue: { color: '#10b981', fontSize: 15, fontWeight: '800' },
-    salaryChipRange: { color: '#64748b', fontSize: 9, marginTop: 3 },
+    salaryRangeRow: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+    salaryChip: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+    salaryChipLabel: { color: '#6B7280', fontSize: 10, fontWeight: '600', marginBottom: 4 },
+    salaryChipValue: { color: '#059669', fontSize: 15, fontWeight: '800' },
+    salaryChipRange: { color: '#9CA3AF', fontSize: 9, marginTop: 3 },
 
     // Sync
-    syncButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#f59e0b', padding: 14, borderRadius: 12 },
+    syncButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#D97706', padding: 14, borderRadius: 12 },
     syncButtonText: { color: 'white', fontWeight: '800', fontSize: 14 },
-    syncHint: { color: '#64748b', fontSize: 11, textAlign: 'center', marginTop: 8 },
+    syncHint: { color: '#9CA3AF', fontSize: 11, textAlign: 'center', marginTop: 8 },
 
     footer: { marginTop: 10, alignItems: 'center' },
-    footerText: { color: '#475569', fontSize: 11, fontWeight: '600' },
+    footerText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
 });

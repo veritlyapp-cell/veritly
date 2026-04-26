@@ -126,7 +126,7 @@ export default function TalentInsightsDashboard() {
     if (loading && !refreshing) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#3b82f6" />
+                <ActivityIndicator size="large" color="#4F46E5" />
                 <Text style={styles.loadingText}>Analizando Talent Graph...</Text>
             </View>
         );
@@ -134,7 +134,7 @@ export default function TalentInsightsDashboard() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             <ScrollView 
                 contentContainerStyle={[
                     styles.scrollContent,
@@ -211,46 +211,46 @@ export default function TalentInsightsDashboard() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    centered: { flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' },
-    loadingText: { color: '#38bdf8', marginTop: 15, fontWeight: 'bold' },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    centered: { flex: 1, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: '#4F46E5', marginTop: 15, fontWeight: 'bold' },
     scrollContent: { padding: 20, paddingBottom: 50 },
     
     header: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 30, marginTop: 10 },
-    backBtn: { padding: 8, backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
-    title: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-    subtitle: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
+    backBtn: { padding: 8, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+    title: { color: '#111827', fontSize: 24, fontWeight: 'bold' },
+    subtitle: { color: '#6B7280', fontSize: 13, marginTop: 2 },
 
     metricsGrid: { flexDirection: 'row', gap: 12, marginBottom: 25 },
-    metricCard: { flex: 1, backgroundColor: '#1e293b', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#334155', alignItems: 'center' },
-    metricValue: { color: 'white', fontSize: 22, fontWeight: 'bold', marginVertical: 6 },
-    metricLabel: { color: '#64748b', fontSize: 10, textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' },
+    metricCard: { flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+    metricValue: { color: '#111827', fontSize: 22, fontWeight: 'bold', marginVertical: 6 },
+    metricLabel: { color: '#9CA3AF', fontSize: 10, textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' },
 
-    section: { backgroundColor: '#1e293b', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#334155' },
+    section: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#E5E7EB' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-    sectionTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    sectionTitle: { color: '#111827', fontSize: 16, fontWeight: 'bold' },
 
     row: { marginBottom: 15 },
-    rowLabel: { color: '#cbd5e1', fontSize: 13, marginBottom: 6 },
-    barContainer: { height: 28, backgroundColor: '#0f172a', borderRadius: 14, overflow: 'hidden', justifyContent: 'center', paddingHorizontal: 10 },
-    bar: { position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#3b82f6', opacity: 0.3, borderRadius: 14 },
-    barValue: { color: '#38bdf8', fontSize: 11, fontWeight: 'bold' },
+    rowLabel: { color: '#374151', fontSize: 13, marginBottom: 6 },
+    barContainer: { height: 28, backgroundColor: '#F3F4F6', borderRadius: 14, overflow: 'hidden', justifyContent: 'center', paddingHorizontal: 10 },
+    bar: { position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: '#4F46E5', opacity: 0.2, borderRadius: 14 },
+    barValue: { color: '#4F46E5', fontSize: 11, fontWeight: 'bold' },
 
-    densityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#334155' },
-    regionName: { color: 'white', fontSize: 15, fontWeight: '600' },
-    regionSub: { color: '#64748b', fontSize: 12, marginTop: 2 },
+    densityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+    regionName: { color: '#111827', fontSize: 15, fontWeight: '600' },
+    regionSub: { color: '#9CA3AF', fontSize: 12, marginTop: 2 },
     salaryBadge: { alignItems: 'flex-end' },
-    salaryText: { color: '#10b981', fontSize: 16, fontWeight: 'bold' },
-    salarySub: { color: '#64748b', fontSize: 10 },
+    salaryText: { color: '#059669', fontSize: 16, fontWeight: 'bold' },
+    salarySub: { color: '#9CA3AF', fontSize: 10 },
 
-    candidateCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', padding: 15, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#334155' },
+    candidateCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 15, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
     candidateInfo: { flex: 1, marginRight: 10 },
-    candidateName: { color: 'white', fontSize: 14, fontWeight: 'bold' },
-    candidateEmail: { color: '#64748b', fontSize: 12, marginBottom: 6 },
-    candidateDna: { color: '#94a3b8', fontSize: 11, lineHeight: 16 },
+    candidateName: { color: '#111827', fontSize: 14, fontWeight: 'bold' },
+    candidateEmail: { color: '#9CA3AF', fontSize: 12, marginBottom: 6 },
+    candidateDna: { color: '#6B7280', fontSize: 11, lineHeight: 16 },
     scoreBadge: { width: 45, height: 45, borderRadius: 22, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
     scoreText: { fontWeight: 'bold', fontSize: 12 },
 
     footer: { marginTop: 10, alignItems: 'center' },
-    footerText: { color: '#475569', fontSize: 11, fontWeight: '600' }
+    footerText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' }
 });

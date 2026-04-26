@@ -540,51 +540,50 @@ export default function ProfileScreen() {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView >
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
     scroll: { padding: 20 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-    header: { fontSize: 28, fontWeight: 'bold', color: 'white' },
-    subHeader: { fontSize: 14, color: '#94a3b8' },
-    trashButton: { padding: 10, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 12 },
-    sectionTitle: { color: '#38bdf8', fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15 },
+    header: { fontSize: 28, fontWeight: 'bold', color: '#111827' },
+    subHeader: { fontSize: 14, color: '#6B7280' },
+    trashButton: { padding: 10, backgroundColor: 'rgba(220, 38, 38, 0.08)', borderRadius: 12 },
+    sectionTitle: { color: '#4F46E5', fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15 },
     formSection: { marginBottom: 10 },
     row: { flexDirection: 'row', justifyContent: 'space-between' },
 
     // ESTILOS DE INPUT CORREGIDOS (Sin superposición)
-    inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', marginBottom: 10, height: 50, paddingHorizontal: 10 },
-    inputGroupArea: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', marginBottom: 10, height: 120, paddingHorizontal: 10 },
+    inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, height: 50, paddingHorizontal: 10 },
+    inputGroupArea: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, height: 120, paddingHorizontal: 10 },
 
     inputIcon: { marginRight: 10 },
-    // Usamos inputField para TextInput y inputText para Text, con flex:1
-    inputField: { flex: 1, color: 'white', fontSize: 14, height: '100%' },
-    inputText: { flex: 1, color: 'white', fontSize: 14 },
+    inputField: { flex: 1, color: '#111827', fontSize: 14, height: '100%' },
+    inputText: { flex: 1, color: '#111827', fontSize: 14 },
 
-    dropdownButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', marginBottom: 10, height: 50, paddingHorizontal: 15 },
+    dropdownButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, height: 50, paddingHorizontal: 15 },
 
-    modalityContainer: { flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#334155', marginBottom: 10 },
+    modalityContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 },
     modalityButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-    uploadCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#334155', marginBottom: 15, borderStyle: 'dashed' },
-    uploadTitle: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-    uploadSubtitle: { color: '#64748b', fontSize: 12 },
-    saveButton: { backgroundColor: '#3b82f6', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10, marginBottom: 40 },
+    uploadCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 15, borderStyle: 'dashed' },
+    uploadTitle: { color: '#111827', fontWeight: 'bold', fontSize: 14 },
+    uploadSubtitle: { color: '#9CA3AF', fontSize: 12 },
+    saveButton: { backgroundColor: '#4F46E5', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10, marginBottom: 40 },
     saveText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 },
     modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '70%', minHeight: 300 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 10 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
-    modalItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-    modalItemText: { fontSize: 16, color: '#334155' },
-    dateColumn: { flex: 1, height: 200, backgroundColor: '#f8fafc', borderRadius: 8, overflow: 'hidden' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 10 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+    modalItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+    modalItemText: { fontSize: 16, color: '#374151' },
+    dateColumn: { flex: 1, height: 200, backgroundColor: '#F9FAFB', borderRadius: 8, overflow: 'hidden' },
     dateScroll: { flex: 1 },
-    dateLabel: { textAlign: 'center', fontSize: 10, color: '#64748b', paddingVertical: 5, fontWeight: 'bold', backgroundColor: '#e2e8f0' },
-    dateItem: { paddingVertical: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-    dateItemSelected: { backgroundColor: '#3b82f6' },
-    dateText: { fontSize: 14, color: '#334155' },
-    modalConfirmButton: { backgroundColor: '#3b82f6', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, marginTop: 20 }
-});
+    dateLabel: { textAlign: 'center', fontSize: 10, color: '#6B7280', paddingVertical: 5, fontWeight: 'bold', backgroundColor: '#F3F4F6' },
+    dateItem: { paddingVertical: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+    dateItemSelected: { backgroundColor: '#4F46E5' },
+    dateText: { fontSize: 14, color: '#374151' },
+    modalConfirmButton: { backgroundColor: '#4F46E5', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, marginTop: 20 }
+});

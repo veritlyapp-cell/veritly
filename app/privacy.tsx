@@ -8,12 +8,12 @@ export default function PrivacyScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft color="white" size={24} />
+                    <ArrowLeft color="#111827" size={24} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Legales</Text>
             </View>
@@ -72,7 +72,7 @@ export default function PrivacyScreen() {
                     </Text>
                 </View>
 
-                <View style={{ height: 1, backgroundColor: '#334155', marginVertical: 30 }} />
+                <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 30 }} />
 
                 <Text style={styles.title}>Términos y Condiciones de Uso - Veritly</Text>
                 <Text style={styles.date}>Última actualización: 27 de diciembre de 2025</Text>
@@ -148,14 +148,14 @@ export default function PrivacyScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    header: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#334155' },
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    header: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
     backButton: { padding: 8, marginRight: 10 },
-    headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+    headerTitle: { color: '#111827', fontSize: 20, fontWeight: 'bold' },
     content: { padding: 20 },
-    title: { fontSize: 24, fontWeight: '900', color: 'white', marginBottom: 10 },
-    date: { color: '#94a3b8', fontSize: 14, marginBottom: 30, fontStyle: 'italic' },
+    title: { fontSize: 24, fontWeight: '900', color: '#111827', marginBottom: 10 },
+    date: { color: '#6B7280', fontSize: 14, marginBottom: 30, fontStyle: 'italic' },
     section: { marginBottom: 25 },
-    sectionTitle: { color: '#38bdf8', fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-    text: { color: '#cbd5e1', fontSize: 15, lineHeight: 24, textAlign: 'justify' }
+    sectionTitle: { color: '#4F46E5', fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+    text: { color: '#374151', fontSize: 15, lineHeight: 24, textAlign: 'justify' }
 });
