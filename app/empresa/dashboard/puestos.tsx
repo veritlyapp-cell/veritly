@@ -225,16 +225,16 @@ export default function CompanyJobs() {
     // Show loading while checking authorization
     if (loading && !refreshing) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <Text style={{ color: '#94a3b8', marginTop: 20 }}>Cargando panel...</Text>
+            <View style={{ flex: 1, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#4F46E5" />
+                <Text style={{ color: '#4B5563', marginTop: 20 }}>Cargando puestos...</Text>
             </View>
         );
     }
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             <View style={styles.header}>
                 <Text style={styles.title}>Mis Puestos</Text>
             </View>
@@ -252,8 +252,8 @@ export default function CompanyJobs() {
 
                 {jobs.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <View style={{ backgroundColor: '#1e293b', padding: 20, borderRadius: 50, marginBottom: 20 }}>
-                            <Briefcase color="#3b82f6" size={40} />
+                        <View style={{ backgroundColor: 'rgba(79, 70, 229, 0.08)', padding: 20, borderRadius: 50, marginBottom: 20 }}>
+                            <Briefcase color="#4F46E5" size={40} />
                         </View>
                         <Text style={styles.emptyText}>No tienes puestos activos</Text>
                         <Text style={styles.emptySubtext}>Crea tu primer perfil de búsqueda para empezar.</Text>
@@ -277,37 +277,37 @@ export default function CompanyJobs() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a', padding: 20 },
+    container: { flex: 1, backgroundColor: '#F9FAFB', padding: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 10 },
-    title: { fontSize: 28, fontWeight: 'bold', color: 'white' },
-    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    emptyText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-    emptySubtext: { color: '#64748b', marginTop: 10 },
-    fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#3b82f6', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
+    title: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+    emptyText: { color: '#111827', fontSize: 18, fontWeight: '700', marginBottom: 8 },
+    emptySubtext: { color: '#6B7280', marginTop: 4, textAlign: 'center' },
+    fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: '#4F46E5', width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
 
     // List Styles
-    jobCard: { backgroundColor: '#1e293b', borderRadius: 12, padding: 15, marginBottom: 15, borderLeftWidth: 4, borderLeftColor: '#3b82f6' },
-    jobTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-    jobMeta: { color: '#94a3b8', fontSize: 14 },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    statusText: { fontSize: 10, fontWeight: 'bold' },
-    actionButton: { backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    candidateBadge: { backgroundColor: '#10b981', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, minWidth: 24, alignItems: 'center' },
-    candidateBadgeText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
-    iconButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8 },
+    jobCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#4F46E5', borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+    jobTitle: { color: '#111827', fontSize: 17, fontWeight: '700', marginBottom: 4 },
+    jobMeta: { color: '#6B7280', fontSize: 13 },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+    statusText: { fontSize: 11, fontWeight: '700' },
+    actionButton: { backgroundColor: '#4F46E5', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    candidateBadge: { backgroundColor: '#FFFFFF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, minWidth: 24, alignItems: 'center' },
+    candidateBadgeText: { color: '#4F46E5', fontSize: 11, fontWeight: '800' },
+    iconButton: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
 
-    // Dashboard Styles
+    // Dashboard Styles (unused but kept)
     metricsContainer: { marginBottom: 30 },
-    planCard: { backgroundColor: 'rgba(30, 41, 59, 0.7)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.2)', marginBottom: 16 },
-    planTitle: { fontSize: 16, fontWeight: '700', color: 'white' },
-    upgradeText: { fontSize: 14, fontWeight: 'bold', color: '#38bdf8' },
-    progressBarBg: { height: 8, backgroundColor: '#334155', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
-    progressBarFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: 4 },
-    planUsageText: { fontSize: 13, color: '#94a3b8' },
+    planCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
+    planTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+    upgradeText: { fontSize: 14, fontWeight: 'bold', color: '#4F46E5' },
+    progressBarBg: { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+    progressBarFill: { height: '100%', backgroundColor: '#4F46E5', borderRadius: 4 },
+    planUsageText: { fontSize: 13, color: '#6B7280' },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
-    statBox: { flex: 1, backgroundColor: '#1e293b', borderRadius: 16, padding: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#334155' },
-    statNumber: { fontSize: 32, fontWeight: '900', color: 'white', marginBottom: 4 },
-    statLabel: { fontSize: 13, color: '#94a3b8', fontWeight: '500' },
-    sectionTitle: { fontSize: 20, fontWeight: 'bold', color: 'white', marginBottom: 15 },
-    sectionSubtitle: { fontSize: 14, color: '#94a3b8', marginBottom: 20 },
+    statBox: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+    statNumber: { fontSize: 32, fontWeight: '900', color: '#111827', marginBottom: 4 },
+    statLabel: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+    sectionTitle: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 15 },
+    sectionSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
 });

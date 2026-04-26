@@ -168,7 +168,7 @@ export default function CompanyOnboarding() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             <AppHeader
                 showAuthButtons={true}
                 showBackButton={true}
@@ -297,24 +297,24 @@ export default function CompanyOnboarding() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a' },
-    header: { padding: 20, paddingTop: 40, borderBottomWidth: 1, borderBottomColor: '#1e293b', alignItems: 'center' },
-    headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    header: { padding: 20, paddingTop: 40, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', alignItems: 'center' },
+    headerTitle: { color: '#111827', fontSize: 20, fontWeight: 'bold' },
     form: { padding: 25 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 10 },
-    sectionTitle: { color: '#38bdf8', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 10 },
+    sectionTitle: { color: '#4F46E5', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
     inputGroup: { marginBottom: 5 },
-    label: { color: '#cbd5e1', fontSize: 12, fontWeight: 'bold', marginBottom: 8, marginTop: 10 },
-    input: { backgroundColor: '#1e293b', color: 'white', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#334155', fontSize: 15 },
-    selectButton: { backgroundColor: '#1e293b', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#334155', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    saveButton: { backgroundColor: '#10b981', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 30 },
+    label: { color: '#374151', fontSize: 12, fontWeight: '700', marginBottom: 8, marginTop: 10 },
+    input: { backgroundColor: '#FFFFFF', color: '#111827', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 15 },
+    selectButton: { backgroundColor: '#FFFFFF', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    saveButton: { backgroundColor: '#4F46E5', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 30 },
     buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 
     // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#0f172a', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', padding: 20 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 15 },
-    modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-    optionItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#1e293b', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    selectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6' }
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', padding: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 15 },
+    modalTitle: { color: '#111827', fontSize: 18, fontWeight: 'bold' },
+    optionItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    selectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4F46E5' }
 });
