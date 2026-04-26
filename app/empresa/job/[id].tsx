@@ -1157,7 +1157,7 @@ export default function JobDetailScreen() {
                                         <Text style={styles.kanbanBadgeText}>{columnCandidates.length}</Text>
                                     </View>
                                 </View>
-                                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
+                                <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
                                     {columnCandidates.map(candidate => {
                                         const isSelected = selectedIds.includes(candidate.id);
                                         return (

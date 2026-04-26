@@ -30,7 +30,7 @@ export default function VeritlyLandingPage() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.content}>
 
                 {/* ========== NAVBAR ========== */}
                 <View style={styles.navbar}>
