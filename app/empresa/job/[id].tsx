@@ -1916,22 +1916,23 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 18,
         fontWeight: '700',
-        color: 'white',
+        color: '#111827',
         marginTop: 16
     },
     emptySubtext: {
         fontSize: 14,
-        color: '#64748b',
+        color: '#6B7280',
         textAlign: 'center'
     },
     kanbanColumn: {
-        width: 280,
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
-        borderRadius: 16,
+        width: 300,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 20,
         padding: 12,
         height: '100%',
         borderWidth: 1,
-        borderColor: 'rgba(100, 116, 139, 0.2)'
+        borderColor: '#E5E7EB',
+        marginRight: 16
     },
     kanbanHeader: {
         flexDirection: 'row',
@@ -1939,59 +1940,56 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingBottom: 12,
         marginBottom: 12,
-        borderTopWidth: 3,
-        borderTopColor: '#3b82f6',
-        paddingTop: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(100, 116, 139, 0.2)'
+        borderTopWidth: 4,
+        borderTopColor: '#4F46E5',
+        paddingTop: 10,
     },
     kanbanTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '800',
-        color: 'white'
+        color: '#111827',
+        letterSpacing: 0.5
     },
     kanbanBadge: {
-        backgroundColor: 'rgba(100, 116, 139, 0.3)',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
     },
     kanbanBadgeText: {
-        color: '#cbd5e1',
+        color: '#6B7280',
         fontSize: 12,
         fontWeight: 'bold'
     },
     kanbanCard: {
-        backgroundColor: '#1e293b',
+        backgroundColor: '#FFFFFF',
         borderRadius: 12,
-        padding: 12,
+        padding: 16,
         borderWidth: 1,
-        borderColor: 'rgba(100, 116, 139, 0.3)',
+        borderColor: '#E5E7EB',
         elevation: 2,
-        shadowColor: 'black',
+        shadowColor: '#111827',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4
-    },
-    kanbanCardName: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: 'white'
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        marginBottom: 10
     },
     kanbanCardName: {
         fontSize: 14,
         fontWeight: '800',
-        color: 'white',
-        marginBottom: 2
+        color: '#111827',
+        marginBottom: 4
     },
     kanbanCardSalary: {
         fontSize: 11,
-        color: '#10b981',
+        color: '#059669',
         fontWeight: '700'
     },
     kanbanCardDate: {
         fontSize: 11,
-        color: '#94a3b8',
+        color: '#6B7280',
         marginTop: 4,
         textAlign: 'right'
     },
@@ -2001,12 +1999,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderColor: 'rgba(100, 116, 139, 0.3)',
+        borderColor: '#E5E7EB',
         borderRadius: 12,
-        height: 80
+        height: 80,
+        backgroundColor: 'rgba(255,255,255,0.3)'
     },
     kanbanEmptyText: {
-        color: '#64748b',
+        color: '#9CA3AF',
         fontSize: 12,
         textAlign: 'center'
     },
