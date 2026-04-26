@@ -1,15 +1,25 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Calendar, CheckCircle, ChevronDown, Clock, Sparkles, Star, Upload, ArrowRight, Zap, FileText } from 'lucide-react-native';
+import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Star, Users, Zap, FileText } from 'lucide-react-native';
 import React from 'react';
-import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
 
-// Veritly brand colors
-const VERITLY_CYAN = '#38bdf8';
-const VERITLY_BLUE = '#6366f1';
+// Light Tech Theme Colors
+const COLORS = {
+  background: '#FFFFFF',
+  surface: '#F9FAFB',
+  surfaceAlt: '#F3F4F6',
+  textPrimary: '#111827',
+  textSecondary: '#4B5563',
+  textTertiary: '#9CA3AF',
+  primary: '#4F46E5', // Indigo/Violet
+  primaryHover: '#4338CA',
+  accent: '#06B6D4', // Cyan
+  border: '#E5E7EB',
+  white: '#FFFFFF',
+};
 
 export default function VeritlyLandingPage() {
     const router = useRouter();
@@ -18,23 +28,19 @@ export default function VeritlyLandingPage() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0a192f" />
+            <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-            {/* Deep Space Background */}
-            <LinearGradient
-                colors={['#0a192f', '#050d1a', '#000000']}
-                style={StyleSheet.absoluteFill}
-            />
-
-            {/* Starfield Overlay Pattern */}
-            <View style={styles.starfieldOverlay} />
-
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={true}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
                 {/* ========== NAVBAR ========== */}
                 <View style={styles.navbar}>
                     <View style={styles.navLeft}>
-                        <Image source={LocalLogo} style={styles.navLogoImage} resizeMode="contain" />
+                        {/* If the old logo is white, we might need to apply a tintColor, or keep it dark */}
+                        <Image 
+                            source={LocalLogo} 
+                            style={[styles.navLogoImage, { tintColor: COLORS.primary }]} 
+                            resizeMode="contain" 
+                        />
                         <Text style={styles.navBrand}>Veritly</Text>
                     </View>
 
@@ -49,263 +55,164 @@ export default function VeritlyLandingPage() {
                             style={styles.navButtonPrimary}
                             onPress={() => router.push('/empresa/signin?register=true')}
                         >
-                            <LinearGradient
-                                colors={[VERITLY_CYAN, VERITLY_BLUE]}
-                                style={styles.navButtonPrimaryGradient}
-                            >
-                                <Text style={styles.navButtonPrimaryText}>Crear cuenta empresa</Text>
-                            </LinearGradient>
+                            <Text style={styles.navButtonPrimaryText}>Prueba Veritly Gratis</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* ========== HERO SECTION ========== */}
-                <View style={[styles.heroSection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
+                <View style={[styles.heroSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
                     <View style={[
                         styles.heroContent,
                         isDesktop ? styles.heroContentDesktop : styles.heroContentMobile
                     ]}>
                         {/* Text Content */}
-                        <View style={[styles.heroLeft, isDesktop && { maxWidth: 560 }]}>
+                        <View style={[styles.heroLeft, isDesktop && { maxWidth: 600 }]}>
+                            <View style={styles.trustBadge}>
+                                <Sparkles size={14} color={COLORS.primary} />
+                                <Text style={styles.trustBadgeText}>Plataforma de Selección Científica</Text>
+                            </View>                            
+
                             <Text style={[
                                 styles.heroTitle,
-                                { fontSize: isDesktop ? 48 : 32, lineHeight: isDesktop ? 58 : 40 }
+                                { fontSize: isDesktop ? 52 : 36, lineHeight: isDesktop ? 62 : 44 }
                             ]}>
-                                Contrata con Inteligencia{'\n'}
-                                <Text style={styles.heroTitleHighlight}>Artificial</Text>
+                                Encuentra al candidato ideal, sin el sesgo del filtrado manual.
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Deja de filtrar CVs manualmente. Publica tu vacante y nuestra IA validará cientos de candidatos en segundos, entregándote solo los mejores perfiles rankeados.
+                                Validación automatizada por competencias y criterios de selección científica, no solo palabras clave. Recluta más rápido y con mayor precisión.
                             </Text>
 
                             <View style={[
                                 styles.heroCTAContainer,
-                                !isDesktop && { flexDirection: 'row', justifyContent: 'flex-start' }
+                                !isDesktop && { flexDirection: 'column', alignItems: 'flex-start' }
                             ]}>
                                 <TouchableOpacity
                                     style={styles.heroPrimaryButton}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
-                                    <LinearGradient
-                                        colors={[VERITLY_CYAN, VERITLY_BLUE]}
-                                        style={styles.heroPrimaryButtonGradient}
-                                    >
-                                        <Text style={styles.heroPrimaryButtonText}>Crear cuenta empresa</Text>
-                                    </LinearGradient>
+                                    <Text style={styles.heroPrimaryButtonText}>Prueba Veritly Gratis</Text>
+                                    <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={[styles.heroSecondaryButton]}
-                                    onPress={() => router.push('/empresa/signin')}
-                                >
-                                    <Text style={styles.heroSecondaryButtonText}>Iniciar Sesión</Text>
-                                </TouchableOpacity>
+                                <Text style={styles.heroSubText}>Sin tarjeta de crédito. Configuración en 2 min.</Text>
                             </View>
                         </View>
 
-                        {/* Laptop Visual */}
-                        <View style={[styles.heroRight, !isDesktop && { marginTop: 32 }]}>
-                            <View style={styles.laptopGlow} />
-                            <Image
-                                source={HeroLaptop}
-                                style={[
-                                    styles.heroLaptopImage,
-                                    { height: isDesktop ? 360 : 200, maxWidth: isDesktop ? 480 : 300 }
-                                ]}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    </View>
-
-                    {/* Stats Bar */}
-                    <View style={[styles.statsBar, !isDesktop && styles.statsBarMobile]}>
-                        <View style={styles.statItem}>
-                            <View style={styles.statIconWrapper}>
-                                <Sparkles color={VERITLY_CYAN} size={16} />
-                            </View>
-                            <View>
-                                <Text style={styles.statValue}>97%</Text>
-                                <Text style={styles.statLabel}>Precisión IA</Text>
-                            </View>
-                        </View>
-
-                        <View style={[styles.statDivider, !isDesktop && { display: 'none' }]} />
-
-                        <View style={styles.statItem}>
-                            <View style={styles.statIconWrapper}>
-                                <Clock color="#3498db" size={16} />
-                            </View>
-                            <View>
-                                <Text style={styles.statValue}>2min</Text>
-                                <Text style={styles.statLabel}>Tiempo prom</Text>
-                            </View>
-                        </View>
-
-                        <View style={[styles.statDivider, !isDesktop && { display: 'none' }]} />
-
-                        <View style={styles.statItem}>
-                            <View style={styles.statIconWrapper}>
-                                <Calendar color="#3498db" size={16} />
-                            </View>
-                            <View>
-                                <Text style={styles.statValue}>24/7</Text>
-                                <Text style={styles.statLabel}>Disponible</Text>
+                        {/* Visual / Image */}
+                        <View style={[styles.heroRight, !isDesktop && { marginTop: 40 }]}>
+                            <View style={styles.heroImageContainer}>
+                                <Image
+                                    source={HeroLaptop}
+                                    style={[
+                                        styles.heroLaptopImage,
+                                        { height: isDesktop ? 400 : 250, width: isDesktop ? 600 : 350 }
+                                    ]}
+                                    resizeMode="contain"
+                                />
                             </View>
                         </View>
                     </View>
+                </View>
 
-                    {/* Scroll Indicator */}
-                    <View style={styles.scrollIndicator}>
-                        <View style={styles.scrollButton}>
-                            <ChevronDown color={VERITLY_CYAN} size={24} />
-                        </View>
-                        <Text style={styles.scrollText}>Descubre más</Text>
+                {/* ========== SOCIAL PROOF / TRUST BAR ========== */}
+                <View style={styles.socialProofSection}>
+                    <Text style={styles.socialProofTitle}>Empresas que confían en nuestra IA supervisada</Text>
+                    <View style={styles.logosContainer}>
+                        {/* Planners for Logos in Grayscale */}
+                        <Text style={styles.placeholderLogo}>Gilat</Text>
+                        <Text style={styles.placeholderLogo}>Relié Labs</Text>
+                        <Text style={styles.placeholderLogo}>Acme Corp</Text>
+                        <Text style={styles.placeholderLogo}>GlobalTech</Text>
                     </View>
                 </View>
 
                 {/* ========== CÓMO FUNCIONA SECTION ========== */}
-                <View style={[styles.howItWorksSection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
+                <View style={[styles.howItWorksSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
                     <Text style={styles.sectionTitle}>
-                        <Text style={styles.sectionTitleBold}>Cómo Funciona </Text>
-                        <Text style={styles.sectionTitleAccent}>(es súper simple)</Text>
+                        ¿Cómo funciona Veritly?
+                    </Text>
+                    <Text style={styles.sectionSubtitle}>
+                        Un flujo de trabajo optimizado para que te enfoques en las personas, no en el papeleo.
                     </Text>
 
                     <View style={[styles.featureGrid, isDesktop && styles.featureGridDesktop]}>
                         {/* Card 1 */}
-                        <View style={[styles.glassCard, isDesktop && styles.glassCardDesktop]}>
-                            <View style={styles.cardIconContainer}>
-                                <FileText color="#3498db" size={28} />
+                        <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+                            <View style={styles.cardIconBox}>
+                                <FileText color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Carga tus Datos</Text>
+                            <Text style={styles.cardTitle}>1. Publica</Text>
                             <Text style={styles.cardDescription}>
-                                Sube carpetas de CVs (PDF) o listas en Excel. O si prefieres, publica una vacante para recibirlos.
+                                Sube tu oferta laboral o tus bases de candidatos actuales. Aceptamos CVs en PDF o listas masivas en Excel.
                             </Text>
                         </View>
 
                         {/* Card 2 */}
-                        <View style={[styles.glassCard, isDesktop && styles.glassCardDesktop]}>
-                            <View style={styles.cardIconContainer}>
-                                <Sparkles color="#3498db" size={28} />
+                        <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+                            <View style={styles.cardIconBox}>
+                                <Zap color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>IA Valida y Califica</Text>
+                            <Text style={styles.cardTitle}>2. Filtra</Text>
                             <Text style={styles.cardDescription}>
-                                Nuestra IA analiza el 100% de la información contra tus criterios de búsqueda.
+                                La IA evalúa y rankea los perfiles bajo criterios de competencia y compatibilidad técnica de manera centralizada.
                             </Text>
                         </View>
 
                         {/* Card 3 */}
-                        <View style={[styles.glassCard, isDesktop && styles.glassCardDesktop]}>
-                            <View style={styles.cardIconContainer}>
-                                <CheckCircle color="#3498db" size={28} />
+                        <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+                            <View style={styles.cardIconBox}>
+                                <Users color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>Decide con Rankings</Text>
+                            <Text style={styles.cardTitle}>3. Entrevista</Text>
                             <Text style={styles.cardDescription}>
-                                Obtén un ranking inteligente con fortalezas y áreas de mejora por cada perfil.
+                                Revisa el ranking, los resúmenes generados y enfoca tu tiempo entrevistando solo a los finalistas validados.
                             </Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* ========== MINI ATS / RECRUITER SECTION [NEW] ========== */}
-                <View style={[styles.recruiterSection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
-                    <View style={[styles.recruiterContent, isDesktop && { flexDirection: 'row', alignItems: 'center' }]}>
-                        <View style={[styles.recruiterLeft, isDesktop && { flex: 1.2 }]}>
-                            <View style={styles.miniATSBadge}>
-                                <Zap size={14} color="#f59e0b" />
-                                <Text style={styles.miniATSBadgeText}>MINI ATS ÁGIL</Text>
-                            </View>
-                            <Text style={[styles.recruiterTitle, { fontSize: isDesktop ? 42 : 30 }]}>
-                                No es una bolsa de trabajo.{'\n'}Es tu <Text style={{ color: '#38bdf8' }}>Aliado de Selección.</Text>
-                            </Text>
-                            <Text style={styles.recruiterSubtitle}>
-                                Veritly no ofrece candidatos al azar. Ayudamos a reclutadores (empresas o independientes) a validar antes de contratar y elegir con datos reales, no con promesas.
-                            </Text>
-
-                            <View style={styles.recruiterFeatureList}>
-                                <View style={styles.recruiterFeatureItem}>
-                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#10b981" /></View>
-                                    <Text style={styles.featureText}>Análisis Ágil: Sube tus carpetas de CVs o una lista en Excel y deja que la IA haga el trabajo pesado por ti.</Text>
-                                </View>
-                                <View style={styles.recruiterFeatureItem}>
-                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#10b981" /></View>
-                                    <Text style={styles.featureText}>Mini ATS: Gestiona el estado de tus candidatos en un solo lugar, de forma ágil y simple.</Text>
-                                </View>
-                                <View style={styles.recruiterFeatureItem}>
-                                    <View style={styles.featureBullet}><CheckCircle size={16} color="#F59E0B" /></View>
-                                    <Text style={styles.featureText}>
-                                        <Text style={{ color: '#F59E0B', fontWeight: 'bold' }}>PLUS: </Text>
-                                        Publica tu vacante y aplica filtros automáticos de sueldo y Killer Questions. La IA se encargará de <Text style={{ color: 'white', fontWeight: 'bold' }}>analizar y rankear</Text> a quienes logren pasar el filtro inicial.
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.recruiterCTA}
-                                onPress={() => router.push('/empresa/signin?register=true')}
-                            >
-                                <Text style={styles.recruiterCTAText}>Empezar como Reclutador</Text>
-                                <ArrowRight size={18} color="white" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={[styles.recruiterRight, isDesktop && { flex: 1, marginLeft: 40 }]}>
-                            <View style={styles.imageGlowContainer}>
-                                <View style={styles.glowOrb} />
-                                <Image 
-                                    source={{ uri: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop' }} 
-                                    style={styles.recruiterImage} 
-                                    resizeMode="cover" 
-                                />
-                                <View style={styles.imageOverlay} />
-                            </View>
                         </View>
                     </View>
                 </View>
 
                 {/* ========== FOR CANDIDATES SECTION ========== */}
-                <View style={styles.companySection}>
-                    <View style={styles.companyContent}>
-                        <View style={styles.companyLeft}>
-                            <Text style={styles.companyLabel}>PARA CANDIDATOS</Text>
-                            <Text style={styles.companyTitle}>Tu próximo trabajo a un click</Text>
-                            <Text style={styles.companyDescription}>
-                                Deja de postular a ciegas. Sube tu CV, recibe feedback instantáneo y prepárate para destacar en tu próxima entrevista con ayuda de nuestra Inteligencia Artificial.
+                <View style={styles.candidateSection}>
+                    <View style={[styles.candidateContent, { paddingHorizontal: isDesktop ? 64 : 24, flexDirection: isDesktop ? 'row' : 'column' }]}>
+                        <View style={[styles.candidateLeft, isDesktop && { flex: 1, paddingRight: 40 }]}>
+                            <Text style={styles.candidateLabel}>PARA CANDIDATOS</Text>
+                            <Text style={styles.candidateTitle}>Muestra tu verdadero potencial</Text>
+                            <Text style={styles.candidateDescription}>
+                                Deja que tus habilidades hablen por ti. Con Veritly, tu perfil es analizado objetivamente. Sube tu CV para que nuestra tecnología destaque tus puntos más fuertes ante los reclutadores.
                             </Text>
-
                             <TouchableOpacity
-                                style={styles.companyButton}
-                                onPress={() => router.push('/signin?register=true')}
+                                style={styles.candidateButton}
+                                onPress={() => router.push('/signin')}
                             >
-                                <Text style={styles.companyButtonText}>Crear cuenta gratis</Text>
-                                <ChevronDown style={{ transform: [{ rotate: '-90deg' }] }} color="white" size={20} />
+                                <Text style={styles.candidateButtonText}>Subir mi CV</Text>
                             </TouchableOpacity>
                         </View>
+                        {isDesktop && <View style={{ flex: 1 }} />}
                     </View>
                 </View>
 
-                {/* ========== BOTTOM CTA SECTION ========== */}
-                <View style={[styles.bottomCTASection, { paddingHorizontal: isDesktop ? 48 : 20 }]}>
-                    <Text style={[styles.bottomCTATitle, { fontSize: isDesktop ? 36 : 28 }]}>¿Listo para empezar?</Text>
-                    <Text style={styles.bottomCTASubtitle}>
-                        Cientos de empresas ya usan Veritly para encontrar al talento ideal.
-                    </Text>
-
+                {/* ========== BOTTOM CTA ========== */}
+                <View style={styles.bottomCTASection}>
+                    <Text style={styles.bottomCTATitle}>Transforma hoy tu proceso de selección</Text>
+                    <Text style={styles.bottomCTASubtitle}>Acompaña a las empresas que ya reducen sus tiempos de contratación en un 60%.</Text>
                     <TouchableOpacity
-                        style={styles.bottomCTAButton}
+                        style={styles.heroPrimaryButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <LinearGradient
-                            colors={[VERITLY_CYAN, VERITLY_BLUE]}
-                            style={styles.bottomCTAButtonGradient}
-                        >
-                            <Text style={styles.bottomCTAButtonText}>Crear cuenta empresa</Text>
-                        </LinearGradient>
+                        <Text style={styles.heroPrimaryButtonText}>Comenzar Prueba Gratis</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* ========== FOOTER ========== */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>© 2025 Veritly. Todos los derechos reservados.</Text>
+                    <View style={styles.footerContent}>
+                        <View style={styles.footerBrand}>
+                            <Image source={LocalLogo} style={[styles.navLogoImage, { tintColor: COLORS.textTertiary, marginBottom: 8 }]} resizeMode="contain" />
+                            <Text style={styles.footerBrandText}>Veritly</Text>
+                        </View>
+                        <Text style={styles.footerCopyright}>© {new Date().getFullYear()} Veritly. Reclutamiento con ciencia.</Text>
+                    </View>
                 </View>
 
             </ScrollView>
@@ -316,14 +223,10 @@ export default function VeritlyLandingPage() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a192f',
+        backgroundColor: COLORS.background,
     },
     content: {
-        paddingBottom: 40,
-    },
-    starfieldOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        opacity: 0.3,
+        backgroundColor: COLORS.background,
     },
 
     // ========== NAVBAR ==========
@@ -331,12 +234,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-        flexWrap: 'wrap',
-        gap: 8,
+        borderBottomColor: COLORS.surfaceAlt,
+        backgroundColor: COLORS.white,
     },
     navLeft: {
         flexDirection: 'row',
@@ -348,56 +250,54 @@ const styles = StyleSheet.create({
         height: 32,
     },
     navBrand: {
-        fontSize: 20,
-        fontWeight: '900',
-        color: '#FFFFFF',
+        fontSize: 22,
+        fontWeight: '800',
+        color: COLORS.textPrimary,
         letterSpacing: -0.5,
     },
     navRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 16,
     },
     navButtonSecondary: {
-        paddingVertical: 8,
+        paddingVertical: 10,
         paddingHorizontal: 12,
     },
     navButtonSecondaryText: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: COLORS.textSecondary,
     },
     navButtonPrimary: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
         borderRadius: 8,
-        overflow: 'hidden',
-        shadowColor: VERITLY_CYAN,
+        shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.15,
         shadowRadius: 8,
-        elevation: 6,
-    },
-    navButtonPrimaryGradient: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        elevation: 2,
     },
     navButtonPrimaryText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '600',
+        color: COLORS.white,
     },
 
-    // ========== HERO SECTION ==========
+    // ========== HERO ==========
     heroSection: {
-        paddingTop: 40,
-        paddingBottom: 32,
+        paddingTop: 60,
+        paddingBottom: 60,
+        backgroundColor: COLORS.background,
     },
     heroContent: {
-        marginBottom: 32,
+        justifyContent: 'space-between',
     },
     heroContentDesktop: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 48,
     },
     heroContentMobile: {
         flexDirection: 'column',
@@ -405,435 +305,272 @@ const styles = StyleSheet.create({
     heroLeft: {
         flex: 1,
     },
-    heroTitle: {
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -1,
-        marginBottom: 16,
+    trustBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(79, 70, 229, 0.08)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        marginBottom: 24,
     },
-    heroTitleHighlight: {
-        color: VERITLY_CYAN,
+    trustBadgeText: {
+        color: COLORS.primary,
+        fontWeight: '700',
+        fontSize: 13,
+    },
+    heroTitle: {
+        fontWeight: '800',
+        color: COLORS.textPrimary,
+        letterSpacing: -1,
+        marginBottom: 24,
     },
     heroSubtitle: {
         fontWeight: '400',
-        color: '#b0b0b0',
-        lineHeight: 26,
-        marginBottom: 24,
-    },
-    heroCTAContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    heroPrimaryButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: VERITLY_CYAN,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    heroPrimaryButtonGradient: {
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-        alignItems: 'center',
-    },
-    heroPrimaryButtonText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#FFFFFF',
-    },
-    heroSecondaryButton: {
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-    },
-    heroSecondaryButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: VERITLY_CYAN,
-    },
-    heroRight: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-    },
-    laptopGlow: {
-        position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: VERITLY_CYAN,
-        opacity: 0.1,
-    },
-    heroLaptopImage: {
-        width: '100%',
-    },
-
-    // ========== STATS BAR ==========
-    statsBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 12,
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        gap: 24,
-    },
-    statsBarMobile: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-around',
-        gap: 16,
-    },
-    statItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    statIconWrapper: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statValue: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#FFFFFF',
-    },
-    statLabel: {
-        fontSize: 11,
-        fontWeight: '400',
-        color: '#b0b0b0',
-    },
-    statDivider: {
-        width: 1,
-        height: 36,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-
-    // ========== SCROLL INDICATOR ==========
-    scrollIndicator: {
-        alignItems: 'center',
-        marginTop: 32,
-        gap: 8,
-    },
-    scrollButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    scrollText: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: 'rgba(255, 255, 255, 0.5)',
-    },
-
-    // ========== HOW IT WORKS SECTION ==========
-    howItWorksSection: {
-        paddingVertical: 48,
-    },
-    sectionTitle: {
-        fontSize: 28,
-        textAlign: 'center',
+        color: COLORS.textSecondary,
+        lineHeight: 28,
         marginBottom: 36,
     },
-    sectionTitleBold: {
+    heroCTAContainer: {
+        gap: 16,
+    },
+    heroPrimaryButton: {
+        backgroundColor: COLORS.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        borderRadius: 12,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 4,
+    },
+    heroPrimaryButtonText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: COLORS.white,
+    },
+    heroSubText: {
+        color: COLORS.textTertiary,
+        fontSize: 13,
+    },
+    heroRight: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    heroImageContainer: {
+        shadowColor: COLORS.textPrimary,
+        shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.08,
+        shadowRadius: 40,
+        elevation: 10,
+    },
+    heroLaptopImage: {
+    },
+
+    // ========== SOCIAL PROOF ==========
+    socialProofSection: {
+        backgroundColor: COLORS.surfaceAlt,
+        paddingVertical: 32,
+        alignItems: 'center',
+    },
+    socialProofTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.textTertiary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 24,
+    },
+    logosContainer: {
+        flexDirection: 'row',
+        gap: 48,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        opacity: 0.5,
+    },
+    placeholderLogo: {
+        fontSize: 20,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: COLORS.textSecondary,
+    },
+
+    // ========== HOW IT WORKS ==========
+    howItWorksSection: {
+        paddingVertical: 80,
+        backgroundColor: COLORS.background,
+    },
+    sectionTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: COLORS.textPrimary,
+        textAlign: 'center',
+        marginBottom: 16,
         letterSpacing: -0.5,
     },
-    sectionTitleAccent: {
-        fontWeight: '400',
-        color: VERITLY_CYAN,
+    sectionSubtitle: {
+        fontSize: 18,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginBottom: 56,
+        maxWidth: 600,
+        alignSelf: 'center',
     },
     featureGrid: {
         flexDirection: 'column',
-        gap: 16,
+        gap: 24,
     },
     featureGridDesktop: {
         flexDirection: 'row',
         justifyContent: 'center',
     },
-    glassCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    featureCard: {
+        backgroundColor: COLORS.white,
         borderRadius: 16,
-        padding: 24,
-        borderWidth: 0.5,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        alignItems: 'center',
+        padding: 32,
+        borderWidth: 1,
+        borderColor: COLORS.surfaceAlt,
+        alignItems: 'flex-start',
+        shadowColor: COLORS.textPrimary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 12,
+        elevation: 2,
     },
-    glassCardDesktop: {
+    featureCardDesktop: {
         flex: 1,
-        maxWidth: 320,
+        maxWidth: 380,
     },
-    cardIconContainer: {
+    cardIconBox: {
         width: 56,
         height: 56,
-        borderRadius: 14,
-        backgroundColor: 'rgba(52, 152, 219, 0.15)',
+        borderRadius: 12,
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 16,
+        marginBottom: 24,
     },
     cardTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
-        color: '#FFFFFF',
-        textAlign: 'center',
-        marginBottom: 10,
+        color: COLORS.textPrimary,
+        marginBottom: 12,
     },
     cardDescription: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '400',
-        color: '#b0b0b0',
-        textAlign: 'center',
-        lineHeight: 22,
+        color: COLORS.textSecondary,
+        lineHeight: 24,
     },
 
-    // ========== FOR COMPANIES SECTION ==========
-    companySection: {
-        backgroundColor: '#0f172a',
-        paddingVertical: 60,
-        paddingHorizontal: 20,
+    // ========== FOR CANDIDATES ==========
+    candidateSection: {
+        backgroundColor: COLORS.surface,
+        paddingVertical: 80,
         borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.1)',
-        alignItems: 'center',
+        borderColor: COLORS.surfaceAlt,
     },
-    companyContent: {
-        maxWidth: 800,
+    candidateContent: {
+        maxWidth: 1200,
+        marginHorizontal: 'auto',
         width: '100%',
-        backgroundColor: 'rgba(30, 41, 59, 0.5)',
-        borderRadius: 24,
-        padding: 40,
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.2)',
     },
-    companyLeft: {
-        alignItems: 'center',
+    candidateLeft: {
     },
-    companyLabel: {
-        color: '#38bdf8',
-        fontWeight: 'bold',
-        fontSize: 14,
-        letterSpacing: 1,
-        marginBottom: 12,
-    },
-    companyTitle: {
-        fontSize: 32,
-        fontWeight: '900',
-        color: 'white',
-        textAlign: 'center',
+    candidateLabel: {
+        color: COLORS.primary,
+        fontWeight: '700',
+        fontSize: 13,
+        letterSpacing: 1.2,
         marginBottom: 16,
     },
-    companyDescription: {
+    candidateTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: COLORS.textPrimary,
+        marginBottom: 20,
+        letterSpacing: -0.5,
+    },
+    candidateDescription: {
         fontSize: 16,
-        color: '#94a3b8',
-        textAlign: 'center',
-        lineHeight: 24,
+        color: COLORS.textSecondary,
+        lineHeight: 26,
         marginBottom: 32,
-        maxWidth: 600,
+        maxWidth: 500,
     },
-    companyButton: {
-        backgroundColor: '#0ea5e9', // Sky 500
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        shadowColor: '#0ea5e9',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 6,
+    candidateButton: {
+        backgroundColor: COLORS.white,
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        shadowColor: COLORS.textPrimary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 1,
     },
-    companyButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
+    candidateButtonText: {
+        color: COLORS.textPrimary,
+        fontWeight: '600',
+        fontSize: 15,
     },
 
-    // ========== BOTTOM CTA SECTION ==========
+    // ========== BOTTOM CTA ==========
     bottomCTASection: {
-        paddingVertical: 48,
+        paddingVertical: 80,
+        paddingHorizontal: 24,
         alignItems: 'center',
+        backgroundColor: COLORS.white,
     },
     bottomCTATitle: {
+        fontSize: 36,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: COLORS.textPrimary,
         textAlign: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
         letterSpacing: -0.5,
     },
     bottomCTASubtitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '400',
-        color: '#b0b0b0',
+        color: COLORS.textSecondary,
         textAlign: 'center',
-        marginBottom: 28,
-        maxWidth: 400,
-        paddingHorizontal: 20,
-    },
-    bottomCTAButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: VERITLY_CYAN,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
-        elevation: 10,
-    },
-    bottomCTAButtonGradient: {
-        paddingVertical: 16,
-        paddingHorizontal: 36,
-    },
-    bottomCTAButtonText: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#FFFFFF',
+        marginBottom: 40,
+        maxWidth: 600,
     },
 
     // ========== FOOTER ==========
     footer: {
-        paddingHorizontal: 20,
-        paddingVertical: 32,
+        backgroundColor: COLORS.surface,
+        paddingVertical: 40,
+        paddingHorizontal: 24,
+        borderTopWidth: 1,
+        borderColor: COLORS.surfaceAlt,
+    },
+    footerContent: {
         alignItems: 'center',
     },
-    footerText: {
-        fontSize: 13,
-        fontWeight: '400',
-        color: '#b0b0b0',
-        textAlign: 'center',
-    },
-
-    // ========== RECRUITER SECTION [NEW] ==========
-    recruiterSection: {
-        paddingVertical: 80,
-    },
-    recruiterContent: {
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
-        borderRadius: 32,
-        padding: 40,
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.1)',
-        overflow: 'hidden',
-    },
-    recruiterLeft: {
-        flex: 1,
-    },
-    recruiterRight: {
-        flex: 1,
+    footerBrand: {
         alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 40,
+        marginBottom: 16,
     },
-    miniATSBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        alignSelf: 'flex-start',
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(245, 158, 11, 0.3)',
+    footerBrandText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.textSecondary,
     },
-    miniATSBadgeText: {
-        color: '#f59e0b',
-        fontWeight: 'bold',
-        fontSize: 11,
-    },
-    recruiterTitle: {
-        color: 'white',
-        fontWeight: '900',
-        lineHeight: 48,
-        marginBottom: 20,
-    },
-    recruiterSubtitle: {
-        color: '#94a3b8',
-        fontSize: 17,
-        lineHeight: 28,
-        marginBottom: 32,
-    },
-    recruiterFeatureList: {
-        gap: 16,
-        marginBottom: 36,
-    },
-    recruiterFeatureItem: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12,
-    },
-    featureBullet: {
-        marginTop: 4,
-    },
-    featureText: {
-        color: '#cbd5e1',
-        fontSize: 15,
-        lineHeight: 22,
-        flex: 1,
-    },
-    recruiterCTA: {
-        backgroundColor: '#3b82f6',
-        paddingVertical: 18,
-        paddingHorizontal: 32,
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-        gap: 10,
-        shadowColor: '#3b82f6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 6,
-    },
-    recruiterCTAText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    imageGlowContainer: {
-        position: 'relative',
-        width: '100%',
-        height: 300,
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.2)',
-    },
-    recruiterImage: {
-        width: '100%',
-        height: '100%',
-    },
-    imageOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    },
-    glowOrb: {
-        position: 'absolute',
-        top: -50,
-        right: -50,
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: '#38bdf8',
-        opacity: 0.2,
-        filter: 'blur(40px)',
+    footerCopyright: {
+        fontSize: 14,
+        color: COLORS.textTertiary,
     },
 });

@@ -976,8 +976,11 @@ export default function JobDetailScreen() {
                                             {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                         </View>
                                     )}
-                                    <View style={styles.progressContainer}>
+                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección científica de Relié Labs.">
                                         <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                        <View style={styles.validationSeal}>
+                                            <CheckCircle2 color="#2563EB" size={18} fill="white" />
+                                        </View>
                                     </View>
 
                                     <View style={styles.cardInfo}>
@@ -1064,8 +1067,11 @@ export default function JobDetailScreen() {
                                             {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                         </View>
                                     )}
-                                    <View style={styles.progressContainer}>
+                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección científica de Relié Labs.">
                                         <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                        <View style={styles.validationSeal}>
+                                            <CheckCircle2 color="#2563EB" size={18} fill="white" />
+                                        </View>
                                     </View>
 
                                     <View style={styles.cardInfo}>
@@ -1822,24 +1828,38 @@ const styles = StyleSheet.create({
         fontWeight: '800'
     },
     candidateCard: {
-        backgroundColor: 'rgba(30, 41, 59, 0.6)',
+        backgroundColor: '#FFFFFF',
         borderRadius: 16,
-        marginBottom: 15,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(100, 116, 139, 0.3)',
-        overflow: 'hidden'
+        borderColor: '#E5E7EB',
+        overflow: 'hidden',
+        shadowColor: '#111827',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     candidateCardSelected: {
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)'
+        borderColor: '#4F46E5',
+        backgroundColor: 'rgba(79, 70, 229, 0.05)'
     },
     cardContent: {
         flexDirection: 'row',
-        padding: 16,
+        padding: 20,
         alignItems: 'center'
     },
     progressContainer: {
-        marginRight: 16
+        marginRight: 20,
+        position: 'relative'
+    },
+    validationSeal: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 2,
     },
     cardInfo: {
         flex: 1
@@ -1847,20 +1867,20 @@ const styles = StyleSheet.create({
     candidateName: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#F8FAFC',
-        marginBottom: 4,
+        color: '#111827',
+        marginBottom: 6,
         letterSpacing: -0.3
     },
     candidateSalary: {
         fontSize: 13,
-        color: '#10b981',
-        fontWeight: 'bold',
-        marginBottom: 4
+        color: '#059669',
+        fontWeight: '600',
+        marginBottom: 6
     },
     candidateDate: {
         fontSize: 12,
-        color: '#94a3b8',
-        marginBottom: 8
+        color: '#6B7280',
+        marginBottom: 10
     },
     statusPill: {
         alignSelf: 'flex-start',
