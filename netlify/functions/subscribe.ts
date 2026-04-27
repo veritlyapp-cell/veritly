@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-const Culqi = require('@culqi/culqi-node');
+const Culqi = require('culqi-node');
 
 const CULQI_PRIVATE_KEY = process.env.CULQI_PRIVATE_KEY;
 
