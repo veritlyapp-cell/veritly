@@ -976,7 +976,7 @@ export default function JobDetailScreen() {
                                             {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                         </View>
                                     )}
-                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección científica de Relié Labs.">
+                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
                                         <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
                                         <View style={styles.validationSeal}>
                                             <CheckCircle2 color="#2563EB" size={18} fill="white" />
@@ -1067,7 +1067,7 @@ export default function JobDetailScreen() {
                                             {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                         </View>
                                     )}
-                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección científica de Relié Labs.">
+                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
                                         <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
                                         <View style={styles.validationSeal}>
                                             <CheckCircle2 color="#2563EB" size={18} fill="white" />

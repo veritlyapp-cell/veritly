@@ -33,9 +33,8 @@ export default function VeritlyLandingPage() {
             <ScrollView contentContainerStyle={styles.content}>
 
                 {/* ========== NAVBAR ========== */}
-                <View style={styles.navbar}>
+                <View style={[styles.navbar, !isDesktop && { paddingHorizontal: 16 }]}>
                     <View style={styles.navLeft}>
-                        {/* If the old logo is white, we might need to apply a tintColor, or keep it dark */}
                         <Image 
                             source={LocalLogo} 
                             style={[styles.navLogoImage, { tintColor: COLORS.primary }]} 
@@ -49,13 +48,13 @@ export default function VeritlyLandingPage() {
                             style={styles.navButtonSecondary}
                             onPress={() => router.push('/empresa/signin')}
                         >
-                            <Text style={styles.navButtonSecondaryText}>Iniciar Sesión</Text>
+                            <Text style={styles.navButtonSecondaryText}>{isDesktop ? 'Iniciar Sesión' : 'Login'}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.navButtonPrimary}
                             onPress={() => router.push('/empresa/signin?register=true')}
                         >
-                            <Text style={styles.navButtonPrimaryText}>Prueba Veritly Gratis</Text>
+                            <Text style={styles.navButtonPrimaryText}>{isDesktop ? 'Prueba Veritly Gratis' : 'Registrar'}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -70,7 +69,7 @@ export default function VeritlyLandingPage() {
                         <View style={[styles.heroLeft, isDesktop && { maxWidth: 600 }]}>
                             <View style={styles.trustBadge}>
                                 <Sparkles size={14} color={COLORS.primary} />
-                                <Text style={styles.trustBadgeText}>Plataforma de Selección Científica</Text>
+                                <Text style={styles.trustBadgeText}>Plataforma de Selección Inteligente</Text>
                             </View>                            
 
                             <Text style={[
@@ -80,22 +79,22 @@ export default function VeritlyLandingPage() {
                                 Encuentra al candidato ideal, sin el sesgo del filtrado manual.
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Validación automatizada por competencias y criterios de selección científica, no solo palabras clave. Recluta más rápido y con mayor precisión.
+                                Validación automatizada por competencias y criterios de selección avanzada, no solo palabras clave. Recluta más rápido y con mayor precisión.
                             </Text>
 
                             <View style={[
                                 styles.heroCTAContainer,
-                                !isDesktop && { flexDirection: 'column', alignItems: 'flex-start' }
+                                !isDesktop && { flexDirection: 'column', alignItems: 'center' }
                             ]}>
                                 <TouchableOpacity
-                                    style={styles.heroPrimaryButton}
+                                    style={[styles.heroPrimaryButton, !isDesktop && { width: '100%', justifyContent: 'center' }]}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
                                     <Text style={styles.heroPrimaryButtonText}>Prueba Veritly Gratis</Text>
                                     <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
-                                <Text style={styles.heroSubText}>Sin tarjeta de crédito. Configuración en 2 min.</Text>
+                                <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjeta de crédito. Configuración en 2 min.</Text>
                             </View>
                         </View>
 
@@ -115,17 +114,18 @@ export default function VeritlyLandingPage() {
                     </View>
                 </View>
 
-                {/* ========== SOCIAL PROOF / TRUST BAR ========== */}
+                {/* ========== SOCIAL PROOF / TRUST BAR (HIDDEN) ========== */}
+                {/* 
                 <View style={styles.socialProofSection}>
                     <Text style={styles.socialProofTitle}>Empresas que confían en nuestra IA supervisada</Text>
                     <View style={styles.logosContainer}>
-                        {/* Planners for Logos in Grayscale */}
                         <Text style={styles.placeholderLogo}>Gilat</Text>
                         <Text style={styles.placeholderLogo}>Relié Labs</Text>
                         <Text style={styles.placeholderLogo}>Acme Corp</Text>
                         <Text style={styles.placeholderLogo}>GlobalTech</Text>
                     </View>
                 </View>
+                */}
 
                 {/* ========== CÓMO FUNCIONA SECTION ========== */}
                 <View style={[styles.howItWorksSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
@@ -211,7 +211,7 @@ export default function VeritlyLandingPage() {
                             <Image source={LocalLogo} style={[styles.navLogoImage, { tintColor: COLORS.textTertiary, marginBottom: 8 }]} resizeMode="contain" />
                             <Text style={styles.footerBrandText}>Veritly</Text>
                         </View>
-                        <Text style={styles.footerCopyright}>© {new Date().getFullYear()} Veritly. Reclutamiento con ciencia.</Text>
+                        <Text style={styles.footerCopyright}>© {new Date().getFullYear()} Veritly. Reclutamiento inteligente.</Text>
                     </View>
                 </View>
 
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     navRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 8,
     },
     navButtonSecondary: {
         paddingVertical: 10,
@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
     },
     navButtonPrimary: {
         backgroundColor: COLORS.primary,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 8,
         shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 4 },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     navButtonPrimaryText: {
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '600',
         color: COLORS.white,
     },

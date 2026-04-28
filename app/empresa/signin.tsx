@@ -220,7 +220,7 @@ export default function CompanySignIn() {
 
                     <View style={styles.formContainer}>
                         <Animated.View style={[styles.formWrapper, animatedStyle]}>
-                            <Text style={styles.title}>{isRegistering ? "Cuenta Corporativa" : "Portal Empresas"}</Text>
+                            <Text style={styles.title}>{isRegistering ? "Registro de Empresa" : "Portal Empresas"}</Text>
                             <Text style={styles.subtitle}>
                                 {isRegistering
                                     ? "Registra tu empresa y empieza a contratar con IA."
