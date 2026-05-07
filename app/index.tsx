@@ -54,7 +54,7 @@ export default function VeritlyLandingPage() {
                             style={styles.navButtonPrimary}
                             onPress={() => router.push('/empresa/signin?register=true')}
                         >
-                            <Text style={styles.navButtonPrimaryText}>{isDesktop ? 'Prueba Veritly Gratis' : 'Registrar'}</Text>
+                            <Text style={styles.navButtonPrimaryText}>{isDesktop ? 'Probar flujo R2R Gratis' : 'Probar R2R'}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -67,19 +67,19 @@ export default function VeritlyLandingPage() {
                     ]}>
                         {/* Text Content */}
                         <View style={[styles.heroLeft, isDesktop && { maxWidth: 600 }]}>
-                            <View style={styles.trustBadge}>
-                                <Sparkles size={14} color={COLORS.primary} />
-                                <Text style={styles.trustBadgeText}>Plataforma de Selección Inteligente</Text>
+                            <View style={[styles.trustBadge, { backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
+                                <Sparkles size={14} color={COLORS.accent} />
+                                <Text style={[styles.trustBadgeText, { color: COLORS.accent }]}>R2R: DISEÑADO POR RECLUTADORES PARA RECLUTADORES</Text>
                             </View>                            
 
                             <Text style={[
                                 styles.heroTitle,
                                 { fontSize: isDesktop ? 52 : 36, lineHeight: isDesktop ? 62 : 44 }
                             ]}>
-                                Encuentra al candidato ideal, sin el sesgo del filtrado manual.
+                                Veritly: Tan fácil como un Form, tan inteligente como un ATS.
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Validación automatizada por competencias y criterios de selección avanzada, no solo palabras clave. Recluta más rápido y con mayor precisión.
+                                Deja de gestionar talento con herramientas de encuestas. Dale a tu consultoría el flujo profesional que merece con un pipeline inteligente, filtros automáticos de salario y match score de perfiles. Todo el poder de un ATS corporativo, a un precio low-cost.
                             </Text>
 
                             <View style={[
@@ -90,11 +90,11 @@ export default function VeritlyLandingPage() {
                                     style={[styles.heroPrimaryButton, !isDesktop && { width: '100%', justifyContent: 'center' }]}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
-                                    <Text style={styles.heroPrimaryButtonText}>Prueba Veritly Gratis</Text>
+                                    <Text style={styles.heroPrimaryButtonText}>Probar el flujo R2R gratis</Text>
                                     <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
-                                <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjeta de crédito. Configuración en 2 min.</Text>
+                                <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjetas de crédito. Configuración en 2 minutos.</Text>
                             </View>
                         </View>
 
@@ -194,13 +194,13 @@ export default function VeritlyLandingPage() {
 
                 {/* ========== BOTTOM CTA ========== */}
                 <View style={styles.bottomCTASection}>
-                    <Text style={styles.bottomCTATitle}>Transforma hoy tu proceso de selección</Text>
-                    <Text style={styles.bottomCTASubtitle}>Acompaña a las empresas que ya reducen sus tiempos de contratación en un 60%.</Text>
+                    <Text style={styles.bottomCTATitle}>Dale a tu consultoría el flujo que merece</Text>
+                    <Text style={styles.bottomCTASubtitle}>Abandona los Forms y empieza a reclutar como una consultoría de élite con Veritly.</Text>
                     <TouchableOpacity
                         style={styles.heroPrimaryButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <Text style={styles.heroPrimaryButtonText}>Comenzar Prueba Gratis</Text>
+                        <Text style={styles.heroPrimaryButtonText}>Probar el flujo R2R gratis</Text>
                     </TouchableOpacity>
                 </View>
 
