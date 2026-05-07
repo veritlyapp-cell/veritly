@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Star, Users, Zap, FileText } from 'lucide-react-native';
-import React from 'react';
-import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
@@ -26,11 +26,33 @@ export default function VeritlyLandingPage() {
     const { width } = useWindowDimensions();
     const isDesktop = width >= 768;
 
+    const scrollRef = useRef<ScrollView>(null);
+    const [sectionPositions, setSectionPositions] = useState({
+        howItWorks: 0,
+        pricing: 0
+    });
+
+    const scrollToSection = (section: 'howItWorks' | 'pricing') => {
+        const position = sectionPositions[section];
+        if (scrollRef.current) {
+            scrollRef.current.scrollTo({ y: position, animated: true });
+        }
+    };
+
+    const onSectionLayout = (section: 'howItWorks' | 'pricing') => (event: LayoutChangeEvent) => {
+        const { y } = event.nativeEvent.layout;
+        setSectionPositions(prev => ({ ...prev, [section]: y }));
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView 
+                ref={scrollRef}
+                contentContainerStyle={styles.content}
+                stickyHeaderIndices={isDesktop ? [0] : []} // Opcional: Navbar pegajoso en desktop
+            >
 
                 {/* ========== NAVBAR ========== */}
                 <View style={[styles.navbar, !isDesktop && { paddingHorizontal: 16 }]}>
@@ -45,8 +67,8 @@ export default function VeritlyLandingPage() {
 
                     {isDesktop && (
                         <View style={styles.navCenter}>
-                            <TouchableOpacity onPress={() => {/* Scroll to features */}}><Text style={styles.navLink}>Cómo funciona</Text></TouchableOpacity>
-                            <TouchableOpacity onPress={() => {/* Scroll to pricing */}}><Text style={styles.navLink}>Precios</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => scrollToSection('howItWorks')}><Text style={styles.navLink}>Cómo funciona</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => scrollToSection('pricing')}><Text style={styles.navLink}>Precios</Text></TouchableOpacity>
                         </View>
                     )}
 
@@ -61,7 +83,7 @@ export default function VeritlyLandingPage() {
                             style={styles.navButtonPrimary}
                             onPress={() => router.push('/empresa/signin?register=true')}
                         >
-                            <Text style={styles.navButtonPrimaryText}>{isDesktop ? 'Probar flujo R2R Gratis' : 'Probar R2R'}</Text>
+                            <Text style={styles.navButtonPrimaryText}>{isDesktop ? 'Probar Veritly' : 'Probar Veritly'}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -97,7 +119,7 @@ export default function VeritlyLandingPage() {
                                     style={[styles.heroPrimaryButton, !isDesktop && { width: '100%', justifyContent: 'center' }]}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
-                                    <Text style={styles.heroPrimaryButtonText}>Probar el flujo R2R gratis</Text>
+                                    <Text style={styles.heroPrimaryButtonText}>Probar Veritly</Text>
                                     <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
@@ -135,7 +157,10 @@ export default function VeritlyLandingPage() {
                 */}
 
                 {/* ========== CÓMO FUNCIONA SECTION ========== */}
-                <View style={[styles.howItWorksSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
+                <View 
+                    onLayout={onSectionLayout('howItWorks')}
+                    style={[styles.howItWorksSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}
+                >
                     <Text style={styles.sectionTitle}>
                         ¿Cómo funciona Veritly?
                     </Text>
@@ -200,7 +225,10 @@ export default function VeritlyLandingPage() {
                 </View>
 
                 {/* ========== PRICING SECTION ========== */}
-                <View style={[styles.pricingSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
+                <View 
+                    onLayout={onSectionLayout('pricing')}
+                    style={[styles.pricingSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}
+                >
                     <Text style={styles.sectionTitle}>Planes y Precios</Text>
                     <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
 
@@ -212,15 +240,15 @@ export default function VeritlyLandingPage() {
                                 <Text style={styles.planPrice}>S/ 0</Text>
                                 <Text style={styles.planPriceUnit}>/ siempre</Text>
                             </View>
-                            <Text style={styles.planDesc}>Plan de lanzamiento para reclutadores independientes.</Text>
+                            <Text style={styles.planDesc}>Plan de lanzamiento para reclutadores independientes y consultoras.</Text>
                             <View style={styles.planFeatures}>
                                 <FeatureItemLanding text="200 Análisis de IA" />
                                 <FeatureItemLanding text="5 Vacantes Activas" />
-                                <FeatureItemLanding text="LinkedIn Sourcing Extension" />
                                 <FeatureItemLanding text="Filtros por Salario" />
+                                <FeatureItemLanding text="Soporte VIP" />
                             </View>
                             <TouchableOpacity style={styles.planButtonPrimary} onPress={() => router.push('/empresa/signin?register=true')}>
-                                <Text style={styles.planButtonPrimaryText}>Empezar Gratis</Text>
+                                <Text style={styles.planButtonPrimaryText}>Probar Veritly</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -271,7 +299,7 @@ export default function VeritlyLandingPage() {
                         style={styles.heroPrimaryButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <Text style={styles.heroPrimaryButtonText}>Probar el flujo R2R gratis</Text>
+                        <Text style={styles.heroPrimaryButtonText}>Probar Veritly</Text>
                     </TouchableOpacity>
                 </View>
 
