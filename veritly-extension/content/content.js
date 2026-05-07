@@ -161,14 +161,13 @@ if (!document.getElementById('veritly-floating-btn')) {
     document.body.appendChild(btn);
 }
 
-// Auto-envío de datos (cada 3s)
+// M-05 FIX: Auto-envío de datos con cleanup apropiado
 let lastSentUrl = '';
-setInterval(() => {
+const veritlyInterval = setInterval(() => {
     try {
-        // Solo enviar si estamos en un perfil y la URL cambió
         const currentUrl = window.location.href;
+        // Solo ejecutar si es un perfil de LinkedIn y la URL cambió
         if (currentUrl.includes('/in/') && currentUrl !== lastSentUrl) {
-            // Esperar un momento para que la página cargue
             setTimeout(() => {
                 const data = extractCandidateData();
                 if (data.name && data.name !== "Candidato LinkedIn") {
@@ -178,5 +177,15 @@ setInterval(() => {
                 }
             }, 1500);
         }
-    } catch (e) {}
+    } catch (e) {
+        // Si chrome.runtime no está disponible (extensión desconectada), limpiar el interval
+        clearInterval(veritlyInterval);
+    }
 }, 3000);
+
+// Cleanup cuando el documento se oculta (el usuario navega a otra pestaña o sale)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        clearInterval(veritlyInterval);
+    }
+});
