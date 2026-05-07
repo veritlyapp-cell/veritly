@@ -24,9 +24,9 @@ export const handler = async (event) => {
     if (!API_KEY) {
         throw new Error('Configuración incompleta: Falta la variable GEMINI_API_KEY en el servidor.');
     }
-    const model = "gemini-1.5-flash"; // El más estable y rápido
+    const model = "gemini-2.5-flash"; // Actualizado a modelo actual (2026)
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
     
     // Fetch nativo (soportado en Node 18+)
     const response = await fetch(url, {

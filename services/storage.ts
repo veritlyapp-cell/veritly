@@ -200,8 +200,8 @@ export const getJobCandidates = async (jobId: string) => {
             } as any;
             candidates.push(normalized);
         });
-        // Ordenar por score (mayor a menor), candidatos externos pending_ai van al final
-        return candidates.sort((a, b) => b.matchScore - a.matchScore);
+        // M-01 FIX: Uso de ?? -1 para que candidatos sin score (pendiente IA) vayan al final del ranking
+        return candidates.sort((a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1));
     } catch (e) {
         console.error("Error leyendo candidatos: ", e);
         return [];

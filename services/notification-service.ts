@@ -43,7 +43,7 @@ export const sendAdminNotification = async (
         const body = `
         Hola Admin,
         
-        Un nuevo ${type === 'candidate' ? ' candidato' : 'a empresa'} se ha registrado en Veritly.
+        Un nuevo ${type === 'candidate' ? 'candidato' : 'una empresa'} se ha registrado en Veritly.
         
         Detalles:
         - Nombre: ${details.name}

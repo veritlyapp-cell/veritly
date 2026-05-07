@@ -8,10 +8,12 @@ if (!API_KEY) {
     console.warn("⚠️ No hay API KEY configurada para empresa. Configura EXPO_PUBLIC_COMPANY_API_KEY o EXPO_PUBLIC_GEMINI_API_KEY en .env");
 }
 
-// 🔄 Modelos para EMPRESA (Priorizamos capacidad sobre velocidad si es necesario)
+// 🔄 Modelos para EMPRESA — Priorizamos capacidad para análisis precisos
 const MODELS_TO_TRY = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash"
+    "gemini-2.5-flash",      // 1. Principal — rápido y preciso
+    "gemini-2.5-pro",        // 2. Alta capacidad — para JDs y CVs complejos
+    "gemini-2.5-flash-lite", // 3. Ligero — para validaciones rápidas
+    "gemini-2.0-flash"       // 4. Fallback estable y probado
 ];
 
 const fetchWithFallback = async (body: any) => {

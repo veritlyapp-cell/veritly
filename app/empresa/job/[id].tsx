@@ -241,7 +241,10 @@ export default function JobDetailScreen() {
                     );
 
                     const newCandidate: CandidateAnalysis = {
-                        id: Math.random().toString(36).substring(7),
+                        // C-03 FIX: crypto.randomUUID() garantiza IDs únicos (sin colisiones)
+                        id: (typeof crypto !== 'undefined' && crypto.randomUUID)
+                            ? crypto.randomUUID()
+                            : `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`,
                         jobId: id as string,
                         name: aiResult.name || file.name.split('.')[0] || "Candidato",
                         email: aiResult.email || foundEmail || null,
@@ -260,19 +263,20 @@ export default function JobDetailScreen() {
                         originalFileUrl: uploadedUrl || undefined
                     };
 
-                    // Update Global Talent Graph Profile
+                    // C-04 FIX: Talent Graph se escribe en su propia colección 'talent_graph',
+                    // NO en 'users_candidatos' (que es de usuarios registrados con UID como ID).
+                    // Esto evita corromper perfiles de candidatos reales que usen la plataforma.
                     if (newCandidate.email) {
-                        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-                        const candidateRef = doc(db, 'users_candidatos', newCandidate.email); // Usamos email como ID para búsqueda rápida en el marketplace
-                        await setDoc(candidateRef, {
-                            email: newCandidate.email,
+                        const talentRef = doc(db, 'talent_graph', newCandidate.email.toLowerCase());
+                        await setDoc(talentRef, {
+                            email: newCandidate.email.toLowerCase(),
                             name: newCandidate.name,
                             phoneNumber: newCandidate.phoneNumber,
                             profileDnaSummary: newCandidate.profileDnaSummary,
                             standardizedSkills: newCandidate.standardizedSkills,
                             compensationLogic: newCandidate.compensationLogic,
                             lastSeenAt: serverTimestamp(),
-                            reliabilityIndex: aiResult.matchScore, // Primer score como base
+                            reliabilityIndex: aiResult.matchScore,
                             source: 'veritly_ats'
                         }, { merge: true });
 

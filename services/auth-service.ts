@@ -113,9 +113,9 @@ export async function checkEmailAvailability(email: string): Promise<{ available
         return { available: true };
     } catch (error) {
         console.error("Error checking email availability:", error);
-        // Default to true to not block if there is a connection error, but log it.
-        // Ideally should throw or handle better.
-        return { available: true };
+        // A-03 FIX: En lugar de asumir que el email está disponible (lo que puede crear duplicados),
+        // propagamos el error para que el UI informe al usuario de verificar su conexión.
+        throw new Error("No se pudo verificar el correo. Comprueba tu conexión e intenta de nuevo.");
     }
 }
 
@@ -185,10 +185,9 @@ export async function createCompanyUser(
             updatedAt: new Date()
         };
 
-        console.log(`📡 [auth-service] Creating Firestore document for company: ${user.uid}`);
-        console.log(`📡 [auth-service] Creating Firestore document for company: ${user.uid}`);
+        console.log(`📡 [auth-service] Creando documento Firestore para empresa: ${user.uid}`);
         await setDoc(doc(db, 'users_empresas', user.uid), companyProfile);
-        console.log('✅ [auth-service] Firestore document created successfully');
+        console.log('✅ [auth-service] Documento Firestore creado exitosamente.');
 
         // Notify Admin
         sendAdminNotification('company', {
@@ -196,7 +195,6 @@ export async function createCompanyUser(
             email: user.email || email,
             id: companyProfile.company.ruc || (companyProfile.company as any).dni
         });
-        console.log('✅ [auth-service] Firestore document created successfully');
 
         return user;
     } catch (error: any) {

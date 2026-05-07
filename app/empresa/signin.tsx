@@ -109,7 +109,13 @@ export default function CompanySignIn() {
         try {
             if (isRegistering) {
                 // Check Email Availability globally
-                const emailCheck = await checkEmailAvailability(cleanEmail);
+                let emailCheck;
+                try {
+                    emailCheck = await checkEmailAvailability(cleanEmail);
+                } catch (netErr: any) {
+                    setLoading(false);
+                    return showAlert('Sin conexión', netErr.message || 'No se pudo verificar el correo. Intenta de nuevo.');
+                }
                 if (!emailCheck.available && cleanEmail !== 'oscar@veritlyapp.com') {
                     const msg = emailCheck.existingRole === 'candidato'
                         ? 'Este correo ya está registrado como Candidato. Por favor usa otro correo para tu cuenta de Empresa.'
