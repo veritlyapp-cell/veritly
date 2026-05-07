@@ -43,6 +43,13 @@ export default function VeritlyLandingPage() {
                         <Text style={styles.navBrand}>Veritly</Text>
                     </View>
 
+                    {isDesktop && (
+                        <View style={styles.navCenter}>
+                            <TouchableOpacity onPress={() => {/* Scroll to features */}}><Text style={styles.navLink}>Cómo funciona</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => {/* Scroll to pricing */}}><Text style={styles.navLink}>Precios</Text></TouchableOpacity>
+                        </View>
+                    )}
+
                     <View style={styles.navRight}>
                         <TouchableOpacity
                             style={styles.navButtonSecondary}
@@ -192,6 +199,70 @@ export default function VeritlyLandingPage() {
                     </View>
                 </View>
 
+                {/* ========== PRICING SECTION ========== */}
+                <View style={[styles.pricingSection, { paddingHorizontal: isDesktop ? 64 : 24 }]}>
+                    <Text style={styles.sectionTitle}>Planes y Precios</Text>
+                    <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
+
+                    <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
+                        {/* Beta Partner */}
+                        <View style={styles.pricingCard}>
+                            <Text style={styles.planName}>Beta Partner</Text>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.planPrice}>S/ 0</Text>
+                                <Text style={styles.planPriceUnit}>/ siempre</Text>
+                            </View>
+                            <Text style={styles.planDesc}>Plan de lanzamiento para reclutadores independientes.</Text>
+                            <View style={styles.planFeatures}>
+                                <FeatureItemLanding text="200 Análisis de IA" />
+                                <FeatureItemLanding text="5 Vacantes Activas" />
+                                <FeatureItemLanding text="LinkedIn Sourcing Extension" />
+                                <FeatureItemLanding text="Filtros por Salario" />
+                            </View>
+                            <TouchableOpacity style={styles.planButtonPrimary} onPress={() => router.push('/empresa/signin?register=true')}>
+                                <Text style={styles.planButtonPrimaryText}>Empezar Gratis</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Pro */}
+                        <View style={[styles.pricingCard, styles.pricingCardActive]}>
+                            <View style={styles.bestValueBadge}><Text style={styles.bestValueText}>POPULAR</Text></View>
+                            <Text style={[styles.planName, { color: COLORS.accent }]}>Pro</Text>
+                            <View style={styles.priceRow}>
+                                <Text style={[styles.planPrice, { color: COLORS.textPrimary }]}>Soon</Text>
+                            </View>
+                            <Text style={styles.planDesc}>Para consultoras que necesitan mayor volumen de sourcing.</Text>
+                            <View style={styles.planFeatures}>
+                                <FeatureItemLanding text="Análisis Ampliados" />
+                                <FeatureItemLanding text="Vacantes Ilimitadas" />
+                                <FeatureItemLanding text="Exportación a Excel" />
+                                <FeatureItemLanding text="Soporte Prioritario" />
+                            </View>
+                            <View style={styles.planButtonDisabled}>
+                                <Text style={styles.planButtonDisabledText}>Próximamente</Text>
+                            </View>
+                        </View>
+
+                        {/* Enterprise */}
+                        <View style={styles.pricingCard}>
+                            <Text style={styles.planName}>Enterprise</Text>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.planPrice}>Custom</Text>
+                            </View>
+                            <Text style={styles.planDesc}>Soluciones a medida para grandes equipos de RPO.</Text>
+                            <View style={styles.planFeatures}>
+                                <FeatureItemLanding text="Multi-usuario / Equipo" />
+                                <FeatureItemLanding text="Branding Personalizado" />
+                                <FeatureItemLanding text="API Access" />
+                                <FeatureItemLanding text="Account Manager" />
+                            </View>
+                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('mailto:hola@veritlyapp.com')}>
+                                <Text style={styles.planButtonSecondaryText}>Contactar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
                 {/* ========== BOTTOM CTA ========== */}
                 <View style={styles.bottomCTASection}>
                     <Text style={styles.bottomCTATitle}>Dale a tu consultoría el flujo que merece</Text>
@@ -220,6 +291,13 @@ export default function VeritlyLandingPage() {
     );
 }
 
+const FeatureItemLanding = ({ text }: { text: string }) => (
+    <View style={styles.featureItemLanding}>
+        <CheckCircle size={16} color={COLORS.accent} />
+        <Text style={styles.featureItemLandingText}>{text}</Text>
+    </View>
+);
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -244,6 +322,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+    },
+    navCenter: {
+        flexDirection: 'row',
+        gap: 32,
+        alignItems: 'center',
+    },
+    navLink: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: COLORS.textSecondary,
     },
     navLogoImage: {
         width: 32,
@@ -572,5 +660,132 @@ const styles = StyleSheet.create({
     footerCopyright: {
         fontSize: 14,
         color: COLORS.textTertiary,
+    },
+
+    // ========== PRICING SECTION STYLES ==========
+    pricingSection: {
+        paddingVertical: 100,
+        backgroundColor: COLORS.white,
+    },
+    pricingGrid: {
+        flexDirection: 'column',
+        gap: 24,
+        marginTop: 40,
+    },
+    pricingGridDesktop: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'stretch',
+    },
+    pricingCard: {
+        flex: 1,
+        maxWidth: 360,
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: 32,
+        borderWidth: 1,
+        borderColor: COLORS.surfaceAlt,
+        shadowColor: COLORS.textPrimary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 5,
+    },
+    pricingCardActive: {
+        borderColor: COLORS.accent,
+        borderWidth: 2,
+        transform: Platform.OS === 'web' ? [{ scale: 1.05 }] : [],
+        position: 'relative',
+    },
+    bestValueBadge: {
+        position: 'absolute',
+        top: -14,
+        alignSelf: 'center',
+        backgroundColor: COLORS.accent,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    bestValueText: {
+        color: COLORS.white,
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    planName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.textSecondary,
+        marginBottom: 16,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginBottom: 12,
+    },
+    planPrice: {
+        fontSize: 40,
+        fontWeight: '800',
+        color: COLORS.textPrimary,
+    },
+    planPriceUnit: {
+        fontSize: 16,
+        color: COLORS.textTertiary,
+        marginLeft: 4,
+    },
+    planDesc: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        lineHeight: 22,
+        marginBottom: 32,
+        height: 44,
+    },
+    planFeatures: {
+        gap: 16,
+        marginBottom: 40,
+        flex: 1,
+    },
+    featureItemLanding: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    featureItemLandingText: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+    },
+    planButtonPrimary: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    planButtonPrimaryText: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    planButtonSecondary: {
+        backgroundColor: COLORS.surface,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    planButtonSecondaryText: {
+        color: COLORS.textPrimary,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    planButtonDisabled: {
+        backgroundColor: COLORS.surfaceAlt,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    planButtonDisabledText: {
+        color: COLORS.textTertiary,
+        fontSize: 16,
+        fontWeight: '700',
     },
 });
