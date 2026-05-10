@@ -224,8 +224,16 @@ export default function PricingScreen() {
                 {systemPlans.map((plan) => {
                     const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
                     const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
-                    const isComingSoon = plan.isComingSoon;
-                    const price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
+                    
+                    // FORZAR DESPLIEGUE: Si es el plan Pro, ya no es "Soon"
+                    const isComingSoon = isPro ? false : plan.isComingSoon;
+                    
+                    // Fallbacks de precios si el DB no tiene los nuevos
+                    let price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
+                    if (isPro && (!price || price === 0)) {
+                        price = billingPeriod === 'monthly' ? 180 : 1800;
+                    }
+                    
                     const isCurrentPlan = auth.currentUser && (auth.currentUser as any).subscription?.plan === plan.name;
 
                     return (

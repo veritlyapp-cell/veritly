@@ -216,7 +216,15 @@ export default function VeritlyLandingPage() {
                         {systemPlans.map((plan) => {
                             const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
                             const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
-                            const isComingSoon = plan.isComingSoon;
+                            
+                            // FORZAR DESPLIEGUE: Si es el plan Pro, ya no es "Soon"
+                            const isComingSoon = isPro ? false : plan.isComingSoon;
+                            
+                            // Fallbacks de precios
+                            let monthlyPrice = plan.priceMonthly;
+                            if (isPro && (!monthlyPrice || monthlyPrice === 0)) {
+                                monthlyPrice = 180;
+                            }
 
                             return (
                                 <View key={plan.id} style={[styles.pricingCard, isPro && !isComingSoon && styles.pricingCardActive]}>
@@ -232,7 +240,7 @@ export default function VeritlyLandingPage() {
                                     )}
                                     <Text style={[styles.planName, isPro && !isComingSoon && { color: COLORS.primary }]}>{plan.name}</Text>
                                     <View style={styles.priceRow}>
-                                        <Text style={styles.planPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.planPrice}>S/ {monthlyPrice || 0}</Text>
                                         <Text style={styles.planPriceUnit}>/ mes</Text>
                                     </View>
                                     <Text style={styles.planDesc}>
