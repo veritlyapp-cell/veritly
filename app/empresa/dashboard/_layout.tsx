@@ -14,8 +14,8 @@ export default function CompanyDrawerLayout() {
     // Show loading screen while checking role
     if (loading) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#10b981" />
+            <View style={{ flex: 1, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#4F46E5" />
             </View>
         );
     }
@@ -55,12 +55,14 @@ export default function CompanyDrawerLayout() {
             <Drawer
                 drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{
-                    headerStyle: { backgroundColor: '#0f172a' },
-                    headerTintColor: 'white',
-                    drawerStyle: { backgroundColor: '#1e293b' },
-                    drawerActiveTintColor: '#38bdf8',
-                    drawerInactiveTintColor: '#94a3b8',
-                    sceneStyle: { backgroundColor: '#0f172a' }
+                    headerStyle: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', elevation: 0, shadowOpacity: 0 },
+                    headerTintColor: '#111827',
+                    headerTitleStyle: { fontWeight: '800', fontSize: 16 },
+                    drawerStyle: { backgroundColor: '#FFFFFF', width: 280 },
+                    drawerActiveTintColor: '#4F46E5',
+                    drawerInactiveTintColor: '#4B5563',
+                    drawerLabelStyle: { fontWeight: '700', fontSize: 14 },
+                    sceneStyle: { backgroundColor: '#F9FAFB' }
                 }}
             >
                 <Drawer.Screen
@@ -138,6 +140,7 @@ export default function CompanyDrawerLayout() {
                 <Drawer.Screen
                     name="job/create"
                     options={{
+                        title: "Nuevo Puesto",
                         drawerItemStyle: { display: 'none' }
                     }}
                 />
@@ -176,7 +179,7 @@ const styles = StyleSheet.create({
     logoutContainer: {
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: '#334155',
+        borderTopColor: '#E5E7EB',
         marginBottom: 20
     },
     logoutButton: {

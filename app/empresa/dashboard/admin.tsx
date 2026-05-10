@@ -1,23 +1,72 @@
 import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where } from 'firebase/firestore';
-import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, TextInput, Modal, Platform } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import { CompanyProfile } from '../../../services/auth-service';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
+const COLORS = {
+    background: '#F9FAFB',
+    surface: '#FFFFFF',
+    textPrimary: '#111827',
+    textSecondary: '#4B5563',
+    textTertiary: '#9CA3AF',
+    primary: '#4F46E5',
+    accent: '#06B6D4',
+    border: '#E5E7EB',
+    white: '#FFFFFF',
+    success: '#10B981',
+};
+
+const PREDEFINED_FEATURES = [
+    "Subida CVs (PDF/Word)",
+    "Subida masiva por Excel",
+    "Análisis de IA",
+    "Vacantes Internas",
+    "Vacantes Públicas",
+    "Exportación a Excel/PDF",
+    "Soporte VIP Directo",
+    "Filtros Avanzados",
+    "Dashboards de Analítica",
+    "API Access / SSO"
+];
+
 export default function EmpresaAdminDashboard() {
+    const router = useRouter();
     const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+    const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [totalB2C, setTotalB2C] = useState(0);
+    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes'>('cuentas');
     
-    // Edit Modal State
+    // Edit Modal State (Cuentas)
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<CompanyProfile | null>(null);
-    const [editingPlan, setEditingPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
-    const [editingCredits, setEditingCredits] = useState('0');
+    const [editSub, setEditSub] = useState({
+        plan: '',
+        aiAnalysisLimit: 0,
+        internalVacanciesLimit: 0,
+        publicVacanciesLimit: 0,
+    });
+
+    // Plan Modal State
+    const [planModalVisible, setPlanModalVisible] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<any>(null);
+    const [newPlan, setNewPlan] = useState({
+        id: '',
+        name: '',
+        aiAnalysisLimit: 0,
+        internalVacanciesLimit: 0,
+        publicVacanciesLimit: 0,
+        priceMonthly: 0,
+        priceAnnual: 0,
+        isComingSoon: false,
+        features: [],
+    });
 
     useEffect(() => {
         const user = auth.currentUser;
@@ -31,40 +80,23 @@ export default function EmpresaAdminDashboard() {
 
     const fetchData = async () => {
         try {
+            // Fetch Accounts
             const q = query(collection(db, 'users_empresas'), orderBy('createdAt', 'desc'));
             const snapshot = await getDocs(q);
             const data = snapshot.docs.map(doc => doc.data() as CompanyProfile);
             setCompanies(data);
             
+            // Fetch Plans
+            const plansSnap = await getDocs(collection(db, 'config_plans'));
+            setPlans(plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
             // Fetch B2C metrics
             try {
                 const b2cSnapshot = await getDocs(query(collection(db, 'users_candidatos')));
                 setTotalB2C(b2cSnapshot.size);
-
-                // Fetch real usage for each company based on their jobs' candidates
-                const updatedCompanies = await Promise.all(data.map(async (company) => {
-                    let usage = 0;
-                    try {
-                        const jobsQ = query(collection(db, 'jobs'), where('companyId', '==', company.uid));
-                        const jobsSnap = await getDocs(jobsQ);
-                        
-                        // Sum up all candidates for each job of this company
-                        for (const jobDoc of jobsSnap.docs) {
-                            const candidatesSnap = await getDocs(collection(db, 'jobs', jobDoc.id, 'candidates'));
-                            usage += candidatesSnap.size;
-                        }
-                    } catch (e) {
-                        console.error("Error fetching usage for company:", company.uid, e);
-                    }
-                    return { ...company, analyzedUsage: usage };
-                }));
-                
-                setCompanies(updatedCompanies);
-            } catch(e) {
-                console.error("Error cargando B2C en Admin Empresas:", e);
-            }
+            } catch(e) {}
         } catch (error) {
-            console.error("Error cargando empresas:", error);
+            console.error("Error cargando data admin:", error);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -72,66 +104,45 @@ export default function EmpresaAdminDashboard() {
     };
 
     const MetricsTabs = () => {
-        // Calculando métricas más complejas
         const totalCompanies = companies.length;
-        const totalPro = companies.filter(c => c.subscription?.plan === 'pro').length;
-        const totalFree = totalCompanies - totalPro;
+        const totalPro = companies.filter(c => c.subscription?.plan?.includes('pro')).length;
         
-        let mrrUSD = totalPro * 12;
-
-        // Historial básico y uso
-        const currentMonthNum = new Date().getMonth();
-        const thisMonthComps = companies.filter(c => {
-            if(!c.createdAt) return false;
-            const createdAt: any = c.createdAt;
-            const d = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-            return d.getMonth() === currentMonthNum;
-        });
-        
-        let avgLogins = 0;
-        if(totalCompanies > 0) {
-           avgLogins = companies.reduce((acc, c) => acc + ((c as any).loginCount || 0), 0) / totalCompanies;
-        }
-
         return (
-            <>
-                <View style={[styles.metricsWrapper, { marginBottom: 15, backgroundColor: '#38bdf8', padding: 15, borderRadius: 16 }]}>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                            <Users color="white" size={24} />
-                            <View>
-                                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>Resumen Candidatos B2C</Text>
-                                <Text style={{ color: '#bae6fd', fontSize: 12 }}>Candidatos registrados en la plataforma</Text>
-                            </View>
-                        </View>
-                        <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{totalB2C}</Text>
-                    </View>
-                </View>
-                
+            <View style={{ marginBottom: 20 }}>
                 <View style={styles.metricsWrapper}>
-                    <View style={styles.metricCard}>
-                        <Building2 color="#3b82f6" size={24} />
-                        <Text style={styles.metricValue}>{totalCompanies}</Text>
-                        <Text style={styles.metricLabel}>Total Cuentas</Text>
+                    <View style={[styles.metricCard, { backgroundColor: COLORS.primary }]}>
+                        <Users color="white" size={20} />
+                        <Text style={[styles.metricValue, { color: 'white' }]}>{totalB2C}</Text>
+                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Candidatos B2C</Text>
                     </View>
-
                     <View style={styles.metricCard}>
-                        <CreditCard color="#f59e0b" size={24} />
+                        <Building2 color={COLORS.primary} size={20} />
+                        <Text style={styles.metricValue}>{totalCompanies}</Text>
+                        <Text style={styles.metricLabel}>Empresas</Text>
+                    </View>
+                    <View style={styles.metricCard}>
+                        <CreditCard color={COLORS.accent} size={20} />
                         <Text style={styles.metricValue}>{totalPro}</Text>
                         <Text style={styles.metricLabel}>Cuentas PRO</Text>
-                        <View style={{flexDirection: 'row', marginTop: 5, gap: 5}}>
-                            <Text style={{color: '#10b981', fontSize: 10, fontWeight: 'bold'}}>+{thisMonthComps.length} este mes</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.metricCard}>
-                        <DollarSign color="#10b981" size={24} />
-                        <Text style={styles.metricValue}>${mrrUSD}</Text>
-                        <Text style={styles.metricLabel}>MRR Estimado</Text>
-                        <Text style={{color: '#38bdf8', fontSize: 10, marginTop: 5, textAlign: 'center'}}>Prom. {Math.round(avgLogins)} logins/usuario</Text>
                     </View>
                 </View>
-            </>
+
+                {/* Tabs Selector */}
+                <View style={styles.tabSelector}>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'cuentas' && styles.tabBtnActive]}
+                        onPress={() => setActiveTab('cuentas')}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'cuentas' && styles.tabBtnTextActive]}>Cuentas</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'planes' && styles.tabBtnActive]}
+                        onPress={() => setActiveTab('planes')}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'planes' && styles.tabBtnTextActive]}>Configurar Planes</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
         );
     };
 
@@ -141,17 +152,82 @@ export default function EmpresaAdminDashboard() {
             await setDoc(doc(db, 'users_empresas', selectedCompany.uid), {
                 subscription: {
                     ...selectedCompany.subscription,
-                    plan: editingPlan,
-                    jobsLimit: parseInt(editingCredits) || 5,
+                    ...editSub,
+                    updatedAt: new Date()
                 }
             }, { merge: true });
             
             Alert.alert("Éxito", "Cuenta actualizada.");
             setEditModalVisible(false);
-            fetchData(); // reload
+            fetchData();
         } catch (error) {
-            console.error(error);
             Alert.alert("Error", "No se pudo actualizar " + error);
+        }
+    };
+
+    const handleSavePlan = async () => {
+        try {
+            const planId = newPlan.id || Math.random().toString(36).substring(7);
+            await setDoc(doc(db, 'config_plans', planId), {
+                ...newPlan,
+                updatedAt: new Date()
+            });
+            Alert.alert("Éxito", "Plan guardado.");
+            setPlanModalVisible(false);
+            fetchData();
+        } catch (error) {
+            Alert.alert("Error", "No se pudo guardar el plan");
+        }
+    };
+
+    const handleRestoreDefaults = async () => {
+        const defaults = [
+            { 
+                id: 'beta_free', 
+                name: 'Beta Free', 
+                aiAnalysisLimit: 200, 
+                internalVacanciesLimit: 5, 
+                publicVacanciesLimit: 3, 
+                priceMonthly: 0, 
+                priceAnnual: 0, 
+                isComingSoon: false,
+                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Soporte Directo"]
+            },
+            { 
+                id: 'plan_pro', 
+                name: 'Pro', 
+                aiAnalysisLimit: 500, 
+                internalVacanciesLimit: 20, 
+                publicVacanciesLimit: 5, 
+                priceMonthly: 180, 
+                priceAnnual: 1800, 
+                isComingSoon: true,
+                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Filtros Avanzados"]
+            },
+            { 
+                id: 'plan_gold', 
+                name: 'Gold', 
+                aiAnalysisLimit: 2000, 
+                internalVacanciesLimit: 50, 
+                publicVacanciesLimit: 15, 
+                priceMonthly: 400, 
+                priceAnnual: 4000, 
+                isComingSoon: true,
+                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica"]
+            },
+        ];
+
+        try {
+            setLoading(true);
+            for (const p of defaults) {
+                await setDoc(doc(db, 'config_plans', p.id), { ...p, updatedAt: new Date() });
+            }
+            Alert.alert("Éxito", "Planes restaurados.");
+            fetchData();
+        } catch (e) {
+            Alert.alert("Error", "No se pudo restaurar.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -166,129 +242,324 @@ export default function EmpresaAdminDashboard() {
 
     const openEditModal = (comp: CompanyProfile) => {
         setSelectedCompany(comp);
-        setEditingPlan(comp.subscription?.plan || 'free');
-        setEditingCredits((comp.subscription?.jobsLimit || 5).toString());
+        setEditSub({
+            plan: comp.subscription?.plan || 'beta_free',
+            aiAnalysisLimit: comp.subscription?.aiAnalysisLimit || 200,
+            internalVacanciesLimit: comp.subscription?.internalVacanciesLimit || 5,
+            publicVacanciesLimit: comp.subscription?.publicVacanciesLimit || 3,
+        });
         setEditModalVisible(true);
     };
 
-    const renderRow = ({ item }: { item: any }) => {
-        const isIndependiente = item.company?.type === 'independiente';
+    const openPlanModal = (plan?: any) => {
+        if (plan) {
+            setSelectedPlan(plan);
+            setNewPlan(plan);
+        } else {
+            setSelectedPlan(null);
+            setNewPlan({
+                id: '',
+                name: '',
+                aiAnalysisLimit: 200,
+                internalVacanciesLimit: 5,
+                publicVacanciesLimit: 3,
+                priceMonthly: 0,
+                priceAnnual: 0,
+                isComingSoon: false,
+                features: [],
+            });
+        }
+        setPlanModalVisible(true);
+    };
+
+    const renderRow = ({ item }: { item: CompanyProfile }) => {
+        const isIndependiente = (item.company as any)?.type === 'independiente';
         return (
             <View style={styles.tableRow}>
                 <View style={{ flex: 1.5 }}>
                     <Text style={styles.cellMain} numberOfLines={1}>
-                        {isIndependiente ? item.company.name || item.email : item.company.name || item.company.razonSocial || 'Sin Nombre'}
+                        {isIndependiente ? item.company.name || item.email : item.company.name || (item.company as any).razonSocial || 'Sin Nombre'}
                     </Text>
                     <Text style={styles.cellSub}>{item.email}</Text>
-                    <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>{isIndependiente ? 'Independiente' : 'Empresa'}</Text>
-                    </View>
                 </View>
 
                 <View style={{ flex: 1.2 }}>
-                    <Text style={styles.cellValue}>{item.subscription?.plan === 'pro' ? 'PRO' : 'BETA'}</Text>
-                    <Text style={styles.cellSub}>Créditos: {item.subscription?.creditsUsage || 0} / {item.subscription?.creditsLimit || 200}</Text>
-                    {item.subscription?.plan === 'pro' && <Text style={{color: '#10b981', fontSize: 10, marginTop:2}}>Upsell / Activo</Text>}
+                    <Text style={styles.cellValue}>{item.subscription?.plan?.toUpperCase() || 'BETA'}</Text>
+                    <Text style={styles.cellSub}>IA: {item.subscription?.candidatesAnalyzed || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
                 </View>
                 
-                <View style={{ flex: 1 }}>
-                     <Text style={styles.cellValue}>{item.loginCount || 0}</Text>
-                     <Text style={styles.cellSub}>Sesiones</Text>
-                     <Text style={{color: '#94a3b8', fontSize: 10, marginTop: 2}}>{item.lastLoginAt ? new Date(item.lastLoginAt.seconds ? item.lastLoginAt.toDate() : item.lastLoginAt).toLocaleDateString() : 'N/A'}</Text>
-                </View>
-
                 <View style={styles.actionsColumn}>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(item)}>
                         <Edit3 size={16} color="white" />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtnAlt} onPress={() => handleResetPassword(item.email)}>
-                        <Key size={16} color="#38bdf8" />
+                        <Key size={16} color={COLORS.primary} />
                     </TouchableOpacity>
                 </View>
             </View>
         );
     }
 
+    const renderPlanRow = ({ item }: { item: any }) => (
+        <View style={styles.tableRow}>
+            <View style={{ flex: 1.5 }}>
+                <Text style={styles.cellMain}>{item.name}</Text>
+                <Text style={styles.cellSub}>ID: {item.id}</Text>
+            </View>
+            <View style={{ flex: 1.5 }}>
+                <Text style={styles.cellSub}>IA: {item.aiAnalysisLimit}</Text>
+                <Text style={styles.cellSub}>S/ {item.priceMonthly || 0} mes</Text>
+                <Text style={styles.cellSub}>{item.features?.length || 0} características</Text>
+            </View>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => openPlanModal(item)}>
+                <Edit3 size={16} color="white" />
+            </TouchableOpacity>
+        </View>
+    );
+
     if (!isAdmin) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-                <ShieldCheck size={64} color="#64748b" />
-                <Text style={{ color: 'white', marginTop: 10, fontSize: 18 }}>Acceso denegado</Text>
+            <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+                <ShieldCheck size={64} color={COLORS.textTertiary} />
+                <Text style={{ color: COLORS.textPrimary, marginTop: 10, fontSize: 18 }}>Acceso denegado</Text>
             </View>
         );
     }
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
             
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.title}>B2B Admin Dashboard</Text>
+                    <Text style={styles.title}>Panel de Control Veritly</Text>
                     <TouchableOpacity onPress={() => router.push('/empresa/dashboard/admin_analytics')} style={{flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4}}>
-                         <TrendingUp size={14} color="#38bdf8" />
-                         <Text style={{color: '#38bdf8', fontSize: 12, fontWeight: 'bold'}}>Ver Analytics DNA Global (Uso & Mercado)</Text>
+                         <TrendingUp size={14} color={COLORS.primary} />
+                         <Text style={{color: COLORS.primary, fontSize: 12, fontWeight: 'bold'}}>Ver Analytics DNA Global</Text>
                     </TouchableOpacity>
                 </View>
                 <TouchableOpacity onPress={fetchData}>
-                    <RefreshCw color="#38bdf8" size={20} />
+                    <RefreshCw color={COLORS.primary} size={20} />
                 </TouchableOpacity>
             </View>
 
             {loading ? (
-                <ActivityIndicator color="#3b82f6" style={{ marginTop: 50 }} />
+                <ActivityIndicator color={COLORS.primary} style={{ marginTop: 50 }} />
             ) : (
                 <View style={{ flex: 1 }}>
                     <MetricsTabs />
                     
                     <View style={styles.tableContainer}>
-                        <Text style={styles.sectionTitle}>Cuentas B2B ({companies.length})</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                            <Text style={styles.sectionTitle}>{activeTab === 'cuentas' ? 'Cuentas B2B' : 'Planes del Sistema'}</Text>
+                            {activeTab === 'planes' && (
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    {plans.length === 0 && (
+                                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: COLORS.primary }]} onPress={handleRestoreDefaults}>
+                                            <RefreshCw size={16} color="white" />
+                                            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Restaurar Iniciales</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity style={styles.addBtn} onPress={() => openPlanModal()}>
+                                        <Plus size={16} color="white" />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Nuevo Plan</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                        
                         <FlatList
-                            data={companies}
-                            keyExtractor={i => i.uid}
-                            renderItem={renderRow}
+                            data={activeTab === 'cuentas' ? companies : plans}
+                            keyExtractor={i => i.uid || i.id}
+                            renderItem={activeTab === 'cuentas' ? renderRow : renderPlanRow}
                             contentContainerStyle={{ paddingBottom: 50 }}
-                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#3b82f6" />}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={COLORS.primary} />}
                         />
                     </View>
                 </View>
             )}
 
-            {/* EDIT MODAL */}
-            <Modal visible={editModalVisible} transparent animationType="slide">
+            {/* EDIT ACCOUNT MODAL */}
+            <Modal visible={editModalVisible} transparent animationType="fade">
                 <View style={styles.modalBg}>
                     <View style={styles.modalCard}>
                         <Text style={styles.modalTitle}>Editar Cuenta</Text>
                         <Text style={styles.modalSub}>{selectedCompany?.email}</Text>
 
-                        <Text style={styles.label}>Plan Activo</Text>
-                        <View style={styles.planSelector}>
-                            <TouchableOpacity 
-                                style={[styles.planBtn, editingPlan === 'free' && styles.planBtnActive]}
-                                onPress={() => setEditingPlan('free')}
-                            ><Text style={[styles.planBtnText, editingPlan === 'free' && {color: 'white'}]}>FREE</Text></TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.planBtn, editingPlan === 'pro' && styles.planBtnActive]}
-                                onPress={() => setEditingPlan('pro')}
-                            ><Text style={[styles.planBtnText, editingPlan === 'pro' && {color: 'white'}]}>PRO</Text></TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.label}>Límite de Vacantes (Créditos)</Text>
+                        <Text style={styles.label}>Plan Activo (ID)</Text>
                         <TextInput 
                             style={styles.input}
-                            value={editingCredits}
-                            onChangeText={setEditingCredits}
+                            value={editSub.plan}
+                            onChangeText={t => setEditSub({...editSub, plan: t})}
+                        />
+
+                        <Text style={styles.label}>Límite Análisis IA</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={editSub.aiAnalysisLimit.toString()}
+                            onChangeText={t => setEditSub({...editSub, aiAnalysisLimit: parseInt(t) || 0})}
                             keyboardType="numeric"
                         />
 
-                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.label}>Vacantes Internas</Text>
+                                <TextInput 
+                                    style={styles.input}
+                                    value={editSub.internalVacanciesLimit.toString()}
+                                    onChangeText={t => setEditSub({...editSub, internalVacanciesLimit: parseInt(t) || 0})}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.label}>Vacantes Públicas</Text>
+                                <TextInput 
+                                    style={styles.input}
+                                    value={editSub.publicVacanciesLimit.toString()}
+                                    onChangeText={t => setEditSub({...editSub, publicVacanciesLimit: parseInt(t) || 0})}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 25 }}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
                                 <Text style={styles.cancelBtnText}>Cancelar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
-                                <Text style={styles.saveBtnText}>Guardar</Text>
+                                <Text style={styles.saveBtnText}>Guardar Cambios</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* PLAN MODAL */}
+            <Modal visible={planModalVisible} transparent animationType="fade">
+                <View style={styles.modalBg}>
+                    <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+                        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 20 }}>
+                            <Text style={styles.modalTitle}>{selectedPlan ? 'Editar Plan' : 'Nuevo Plan'}</Text>
+                            
+                            <Text style={styles.label}>ID del Plan (ej: pro_monthly)</Text>
+                            <TextInput 
+                                style={styles.input}
+                                value={newPlan.id}
+                                onChangeText={t => setNewPlan({...newPlan, id: t})}
+                                editable={!selectedPlan}
+                            />
+
+                            <Text style={styles.label}>Nombre para mostrar</Text>
+                            <TextInput 
+                                style={styles.input}
+                                value={newPlan.name}
+                                onChangeText={t => setNewPlan({...newPlan, name: t})}
+                            />
+
+                            <Text style={styles.label}>Límite Análisis IA</Text>
+                            <TextInput 
+                                style={styles.input}
+                                value={newPlan.aiAnalysisLimit.toString()}
+                                onChangeText={t => setNewPlan({...newPlan, aiAnalysisLimit: parseInt(t) || 0})}
+                                keyboardType="numeric"
+                            />
+
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Precio Mensual (S/)</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={(newPlan.priceMonthly || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, priceMonthly: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Precio Anual (S/)</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={(newPlan.priceAnnual || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, priceAnnual: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Vacantes Internas</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={newPlan.internalVacanciesLimit.toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, internalVacanciesLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Vacantes Públicas</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={newPlan.publicVacanciesLimit.toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, publicVacanciesLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                    <TouchableOpacity 
+                                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}
+                                        onPress={() => setNewPlan({...newPlan, isComingSoon: !newPlan.isComingSoon})}
+                                    >
+                                        <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.primary, backgroundColor: newPlan.isComingSoon ? COLORS.primary : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                            {newPlan.isComingSoon && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                                        </View>
+                                        <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Próximamente</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <Text style={[styles.label, { marginTop: 15 }]}>Características Extras (Checklist)</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }}>
+                                {PREDEFINED_FEATURES.map(feat => {
+                                    const isSelected = newPlan.features?.includes(feat);
+                                    return (
+                                        <TouchableOpacity 
+                                            key={feat}
+                                            style={{ 
+                                                paddingHorizontal: 12, 
+                                                paddingVertical: 6, 
+                                                borderRadius: 20, 
+                                                borderWidth: 1, 
+                                                borderColor: isSelected ? COLORS.primary : COLORS.border,
+                                                backgroundColor: isSelected ? 'rgba(79, 70, 229, 0.1)' : 'transparent'
+                                            }}
+                                            onPress={() => {
+                                                const current = newPlan.features || [];
+                                                if (isSelected) {
+                                                    setNewPlan({...newPlan, features: current.filter((f: string) => f !== feat)});
+                                                } else {
+                                                    setNewPlan({...newPlan, features: [...current, feat]});
+                                                }
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 12, color: isSelected ? COLORS.primary : COLORS.textSecondary }}>
+                                                {feat}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 25 }}>
+                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setPlanModalVisible(false)}>
+                                    <Text style={styles.cancelBtnText}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.saveBtn} onPress={handleSavePlan}>
+                                    <Text style={styles.saveBtnText}>Guardar Plan</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -297,42 +568,42 @@ export default function EmpresaAdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a', padding: 20 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 10 },
-    title: { fontSize: 24, fontWeight: 'bold', color: 'white' },
-    sectionTitle: { fontSize: 18, color: 'white', fontWeight: 'bold', marginBottom: 15 },
+    container: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 20 },
+    title: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
+    sectionTitle: { fontSize: 18, color: COLORS.textPrimary, fontWeight: '800' },
     
-    metricsWrapper: { flexDirection: 'row', gap: 15, marginBottom: 25 },
-    metricCard: { flex: 1, backgroundColor: '#1e293b', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
-    metricValue: { color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 8 },
-    metricLabel: { color: '#94a3b8', fontSize: 12 },
+    metricsWrapper: { flexDirection: 'row', gap: 15, marginBottom: 15 },
+    metricCard: { flex: 1, backgroundColor: COLORS.surface, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+    metricValue: { color: COLORS.textPrimary, fontSize: 24, fontWeight: '800', marginVertical: 4 },
+    metricLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
 
-    tableContainer: { flex: 1, backgroundColor: '#1e293b', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#334155' },
-    tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#334155', alignItems: 'center' },
-    cellMain: { color: 'white', fontWeight: 'bold', fontSize: 15 },
-    cellSub: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
-    cellValue: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    tabSelector: { flexDirection: 'row', gap: 10, marginBottom: 5 },
+    tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)' },
+    tabBtnActive: { backgroundColor: COLORS.primary },
+    tabBtnText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 14 },
+    tabBtnTextActive: { color: 'white' },
+
+    tableContainer: { flex: 1, backgroundColor: COLORS.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+    tableRow: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.border, alignItems: 'center' },
+    cellMain: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 15 },
+    cellSub: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
+    cellValue: { color: COLORS.primary, fontSize: 14, fontWeight: '800' },
     
-    typeBadge: { backgroundColor: '#334155', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4 },
-    typeBadgeText: { color: '#cbd5e1', fontSize: 10, fontWeight: 'bold' },
-
-    actionsColumn: { flexDirection: 'row', gap: 8 },
-    actionBtn: { backgroundColor: '#3b82f6', padding: 10, borderRadius: 8 },
-    actionBtnAlt: { backgroundColor: 'transparent', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#38bdf8' },
+    actionsColumn: { flexDirection: 'row', gap: 10 },
+    actionBtn: { backgroundColor: COLORS.primary, padding: 10, borderRadius: 10 },
+    actionBtnAlt: { backgroundColor: 'transparent', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: COLORS.primary },
+    addBtn: { backgroundColor: COLORS.success, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
 
     // Modal
-    modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-    modalCard: { width: '90%', maxWidth: 400, backgroundColor: '#1e293b', borderRadius: 16, padding: 25, borderWidth: 1, borderColor: '#334155' },
-    modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-    modalSub: { color: '#94a3b8', marginBottom: 20 },
-    label: { color: '#e2e8f0', marginBottom: 8, marginTop: 10, fontSize: 13 },
-    input: { backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
-    planSelector: { flexDirection: 'row', gap: 10 },
-    planBtn: { flex: 1, padding: 10, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
-    planBtnActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-    planBtnText: { color: '#94a3b8', fontWeight: 'bold' },
-    cancelBtn: { flex: 1, padding: 14, alignItems: 'center', borderRadius: 10, backgroundColor: '#334155' },
-    cancelBtnText: { color: 'white', fontWeight: 'bold' },
-    saveBtn: { flex: 1, padding: 14, alignItems: 'center', borderRadius: 10, backgroundColor: '#10b981' },
-    saveBtnText: { color: 'white', fontWeight: 'bold' }
+    modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+    modalCard: { width: '90%', maxWidth: 450, backgroundColor: COLORS.surface, borderRadius: 24, padding: 30, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 20 },
+    modalTitle: { color: COLORS.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 5 },
+    modalSub: { color: COLORS.textSecondary, marginBottom: 20, fontSize: 14 },
+    label: { color: COLORS.textPrimary, marginBottom: 8, marginTop: 15, fontSize: 13, fontWeight: '700' },
+    input: { backgroundColor: COLORS.background, color: COLORS.textPrimary, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 15 },
+    cancelBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.05)' },
+    cancelBtnText: { color: COLORS.textSecondary, fontWeight: '700' },
+    saveBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 14, backgroundColor: COLORS.primary },
+    saveBtnText: { color: 'white', fontWeight: '800' }
 });

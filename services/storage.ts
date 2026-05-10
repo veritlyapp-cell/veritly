@@ -187,6 +187,7 @@ export const getJobCandidates = async (jobId: string) => {
                 originalFileUrl: cvUrl,
                 cvUrl: cvUrl,
                 cvBase64: cvBase64,
+                cvMimeType: raw.cvMimeType,
                 recruitmentStatus: raw.recruitmentStatus || raw.status || 'new',
                 analyzedAt: raw.analyzedAt
                     ? (typeof raw.analyzedAt === 'string' ? raw.analyzedAt : (raw.analyzedAt.toDate?.().toISOString?.() || new Date().toISOString()))

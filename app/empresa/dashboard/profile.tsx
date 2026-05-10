@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X, Camera, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../../../config/firebase';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { auth, db, storage } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
 
 export default function CompanyProfile() {
@@ -15,6 +16,8 @@ export default function CompanyProfile() {
     const [ruc, setRuc] = useState('');
     const [razonSocial, setRazonSocial] = useState('');
     const [nombreComercial, setNombreComercial] = useState('');
+    const [logoUrl, setLogoUrl] = useState('');
+    const [uploadingLogo, setUploadingLogo] = useState(false);
 
     // UBICACIÓN (Perú)
     const [departamento, setDepartamento] = useState('Lima');
@@ -114,6 +117,9 @@ export default function CompanyProfile() {
                         setRubro(data.aiContext.rubro || '');
                         setBeneficios(data.aiContext.beneficios || '');
                     }
+
+                    // Logo
+                    setLogoUrl(data.company?.logoUrl || data.logoUrl || '');
                 } else {
                     console.log("⚠️ No se encontró perfil en ninguna colección");
                 }
@@ -183,6 +189,9 @@ export default function CompanyProfile() {
                 'aiContext.rubro': rubro,
                 'aiContext.beneficios': beneficios,
 
+                'company.logoUrl': logoUrl,
+                logoUrl: logoUrl, // duplicamos para compatibilidad
+
                 updatedAt: new Date().toISOString()
             };
 
@@ -215,6 +224,41 @@ export default function CompanyProfile() {
         setModalVisible(false);
     };
 
+    const handlePickLogo = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+            });
+
+            if (result.canceled) return;
+
+            setUploadingLogo(true);
+            const { uri } = result.assets[0];
+
+            // 1. Convertir URI a Blob
+            const response = await fetch(uri);
+            const blob = await response.blob();
+
+            // 2. Subir a Firebase Storage
+            const storageRef = ref(storage, `logos/${auth.currentUser?.uid}_${Date.now()}`);
+            await uploadBytes(storageRef, blob);
+
+            // 3. Obtener URL
+            const url = await getDownloadURL(storageRef);
+            setLogoUrl(url);
+            
+            Alert.alert("¡Éxito!", "Logo cargado. No olvides guardar los cambios al final.");
+        } catch (e: any) {
+            console.error("Error uploading logo:", e);
+            Alert.alert("Error", "No se pudo subir el logo: " + e.message);
+        } finally {
+            setUploadingLogo(false);
+        }
+    };
+
     const getListData = () => {
         if (modalType === 'dep') return departamentosList;
         if (modalType === 'prov') return provinciasList;
@@ -244,9 +288,37 @@ export default function CompanyProfile() {
 
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
-                <View style={styles.sectionHeader}>
                     <Building2 color="#38bdf8" size={24} />
                     <Text style={styles.sectionTitle}>Datos Corporativos</Text>
+                </View>
+
+                {/* LOGO UPLOAD */}
+                <View style={styles.logoSection}>
+                    <View style={styles.logoWrapper}>
+                        {logoUrl ? (
+                            <Image source={{ uri: logoUrl }} style={styles.logoImage} />
+                        ) : (
+                            <View style={styles.logoPlaceholder}>
+                                <Building2 color="#94a3b8" size={30} />
+                            </View>
+                        )}
+                        <TouchableOpacity 
+                            style={styles.cameraBtn} 
+                            onPress={handlePickLogo}
+                            disabled={uploadingLogo}
+                        >
+                            {uploadingLogo ? <ActivityIndicator size="small" color="white" /> : <Camera color="white" size={16} />}
+                        </TouchableOpacity>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 20 }}>
+                        <Text style={styles.logoLabel}>Logo de Empresa</Text>
+                        <Text style={styles.logoHint}>Recomendado: 512x512px (PNG/JPG). Este logo se verá en tus vacantes públicas.</Text>
+                        {logoUrl && (
+                            <TouchableOpacity onPress={() => setLogoUrl('')} style={{ marginTop: 8 }}>
+                                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>Quitar logo</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -425,5 +497,65 @@ const styles = StyleSheet.create({
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 15 },
     modalTitle: { color: '#111827', fontSize: 18, fontWeight: 'bold' },
     optionItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    selectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4F46E5' }
+    selectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4F46E5' },
+
+    // Logo Styles
+    logoSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        backgroundColor: '#FFFFFF',
+        padding: 15,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
+    },
+    logoWrapper: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative'
+    },
+    logoImage: {
+        width: 80,
+        height: 80,
+        borderRadius: 40
+    },
+    logoPlaceholder: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#E5E7EB',
+        borderStyle: 'dashed'
+    },
+    cameraBtn: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#4F46E5',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'white'
+    },
+    logoLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827'
+    },
+    logoHint: {
+        fontSize: 11,
+        color: '#6B7280',
+        marginTop: 4
+    }
 });

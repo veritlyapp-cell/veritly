@@ -71,6 +71,7 @@ export default function ExternalApplication() {
     const [job, setJob] = useState<any>(null);
     const [applicantCount, setApplicantCount] = useState(0);
     const [companyName, setCompanyName] = useState('');
+    const [companyLogo, setCompanyLogo] = useState('');
     const [companyType, setCompanyType] = useState<'empresa' | 'independiente' | ''>('');
     const [user, setUser] = useState<any>(null);
     const [authLoading, setAuthLoading] = useState(true);
@@ -256,6 +257,7 @@ export default function ExternalApplication() {
                 data?.aiContext?.nombre ||
                 'Empresa'
             );
+            setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
             setCompanyType(data?.company?.type || 'empresa');
 
             // Load applicant count
@@ -674,7 +676,11 @@ export default function ExternalApplication() {
                     {/* Company branding */}
                     <View style={styles.brandHeader}>
                         <View style={styles.companyAvatar}>
-                            <Text style={styles.companyAvatarText}>{companyName.charAt(0).toUpperCase()}</Text>
+                            {companyLogo ? (
+                                <Image source={{ uri: companyLogo }} style={styles.logoImageSmall} />
+                            ) : (
+                                <Text style={styles.companyAvatarText}>{companyName.charAt(0).toUpperCase()}</Text>
+                            )}
                         </View>
                         <View style={styles.brandInfo}>
                             <Text style={styles.brandName}>{companyName}</Text>
@@ -995,9 +1001,21 @@ export default function ExternalApplication() {
                 </TouchableOpacity>
 
                 <View style={styles.applyHeader}>
-                    <Text style={styles.applyTitle}>Tu Postulación</Text>
-                    <Text style={styles.applySub}>
-                        Postulando a <Text style={{ color: 'white', fontWeight: 'bold' }}>{job.jobTitle}</Text> en {companyName}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                        {companyLogo ? (
+                            <Image source={{ uri: companyLogo }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        ) : (
+                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(59, 130, 246, 0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: 'bold' }}>{companyName.charAt(0).toUpperCase()}</Text>
+                            </View>
+                        )}
+                        <View>
+                            <Text style={styles.applyTitle}>Tu Postulación</Text>
+                            <Text style={styles.applySub}>
+                                En {companyName}
+                            </Text>
+                        </View>
+                    </View>
                     </Text>
                     {user && (
                         <View style={styles.userPill}>
@@ -1253,8 +1271,9 @@ const styles = StyleSheet.create({
 
     // Brand Header
     brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
-    companyAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center' },
+    companyAvatar: { width: 52, height: 52, borderRadius: 16, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     companyAvatarText: { color: '#4F46E5', fontWeight: 'bold', fontSize: 22 },
+    logoImageSmall: { width: 52, height: 52, borderRadius: 16 },
     brandInfo: { flex: 1, gap: 2 },
     brandName: { color: '#111827', fontWeight: 'bold', fontSize: 16 },
     brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

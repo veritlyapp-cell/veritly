@@ -106,4 +106,5 @@ export interface CandidateAnalysis {
     flexibilityRange: string;
   };
   reliabilityIndex?: number;
+  isUploading?: boolean;
 }

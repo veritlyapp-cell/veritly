@@ -42,9 +42,13 @@ export interface CompanyProfile {
         location?: any;
     };
     subscription: {
-        plan: 'free' | 'pro' | 'enterprise';
-        jobsLimit: number;
+        plan: string;
+        aiAnalysisLimit: number;
+        internalVacanciesLimit: number;
+        publicVacanciesLimit: number;
         candidatesAnalyzed: number;
+        status?: 'active' | 'expired' | 'trial';
+        updatedAt?: any;
     };
     profileCompleted?: boolean;
     createdAt: Date;
@@ -176,9 +180,12 @@ export async function createCompanyUser(
                 type: companyDataInput.type // Guardar el tipo para referencia
             } as any, // Cast to any to allow dynamic fields if interface is strict
             subscription: {
-                plan: 'free',
-                jobsLimit: 5,
-                candidatesAnalyzed: 0
+                plan: 'beta_free',
+                aiAnalysisLimit: 200,
+                internalVacanciesLimit: 5,
+                publicVacanciesLimit: 3,
+                candidatesAnalyzed: 0,
+                status: 'active'
             },
             profileCompleted: false,
             createdAt: new Date(),

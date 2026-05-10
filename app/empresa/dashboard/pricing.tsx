@@ -4,7 +4,7 @@ import { Check } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { auth, db } from '../../../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
 export default function PricingScreen() {
     const router = useRouter();
@@ -13,6 +13,7 @@ export default function PricingScreen() {
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
     const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
     const [priceLoading, setPriceLoading] = useState(true);
+    const [systemPlans, setSystemPlans] = useState<any[]>([]);
 
     // Manejar cierre del modal de Culqi
     useEffect(() => {
@@ -49,6 +50,20 @@ export default function PricingScreen() {
             }
         };
         detectLocation();
+
+        // Fetch System Plans from config_plans
+        const fetchPlans = async () => {
+            try {
+                const querySnapshot = await getDocs(collection(db, 'config_plans'));
+                const plansData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Sort by price or something? Let's sort by priceMonthly
+                plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
+                setSystemPlans(plansData);
+            } catch (error) {
+                console.error("Error fetching system plans:", error);
+            }
+        };
+        fetchPlans();
     }, []);
 
     // Configuración de Culqi (Web Only)
@@ -172,13 +187,13 @@ export default function PricingScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Veritly Beta Program</Text>
+                    <Text style={styles.title}>Planes y Créditos Veritly</Text>
                     <Text style={styles.subtitle}>
-                        Estamos en fase de lanzamiento. Únete como Beta Partner y ayuda a construir el futuro del reclutamiento con IA.
+                        Potencia tu consultoría con inteligencia artificial. Elige el plan que mejor se adapte a tu flujo de trabajo.
                     </Text>
                            <View style={styles.toggleWrapper}>
                     <TouchableOpacity 
@@ -202,120 +217,98 @@ export default function PricingScreen() {
             </View>
 
             <View style={styles.cardsContainer}>
+                {systemPlans.length === 0 && !priceLoading && (
+                    <ActivityIndicator color="#4F46E5" />
+                )}
                 
-                {/* PRECIOS FUTUROS (REFERENCIA INTERNA)
-                    Starter: S/ 19.50 mes / S/ 200 año (Ahorro ~15%)
-                    Gold: S/ 39.50 mes / S/ 400 año (Ahorro ~15%)
-                */}
+                {systemPlans.map((plan) => {
+                    const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
+                    const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
+                    const isComingSoon = plan.isComingSoon;
+                    const price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
+                    const isCurrentPlan = auth.currentUser && (auth.currentUser as any).subscription?.plan === plan.name;
 
-                {/* BETA PARTNER PLAN */}
-                <View style={[styles.card, { borderColor: '#10b981', borderWidth: 2 }]}>
-                    <Text style={styles.planName}>Beta Partner</Text>
-                    <Text style={styles.planPrice}>{locationInfo.symbol} 0</Text>
-                    <Text style={styles.planDesc}>Plan de lanzamiento. Evolucionará a Plan Free permanente.</Text>
-                    
+                    return (
+                        <View key={plan.id} style={[styles.card, isPro && styles.cardPro, isBeta && { borderColor: '#10b981', borderWidth: 2 }, isComingSoon && { opacity: 0.8 }]}>
+                            {isPro && !isComingSoon && (
+                                <View style={styles.badgeProContainer}>
+                                    <Text style={styles.badgeProText}>RECOMENDADO</Text>
+                                </View>
+                            )}
+                            {isComingSoon && (
+                                <View style={[styles.badgeProContainer, { backgroundColor: '#6B7280' }]}>
+                                    <Text style={styles.badgeProText}>PRÓXIMAMENTE</Text>
+                                </View>
+                            )}
+
+                            <Text style={[styles.planName, isPro && { color: '#4F46E5' }]}>{plan.name}</Text>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.planPrice}>
+                                    {locationInfo.symbol} {price || 0}
+                                </Text>
+                                <Text style={styles.planPriceUnit}>{billingPeriod === 'monthly' ? '/ mes' : '/ año'}</Text>
+                            </View>
+                            <Text style={styles.planDesc}>{isBeta ? 'Plan de lanzamiento para consultoras.' : `Plan para potenciar tu reclutamiento.`}</Text>
+                            
+                            <View style={[styles.divider, isPro && styles.dividerPro]} />
+                            
+                            <View style={styles.features}>
+                                <FeatureItem text={`${plan.aiAnalysisLimit} Análisis de IA`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.internalVacanciesLimit} Vacantes Internas`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.publicVacanciesLimit} Vacantes Públicas`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                
+                                {plan.features && plan.features.length > 0 ? (
+                                    plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((feat: string) => (
+                                        <FeatureItem key={feat} text={feat} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                    ))
+                                ) : (
+                                    isPro && <FeatureItem text="Exportación a Excel/PDF" color="#4B5563" iconColor="#4F46E5" />
+                                )}
+                            </View>
+                            
+                            {isCurrentPlan ? (
+                                <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
+                                    <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
+                                </View>
+                            ) : (
+                                <TouchableOpacity 
+                                    onPress={() => handleSubscribe(plan.name)}
+                                    disabled={isComingSoon}
+                                    style={{ opacity: isComingSoon ? 0.6 : 1 }}
+                                >
+                                    <View style={[styles.buttonPro, { backgroundColor: isComingSoon ? '#9CA3AF' : (isPro ? '#4F46E5' : '#111827') }]}>
+                                        <Text style={styles.buttonProText}>{isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Empezar Gratis' : 'Contratar')}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    );
+                })}
+
+                {/* ENTERPRISE CARD (Siempre presente al final) */}
+                <View style={[styles.card, { backgroundColor: '#111827' }]}>
+                    <Text style={[styles.planName, { color: '#FFFFFF' }]}>Enterprise</Text>
+                    <Text style={[styles.planPrice, { color: '#FFFFFF' }]}>Personalizado</Text>
+                    <Text style={[styles.planDesc, { color: '#9CA3AF' }]}>Soluciones a medida para grandes corporaciones.</Text>
                     <View style={styles.divider} />
-                    
                     <View style={styles.features}>
-                        <FeatureItem text="200 Análisis de IA" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="Hasta 5 Vacantes Activas" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="3 Vacantes Publicables" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="Soporte VIP Directo" color="#10b981" iconColor="#10b981" />
-                        <FeatureItem text="Extensión LinkedIn Sourcing" color="#10b981" iconColor="#10b981" />
+                        <FeatureItem text="Análisis Ilimitado" color="#FFFFFF" iconColor="#4F46E5" />
+                        <FeatureItem text="API Privada" color="#FFFFFF" iconColor="#4F46E5" />
+                        <FeatureItem text="Account Manager" color="#FFFFFF" iconColor="#4F46E5" />
                     </View>
-                    
-                    <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
-                        <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
-                    </View>
-                </View>
-
-                {/* PRO PLAN */}
-                <View style={[styles.card, styles.cardPro]}>
-                    <View style={styles.badgeProContainer}>
-                        <Text style={styles.badgeProText}>MÁS POPULAR</Text>
-                    </View>
-                    <Text style={[styles.planName, { color: '#38bdf8' }]}>Pro</Text>
-                    <View style={styles.priceRow}>
-                        <Text style={[styles.planPrice, { color: 'white' }]}>
-                            {locationInfo.symbol} -
-                        </Text>
-                        <Text style={styles.planPriceUnit}>/ mes</Text>
-                    </View>
-                    <Text style={styles.planDesc}>Escala tu reclutamiento con mayor potencia.</Text>
-                    
-                    <View style={styles.dividerPro} />
-                    
-                    <View style={styles.features}>
-                        <FeatureItem text="Más Análisis" color="white" iconColor="#38bdf8" />
-                        <FeatureItem text="+ Vacantes Activas" color="white" iconColor="#38bdf8" />
-                        <FeatureItem text="Mejores funcionalidades" color="white" iconColor="#38bdf8" />
-                        <FeatureItem text="Exportación de Datos" color="white" iconColor="#38bdf8" />
-                    </View>
-                    
-                    <TouchableOpacity disabled={true} style={{ opacity: 0.6 }}>
-                        <LinearGradient
-                            colors={['#334155', '#1e293b']}
-                            style={styles.buttonPro}
-                        >
-                            <Text style={styles.buttonProText}>Próximamente</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-
-                {/* GOLD PLAN */}
-                <View style={styles.card}>
-                    <Text style={styles.planName}>Gold</Text>
-                    <View style={styles.priceRow}>
-                        <Text style={styles.planPrice}>
-                            {locationInfo.symbol} -
-                        </Text>
-                        <Text style={styles.planPriceUnit}>/ mes</Text>
-                    </View>
-                    <Text style={styles.planDesc}>Control total para agencias y equipos masivos.</Text>
-                    
-                    <View style={styles.divider} />
-                    
-                    <View style={styles.features}>
-                        <FeatureItem text="Análisis Ilimitado" />
-                        <FeatureItem text="Vacantes Ilimitadas" />
-                        <FeatureItem text="Dashboards Avanzados" />
-                        <FeatureItem text="Soporte Premium 24/7" />
-                    </View>
-                    
-                    <View style={[styles.buttonOutline, { opacity: 0.6 }]}>
-                        <Text style={styles.buttonOutlineText}>Próximamente</Text>
-                    </View>
-                </View>
-
-                {/* ENTERPRISE PLAN */}
-                <View style={[styles.card, { backgroundColor: '#0f172a' }]}>
-                    <Text style={styles.planName}>Enterprise</Text>
-                    <Text style={styles.planPrice}>Personalizado</Text>
-                    <Text style={styles.planDesc}>Soluciones a medida para grandes corporaciones.</Text>
-                    
-                    <View style={styles.divider} />
-                    
-                    <View style={styles.features}>
-                        <FeatureItem text="API Privada" />
-                        <FeatureItem text="SSO / SAML" />
-                        <FeatureItem text="Account Manager" />
-                        <FeatureItem text="Contratos Flexibles" />
-                    </View>
-                    
                     <TouchableOpacity 
-                        style={[styles.buttonOutline, { borderColor: '#38bdf8' }]}
+                        style={[styles.buttonOutline, { borderColor: '#4F46E5', backgroundColor: 'transparent' }]}
                         onPress={() => window.open('https://wa.me/51987654321', '_blank')}
                     >
-                        <Text style={[styles.buttonOutlineText, { color: '#38bdf8' }]}>Contactar Vendedor</Text>
+                        <Text style={[styles.buttonOutlineText, { color: '#FFFFFF' }]}>Contactar Vendedor</Text>
                     </TouchableOpacity>
                 </View>
-
-                </View>
+            </View>
             </ScrollView>
 
             {loading && (
                 <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color="#38bdf8" />
+                    <ActivityIndicator size="large" color="#4F46E5" />
                     <Text style={styles.loadingText}>Procesando suscripción...</Text>
                 </View>
             )}
@@ -333,7 +326,7 @@ const FeatureItem = ({ text, color = '#94a3b8', iconColor = '#64748b' }: { text:
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0F172A',
+        backgroundColor: '#F9FAFB',
     },
     scrollContent: {
         padding: 24,
@@ -348,13 +341,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 32,
         fontWeight: '900',
-        color: 'white',
+        color: '#111827',
         marginBottom: 16,
         textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
-        color: '#94a3b8',
+        color: '#4B5563',
         textAlign: 'center',
         lineHeight: 24,
     },
@@ -367,23 +360,27 @@ const styles = StyleSheet.create({
         maxWidth: 1000,
     },
     card: {
-        backgroundColor: '#1E293B',
-        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
         padding: 24,
         width: '100%',
         maxWidth: 300,
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#E5E7EB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     cardPro: {
-        backgroundColor: '#0F172A',
-        borderColor: '#38bdf8',
+        borderColor: '#4F46E5',
         borderWidth: 2,
-        transform: [{ scale: 1.05 }],
+        transform: Platform.OS === 'web' ? [{ scale: 1.05 }] : [],
         position: 'relative',
-        shadowColor: '#38bdf8',
+        shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         elevation: 10,
     },
@@ -391,21 +388,21 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: -12,
         alignSelf: 'center',
-        backgroundColor: '#38bdf8',
+        backgroundColor: '#4F46E5',
         paddingHorizontal: 16,
         paddingVertical: 4,
         borderRadius: 20,
     },
     badgeProText: {
-        color: '#0F172A',
+        color: '#FFFFFF',
         fontSize: 12,
         fontWeight: '900',
         letterSpacing: 1,
     },
     planName: {
         fontSize: 20,
-        fontWeight: '700',
-        color: 'white',
+        fontWeight: '800',
+        color: '#111827',
         marginBottom: 8,
     },
     priceRow: {
@@ -416,28 +413,28 @@ const styles = StyleSheet.create({
     planPrice: {
         fontSize: 40,
         fontWeight: '900',
-        color: 'white',
+        color: '#111827',
     },
     planPriceUnit: {
         fontSize: 16,
-        color: '#94a3b8',
+        color: '#9CA3AF',
         marginLeft: 4,
     },
     planDesc: {
         fontSize: 14,
-        color: '#94a3b8',
+        color: '#4B5563',
         marginBottom: 20,
         lineHeight: 20,
         height: 40,
     },
     divider: {
         height: 1,
-        backgroundColor: '#334155',
+        backgroundColor: '#E5E7EB',
         marginBottom: 20,
     },
     dividerPro: {
         height: 1,
-        backgroundColor: 'rgba(56, 189, 248, 0.3)',
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
         marginBottom: 20,
     },
     features: {
@@ -459,19 +456,19 @@ const styles = StyleSheet.create({
     },
     buttonOutline: {
         paddingVertical: 12,
-        borderRadius: 8,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#475569',
+        borderColor: '#E5E7EB',
         alignItems: 'center',
     },
     buttonOutlineText: {
-        color: 'white',
-        fontWeight: '600',
+        color: '#4B5563',
+        fontWeight: '700',
         fontSize: 16,
     },
     buttonPro: {
         paddingVertical: 14,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: 'center',
     },
     buttonProText: {
@@ -481,13 +478,13 @@ const styles = StyleSheet.create({
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 100,
     },
     loadingText: {
-        color: '#38bdf8',
+        color: '#4F46E5',
         marginTop: 20,
         fontWeight: '700',
         fontSize: 16,
@@ -495,12 +492,12 @@ const styles = StyleSheet.create({
     // Toggle Styles
     toggleWrapper: {
         flexDirection: 'row',
-        backgroundColor: '#1E293B',
+        backgroundColor: '#F3F4F6',
         borderRadius: 12,
         padding: 4,
         marginTop: 24,
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#E5E7EB',
     },
     toggleOption: {
         paddingHorizontal: 24,
@@ -508,10 +505,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     toggleOptionActive: {
-        backgroundColor: '#3b82f6',
+        backgroundColor: '#4F46E5',
     },
     toggleOptionText: {
-        color: '#94a3b8',
+        color: '#6B7280',
         fontWeight: '600',
         fontSize: 14,
     },
@@ -520,13 +517,13 @@ const styles = StyleSheet.create({
     },
     priceEquivalent: {
         fontSize: 12,
-        color: '#64748b',
+        color: '#6B7280',
         fontWeight: '700',
         marginBottom: 16,
         textTransform: 'uppercase',
     },
     discountBadge: {
-        backgroundColor: '#10b981',
+        backgroundColor: '#10B981',
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 4,

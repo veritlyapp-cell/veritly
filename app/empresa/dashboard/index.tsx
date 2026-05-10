@@ -28,7 +28,7 @@ export default function CompanyDashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [checkingProfile, setCheckingProfile] = useState(true);
-    const [userPlan, setUserPlan] = useState('Beta Free');
+    const [userSubscription, setUserSubscription] = useState<any>(null);
     const [totalCandidates, setTotalCandidates] = useState(0);
 
     const loadData = async () => {
@@ -48,7 +48,13 @@ export default function CompanyDashboard() {
                 return router.replace('/empresa/dashboard/onboarding');
             }
 
-            setCheckingProfile(false);
+            const userData = userDoc.data();
+            setUserSubscription(userData.subscription || {
+                plan: 'Beta Free',
+                aiAnalysisLimit: 200,
+                internalVacanciesLimit: 5,
+                publicVacanciesLimit: 3
+            });
             const q = query(
                 collection(db, 'jobs'),
                 where('companyId', '==', auth.currentUser.uid)
@@ -99,6 +105,7 @@ export default function CompanyDashboard() {
     };
 
     const activeJobsCount = jobs.filter((j: any) => j.status === 'Open' || !j.status).length;
+    const publicJobsCount = jobs.filter((j: any) => (j.status === 'Open' || !j.status) && j.isExternal).length;
 
     const renderBetaBanner = () => (
         <View style={styles.betaBanner}>
@@ -108,10 +115,10 @@ export default function CompanyDashboard() {
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.betaText}>
-                        Estás en el Programa <Text style={{fontWeight: '700'}}>Beta</Text>.
+                        Plan Actual: <Text style={{fontWeight: '700'}}>{userSubscription?.plan?.toUpperCase() || 'BETA'}</Text>
                     </Text>
                     <Text style={styles.betaSubText}>
-                        Tienes {200 - totalCandidates} créditos de análisis disponibles.
+                        Tienes {Math.max((userSubscription?.aiAnalysisLimit || 200) - totalCandidates, 0)} créditos de análisis disponibles.
                     </Text>
                 </View>
                 <TouchableOpacity onPress={() => router.push('/empresa/dashboard/pricing')}>
@@ -161,16 +168,40 @@ export default function CompanyDashboard() {
                         <View style={styles.planHeader}>
                             <View style={styles.planInfo}>
                                 <Text style={styles.planLabel}>USO DE CRÉDITOS IA</Text>
-                                <Text style={styles.planTitle}>{totalCandidates} / 200</Text>
+                                <Text style={styles.planTitle}>{totalCandidates} / {userSubscription?.aiAnalysisLimit || 200}</Text>
                             </View>
                             <TrendingUp color={COLORS.primary} size={24} />
                         </View>
                         <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / 200) * 100, 100)}%` }]} />
+                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100, 100)}%` }]} />
                         </View>
                         <Text style={styles.planUsageText}>
-                            Has analizado al {Math.round((totalCandidates / 200) * 100)}% de tu capacidad actual.
+                            Has analizado al {Math.round((totalCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100)}% de tu capacidad de IA.
                         </Text>
+                    </View>
+
+                    <View style={styles.limitsRow}>
+                        {/* Internal Vacancies */}
+                        <View style={styles.limitMiniCard}>
+                            <View style={styles.limitMiniHeader}>
+                                <Text style={styles.limitMiniLabel}>Puestos Internos</Text>
+                                <Text style={styles.limitMiniValue}>{activeJobsCount} / {userSubscription?.internalVacanciesLimit || 5}</Text>
+                            </View>
+                            <View style={styles.miniBarBg}>
+                                <View style={[styles.miniBarFill, { width: `${Math.min((activeJobsCount / (userSubscription?.internalVacanciesLimit || 5)) * 100, 100)}%` }]} />
+                            </View>
+                        </View>
+
+                        {/* Public Vacancies */}
+                        <View style={styles.limitMiniCard}>
+                            <View style={styles.limitMiniHeader}>
+                                <Text style={styles.limitMiniLabel}>Puestos Públicos</Text>
+                                <Text style={styles.limitMiniValue}>{publicJobsCount} / {userSubscription?.publicVacanciesLimit || 3}</Text>
+                            </View>
+                            <View style={styles.miniBarBg}>
+                                <View style={[styles.miniBarFill, { width: `${Math.min((publicJobsCount / (userSubscription?.publicVacanciesLimit || 3)) * 100, 100)}%`, backgroundColor: COLORS.accent }]} />
+                            </View>
+                        </View>
                     </View>
 
                     <View style={styles.statsRow}>
@@ -416,6 +447,49 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary, 
         fontWeight: '600',
         textTransform: 'uppercase'
+    },
+
+    // Mini Limits
+    limitsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 20
+    },
+    limitMiniCard: {
+        flex: 1,
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    limitMiniHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8
+    },
+    limitMiniLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: COLORS.textTertiary,
+        textTransform: 'uppercase'
+    },
+    limitMiniValue: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: COLORS.textPrimary
+    },
+    miniBarBg: {
+        height: 6,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 3,
+        overflow: 'hidden'
+    },
+    miniBarFill: {
+        height: '100%',
+        backgroundColor: COLORS.primary,
+        borderRadius: 3
     },
 
     sectionHeader: {

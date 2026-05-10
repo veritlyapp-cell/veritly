@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Star, Users, Zap, FileText } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import React, { useRef, useState, useEffect } from 'react';
 import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
@@ -26,11 +28,27 @@ export default function VeritlyLandingPage() {
     const { width } = useWindowDimensions();
     const isDesktop = width >= 768;
 
+    const [systemPlans, setSystemPlans] = useState<any[]>([]);
+
     const scrollRef = useRef<ScrollView>(null);
     const [sectionPositions, setSectionPositions] = useState({
         howItWorks: 0,
         pricing: 0
     });
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const plansSnap = await getDocs(collection(db, 'config_plans'));
+                const plansData = plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
+                setSystemPlans(plansData);
+            } catch (e) {
+                console.error("Error fetching plans:", e);
+            }
+        };
+        fetchPlans();
+    }, []);
 
     const scrollToSection = (section: 'howItWorks' | 'pricing') => {
         const position = sectionPositions[section];
@@ -51,7 +69,7 @@ export default function VeritlyLandingPage() {
             <ScrollView 
                 ref={scrollRef}
                 contentContainerStyle={styles.content}
-                stickyHeaderIndices={isDesktop ? [0] : []} // Opcional: Navbar pegajoso en desktop
+                stickyHeaderIndices={isDesktop ? [0] : []}
             >
 
                 {/* ========== NAVBAR ========== */}
@@ -94,7 +112,6 @@ export default function VeritlyLandingPage() {
                         styles.heroContent,
                         isDesktop ? styles.heroContentDesktop : styles.heroContentMobile
                     ]}>
-                        {/* Text Content */}
                         <View style={[styles.heroLeft, isDesktop && { maxWidth: 600 }]}>
                             <View style={[styles.trustBadge, { backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
                                 <Sparkles size={14} color={COLORS.accent} />
@@ -127,7 +144,6 @@ export default function VeritlyLandingPage() {
                             </View>
                         </View>
 
-                        {/* Visual / Image */}
                         <View style={[styles.heroRight, !isDesktop && { marginTop: 40 }]}>
                             <View style={styles.heroImageContainer}>
                                 <Image
@@ -143,19 +159,6 @@ export default function VeritlyLandingPage() {
                     </View>
                 </View>
 
-                {/* ========== SOCIAL PROOF / TRUST BAR (HIDDEN) ========== */}
-                {/* 
-                <View style={styles.socialProofSection}>
-                    <Text style={styles.socialProofTitle}>Empresas que confían en nuestra IA supervisada</Text>
-                    <View style={styles.logosContainer}>
-                        <Text style={styles.placeholderLogo}>Gilat</Text>
-                        <Text style={styles.placeholderLogo}>Relié Labs</Text>
-                        <Text style={styles.placeholderLogo}>Acme Corp</Text>
-                        <Text style={styles.placeholderLogo}>GlobalTech</Text>
-                    </View>
-                </View>
-                */}
-
                 {/* ========== CÓMO FUNCIONA SECTION ========== */}
                 <View 
                     onLayout={onSectionLayout('howItWorks')}
@@ -169,7 +172,6 @@ export default function VeritlyLandingPage() {
                     </Text>
 
                     <View style={[styles.featureGrid, isDesktop && styles.featureGridDesktop]}>
-                        {/* Card 1 */}
                         <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
                             <View style={styles.cardIconBox}>
                                 <FileText color={COLORS.primary} size={28} />
@@ -180,7 +182,6 @@ export default function VeritlyLandingPage() {
                             </Text>
                         </View>
 
-                        {/* Card 2 */}
                         <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
                             <View style={styles.cardIconBox}>
                                 <Zap color={COLORS.primary} size={28} />
@@ -191,7 +192,6 @@ export default function VeritlyLandingPage() {
                             </Text>
                         </View>
 
-                        {/* Card 3 */}
                         <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
                             <View style={styles.cardIconBox}>
                                 <Users color={COLORS.primary} size={28} />
@@ -204,26 +204,6 @@ export default function VeritlyLandingPage() {
                     </View>
                 </View>
 
-                {/* ========== FOR CANDIDATES SECTION ========== */}
-                <View style={styles.candidateSection}>
-                    <View style={[styles.candidateContent, { paddingHorizontal: isDesktop ? 64 : 24, flexDirection: isDesktop ? 'row' : 'column' }]}>
-                        <View style={[styles.candidateLeft, isDesktop && { flex: 1, paddingRight: 40 }]}>
-                            <Text style={styles.candidateLabel}>PARA CANDIDATOS</Text>
-                            <Text style={styles.candidateTitle}>Muestra tu verdadero potencial</Text>
-                            <Text style={styles.candidateDescription}>
-                                Deja que tus habilidades hablen por ti. Con Veritly, tu perfil es analizado objetivamente. Sube tu CV para que nuestra tecnología destaque tus puntos más fuertes ante los reclutadores.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.candidateButton}
-                                onPress={() => router.push('/signin')}
-                            >
-                                <Text style={styles.candidateButtonText}>Subir mi CV</Text>
-                            </TouchableOpacity>
-                        </View>
-                        {isDesktop && <View style={{ flex: 1 }} />}
-                    </View>
-                </View>
-
                 {/* ========== PRICING SECTION ========== */}
                 <View 
                     onLayout={onSectionLayout('pricing')}
@@ -233,43 +213,58 @@ export default function VeritlyLandingPage() {
                     <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
 
                     <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
-                        {/* Beta Partner */}
-                        <View style={styles.pricingCard}>
-                            <Text style={styles.planName}>Beta Partner</Text>
-                            <View style={styles.priceRow}>
-                                <Text style={styles.planPrice}>S/ 0</Text>
-                                <Text style={styles.planPriceUnit}>/ siempre</Text>
-                            </View>
-                            <Text style={styles.planDesc}>Plan de lanzamiento para reclutadores independientes y consultoras.</Text>
-                            <View style={styles.planFeatures}>
-                                <FeatureItemLanding text="200 Análisis de IA" />
-                                <FeatureItemLanding text="5 Vacantes Activas" />
-                                <FeatureItemLanding text="Filtros por Salario" />
-                                <FeatureItemLanding text="Soporte VIP" />
-                            </View>
-                            <TouchableOpacity style={styles.planButtonPrimary} onPress={() => router.push('/empresa/signin?register=true')}>
-                                <Text style={styles.planButtonPrimaryText}>Probar Veritly</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {systemPlans.map((plan) => {
+                            const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
+                            const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
+                            const isComingSoon = plan.isComingSoon;
 
-                        {/* Pro */}
-                        <View style={[styles.pricingCard, styles.pricingCardActive]}>
-                            <View style={styles.bestValueBadge}><Text style={styles.bestValueText}>POPULAR</Text></View>
-                            <Text style={[styles.planName, { color: COLORS.accent }]}>Pro</Text>
-                            <View style={styles.priceRow}>
-                                <Text style={[styles.planPrice, { color: COLORS.textPrimary }]}>Soon</Text>
-                            </View>
-                            <Text style={styles.planDesc}>Para consultoras que necesitan mayor volumen de sourcing.</Text>
-                            <View style={styles.planFeatures}>
-                                <FeatureItemLanding text="Análisis Ampliados" />
-                                <FeatureItemLanding text="Vacantes Ilimitadas" />
-                                <FeatureItemLanding text="Exportación a Excel" />
-                                <FeatureItemLanding text="Soporte Prioritario" />
-                            </View>
-                            <View style={styles.planButtonDisabled}>
-                                <Text style={styles.planButtonDisabledText}>Próximamente</Text>
-                            </View>
-                        </View>
+                            return (
+                                <View key={plan.id} style={[styles.pricingCard, isPro && !isComingSoon && styles.pricingCardActive]}>
+                                    {isPro && !isComingSoon && (
+                                        <View style={styles.bestValueBadge}>
+                                            <Text style={styles.bestValueText}>RECOMENDADO</Text>
+                                        </View>
+                                    )}
+                                    {isComingSoon && (
+                                        <View style={[styles.bestValueBadge, { backgroundColor: COLORS.textTertiary }]}>
+                                            <Text style={styles.bestValueText}>PRÓXIMAMENTE</Text>
+                                        </View>
+                                    )}
+                                    <Text style={[styles.planName, isPro && !isComingSoon && { color: COLORS.primary }]}>{plan.name}</Text>
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.planPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.planPriceUnit}>/ mes</Text>
+                                    </View>
+                                    <Text style={styles.planDesc}>
+                                        {isBeta ? 'Ideal para reclutadores independientes y pequeñas consultoras.' : `Potencia tu flujo con más créditos de IA.`}
+                                    </Text>
+                                    
+                                    <View style={styles.planFeatures}>
+                                        <FeatureItemLanding text={`${plan.aiAnalysisLimit} Análisis de IA`} />
+                                        <FeatureItemLanding text={`${plan.internalVacanciesLimit} Vacantes Activas`} />
+                                        <FeatureItemLanding text={`${plan.publicVacanciesLimit} Vacantes Públicas`} />
+                                        
+                                        {plan.features && plan.features.length > 0 ? (
+                                            plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((feat: string) => (
+                                                <FeatureItemLanding key={feat} text={feat} />
+                                            ))
+                                        ) : (
+                                            isPro && <FeatureItemLanding text="Exportación a Excel/PDF" />
+                                        )}
+                                    </View>
+
+                                    <TouchableOpacity 
+                                        style={isComingSoon ? styles.planButtonDisabled : (isPro ? styles.planButtonPrimary : styles.planButtonSecondary)}
+                                        onPress={() => !isComingSoon && router.push('/empresa/signin?register=true')}
+                                        disabled={isComingSoon}
+                                    >
+                                        <Text style={isComingSoon ? styles.planButtonDisabledText : (isPro ? styles.planButtonPrimaryText : styles.planButtonSecondaryText)}>
+                                            {isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Probar Gratis' : 'Empezar ahora')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        })}
 
                         {/* Enterprise */}
                         <View style={styles.pricingCard}>
@@ -277,14 +272,13 @@ export default function VeritlyLandingPage() {
                             <View style={styles.priceRow}>
                                 <Text style={styles.planPrice}>Custom</Text>
                             </View>
-                            <Text style={styles.planDesc}>Soluciones a medida para grandes equipos de RPO.</Text>
+                            <Text style={styles.planDesc}>Soluciones a medida para grandes equipos de RPO y corporaciones.</Text>
                             <View style={styles.planFeatures}>
-                                <FeatureItemLanding text="Multi-usuario / Equipo" />
-                                <FeatureItemLanding text="Branding Personalizado" />
-                                <FeatureItemLanding text="API Access" />
+                                <FeatureItemLanding text="Análisis Ilimitado" />
+                                <FeatureItemLanding text="API Privada / SSO" />
                                 <FeatureItemLanding text="Account Manager" />
                             </View>
-                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('mailto:hola@veritlyapp.com')}>
+                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('https://wa.me/51987654321')}>
                                 <Text style={styles.planButtonSecondaryText}>Contactar</Text>
                             </TouchableOpacity>
                         </View>

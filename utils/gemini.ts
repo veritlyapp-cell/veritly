@@ -101,16 +101,31 @@ const getBase64 = async (uri: string, webFile?: any): Promise<string> => {
 export const extractTextFromDocument = async (fileUri: string, mimeType: string = 'application/pdf', webFile?: any) => {
     try {
         // DOCX Auto-detection: check if URI is base64 and starts with DOCX/ZIP signature
-        const isDocx = (typeof mimeType === 'string' && (mimeType.includes('wordprocessingml') || mimeType.includes('openxmlformats'))) ||
-                       (fileUri && fileUri.startsWith('UEsDBBQ')); // Base64 signature for PK zip (DOCX)
+        const isDocx = (typeof mimeType === 'string' && (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword'))) ||
+                       (fileUri && (fileUri.startsWith('UEsDBBQ') || fileUri.startsWith('AQAAIAQAABMAA') || fileUri.startsWith('0M8R4KGx')));
 
         if (isDocx) {
-            console.log("📝 Detectado DOCX - Usando mammoth para extraer texto...");
+            console.log("📝 Detectado Word - Usando mammoth para extraer texto...");
 
             let arrayBuffer: ArrayBuffer;
 
             if (Platform.OS === 'web' && webFile && webFile instanceof Blob) {
                 arrayBuffer = await webFile.arrayBuffer();
+            } else if (fileUri && (fileUri.startsWith('data:') || !fileUri.startsWith('http'))) {
+                // Es un base64 o data URI
+                const rawBase64 = fileUri.includes(',') ? fileUri.split(',')[1] : fileUri;
+                try {
+                    const byteCharacters = atob(rawBase64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    arrayBuffer = byteArray.buffer;
+                } catch (atobErr) {
+                    console.error("Error decodificando base64 para mammoth:", atobErr);
+                    throw new Error("El archivo Word parece estar corrupto o en un formato base64 inválido.");
+                }
             } else {
                 const response = await fetch(fileUri);
                 const blob = await response.blob();

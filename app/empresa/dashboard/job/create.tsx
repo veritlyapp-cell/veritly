@@ -303,7 +303,7 @@ export default function CreateJob() {
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => step === 1 ? router.back() : setStep(1)} style={styles.backButton}>
-                    <ArrowLeft color="white" size={24} />
+                    <ArrowLeft color="#111827" size={24} />
                 </TouchableOpacity>
                 <Text style={styles.title}>
                     {step === 1 ? (id ? "Reiniciar Edición" : "Nuevo Perfil") : (id ? "Editar Perfil" : "Confirmar Datos")}
@@ -323,11 +323,11 @@ export default function CreateJob() {
 
                             {/* OPCIÓN 1: SUBIR DOCUMENTO */}
                             <TouchableOpacity style={styles.uploadCard} onPress={handlePickDocument}>
-                                <Upload color="#38bdf8" size={30} />
-                                <Text style={{ color: 'white', marginTop: 10, fontWeight: 'bold' }}>
+                                <Upload color="#4F46E5" size={30} />
+                                <Text style={{ color: '#111827', marginTop: 10, fontWeight: 'bold' }}>
                                     {fileName ? `Archivo: ${fileName}` : "Subir PDF o Word"}
                                 </Text>
-                                <Text style={{ color: '#64748b', fontSize: 12, marginTop: 5 }}>La IA extraerá el texto automáticamente</Text>
+                                <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 5 }}>La IA extraerá el texto automáticamente</Text>
                             </TouchableOpacity>
 
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>

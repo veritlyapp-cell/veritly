@@ -1,14 +1,15 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import mammoth from 'mammoth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, serverTimestamp, increment, writeBatch, deleteDoc } from 'firebase/firestore';
 import { 
     ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, 
     Download, Info, LayoutTemplate, List, CheckCircle2, Trash2, 
     ChevronRight, MoreVertical, CheckSquare, Square, UserX, Clock,
     Briefcase, Target
 } from 'lucide-react-native';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -39,6 +40,10 @@ import {
 import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
+
+const TooltipWrapper = Platform.OS === 'web' 
+  ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
+  : ({ children, style }: any) => <View style={style}>{children}</View>;
 
 const STATUS_OPTIONS: RecruitmentStatus[] = ['new', 'pending_ai', 'screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'];
 
@@ -87,11 +92,15 @@ export default function JobDetailScreen() {
     const [excelKeywords, setExcelKeywords] = useState('');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [isActionModalVisible, setIsActionModalVisible] = useState(false);
+    const [wordPreviewHtml, setWordPreviewHtml] = useState<string | null>(null);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || '',
         companyId: ''
     });
+    const [companyFeatures, setCompanyFeatures] = useState<string[]>([]);
 
     // Edit Candidate State
     const [isEditingCandidate, setIsEditingCandidate] = useState(false);
@@ -114,11 +123,22 @@ export default function JobDetailScreen() {
                 const jobDoc = await getDoc(doc(db, 'jobs', id as string));
                 if (jobDoc.exists()) {
                     const data = jobDoc.data();
+                    const compId = data.companyId || '';
                     setJobDetails({
                         title: data.jobTitle || 'Vacante',
                         description: data.optimizedText || data.originalText || '',
-                        companyId: data.companyId || ''
+                        companyId: compId
                     });
+
+                    if (compId) {
+                        const compDoc = await getDoc(doc(db, 'users_empresas', compId));
+                        if (compDoc.exists()) {
+                            const compData = compDoc.data();
+                            if (compData.plan?.features) {
+                                setCompanyFeatures(compData.plan.features);
+                            }
+                        }
+                    }
                 } else {
                     showAlert("Error", "No se encontró la información del puesto.");
                 }
@@ -160,156 +180,130 @@ export default function JobDetailScreen() {
         }
     };
 
-    const handleAnalyzeCVs = async () => {
+    const handleUploadCVs = async () => {
         if (selectedCVs.length === 0) return;
         if (!auth.currentUser) return;
 
         setProcessing(true);
+        setProcessingStatus('Leyendo archivos...');
+
         try {
-            // Validar Créditos de Análisis
-            const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
-            const userSnap = await getDoc(userRef);
-            const userData = userSnap.data();
-            const creditLimit = userData?.subscription?.creditsLimit || 200;
-            const currentUsage = userData?.subscription?.creditsUsage || 0;
-
-            if (currentUsage >= creditLimit) {
-                setProcessing(false);
-                return Alert.alert("Límite Alcanzado", `Has consumido tus ${creditLimit} créditos de análisis del plan Beta. Contacta a soporte para ampliar tu plan.`);
-            }
-
             const filesToProcess = selectedCVs.slice(0, 10);
-            let processedCount = 0;
-            let errors: string[] = [];
 
-            for (let i = 0; i < filesToProcess.length; i++) {
-                const file = filesToProcess[i];
-                setProcessingStatus(`Analizando CV ${i + 1} de ${filesToProcess.length}...`);
-                try {
-                    let webFile;
-                    if (Platform.OS === 'web') {
-                        webFile = (file as any).file || (file as any).output;
-                    }
-
-                    const mimeType = typeof file.mimeType === 'string' ? file.mimeType : 'application/pdf';
-                    const text = await extractTextFromDocument(file.uri, mimeType, webFile);
-
-                    if (!text || text.length < 50) {
-                        throw new Error("Texto insuficiente extraído");
-                    }
-
-                    let uploadedUrl = null;
-                    const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                    const fileRef = ref(storage, `cvs_realease/${jobDetails.companyId || 'anon'}/${id}/${Date.now()}_${safeFileName}`);
-                    
-                    try {
-                        let blob;
-                        if (Platform.OS === 'web' && webFile) {
-                            blob = webFile;
-                        } else {
-                            const resp = await fetch(file.uri);
-                            blob = await resp.blob();
-                        }
-                        await uploadBytes(fileRef, blob);
-                        uploadedUrl = await getDownloadURL(fileRef);
-                    } catch (uploadErr) {
-                        console.error("Storage error:", uploadErr);
-                    }                    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-                    const foundEmail = text.match(emailRegex)?.[0]?.toLowerCase();
-                    
-                    let aiResult;
-                    let existingDNASummary = '';
-                    
-                    if (foundEmail) {
-                        setProcessingStatus(`Buscando perfil previo de ${foundEmail}...`);
-                        const { query, collection, where, getDocs } = await import('firebase/firestore');
-                        const q = query(collection(db, 'users_candidatos'), where('email', '==', foundEmail));
-                        const qSnap = await getDocs(q);
-                        if (!qSnap.empty) {
-                            const gd = qSnap.docs[0].data();
-                            if (gd.profileDnaSummary) {
-                                existingDNASummary = gd.profileDnaSummary;
-                                setProcessingStatus(`Perfil de ADN encontrado. Optimizando análisis...`);
-                            }
-                        }
-                    }
-
-                    // Perform analysis (using existing DNA if available to save tokens)
-                    aiResult = await analyzeCandidateForCompany(
-                        existingDNASummary || text, 
-                        jobDetails.description
-                    );
-
-                    const newCandidate: CandidateAnalysis = {
-                        // C-03 FIX: crypto.randomUUID() garantiza IDs únicos (sin colisiones)
-                        id: (typeof crypto !== 'undefined' && crypto.randomUUID)
-                            ? crypto.randomUUID()
-                            : `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`,
-                        jobId: id as string,
-                        name: aiResult.name || file.name.split('.')[0] || "Candidato",
-                        email: aiResult.email || foundEmail || null,
-                        phoneNumber: aiResult.phoneNumber,
-                        matchScore: aiResult.matchScore,
-                        summary: aiResult.summary,
-                        profileDnaSummary: aiResult.profileDnaSummary || existingDNASummary,
-                        standardizedSkills: aiResult.standardizedSkills,
-                        compensationLogic: aiResult.compensationLogic,
-                        pros: aiResult.pros,
-                        cons: aiResult.cons,
-                        matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
-                        recruitmentStatus: 'new',
-                        analyzedAt: new Date().toISOString(),
-                        originalJobTitle: jobDetails.title,
-                        originalFileUrl: uploadedUrl || undefined
+            // PASO 1: Leer todos los archivos a base64 AHORA (antes de que expiren los blob URIs)
+            const readFileAsBase64 = (blob: Blob): Promise<string> =>
+                new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const r = reader.result as string;
+                        resolve(r.includes(',') ? r.split(',')[1] : r);
                     };
+                    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+                    reader.readAsDataURL(blob);
+                });
 
-                    // C-04 FIX: Talent Graph se escribe en su propia colección 'talent_graph',
-                    // NO en 'users_candidatos' (que es de usuarios registrados con UID como ID).
-                    // Esto evita corromper perfiles de candidatos reales que usen la plataforma.
-                    if (newCandidate.email) {
-                        const talentRef = doc(db, 'talent_graph', newCandidate.email.toLowerCase());
-                        await setDoc(talentRef, {
-                            email: newCandidate.email.toLowerCase(),
-                            name: newCandidate.name,
-                            phoneNumber: newCandidate.phoneNumber,
-                            profileDnaSummary: newCandidate.profileDnaSummary,
-                            standardizedSkills: newCandidate.standardizedSkills,
-                            compensationLogic: newCandidate.compensationLogic,
-                            lastSeenAt: serverTimestamp(),
-                            reliabilityIndex: aiResult.matchScore,
-                            source: 'veritly_ats'
-                        }, { merge: true });
+            type PreparedFile = {
+                file: any;
+                base64: string;
+                mimeType: string;
+                candidateId: string;
+            };
 
-                        // Increment Analysis Usage
-                        const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
-                        await setDoc(userRef, {
-                            subscription: {
-                                creditsUsage: increment(1)
-                            }
-                        }, { merge: true });
+            setProcessingStatus('Procesando archivos...');
+            const prepared: PreparedFile[] = [];
+            for (const file of filesToProcess) {
+                try {
+                    const nativeFile: File | Blob | null = (file as any).file || (file as any).output || null;
+                    let blob: Blob;
+                    if (nativeFile) {
+                        blob = nativeFile;
+                    } else {
+                        const res = await fetch(file.uri);
+                        blob = await res.blob();
                     }
-
-                    await saveCandidateAnalysis(id as string, newCandidate);
-                    processedCount++;
-
-                    if (i < filesToProcess.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    const base64 = await readFileAsBase64(blob);
+                    
+                    // Detección agresiva: Ignoramos mimeType genérico (octet-stream)
+                    let mimeType = file.mimeType;
+                    if (!mimeType || mimeType === 'application/octet-stream') {
+                        mimeType = (file.name.match(/\.docx?$/i) 
+                            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+                            : 'application/pdf');
                     }
-                } catch (e: any) {
-                    errors.push(`${file.name}: ${e.message}`);
+                    
+                    prepared.push({
+                        file,
+                        base64,
+                        mimeType,
+                        candidateId: crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`
+                    });
+                } catch (readErr: any) {
+                    console.error(`No se pudo leer ${file.name}:`, readErr.message);
                 }
             }
 
-            if (processedCount > 0) {
-                showAlert("Análisis Completado", `${processedCount} candidatos analizados correctamente y añadidos al Ranking.`);
-                setSelectedCVs([]);
-                await loadJobAndCandidates();
-            } else if (errors.length > 0) {
-                showAlert("Errores en el proceso", `No se pudo analizar ningun archivo:\n${errors.join('\n')}`);
+            if (prepared.length === 0) {
+                showAlert('Error', 'No se pudieron leer los archivos seleccionados.');
+                setProcessing(false);
+                setProcessingStatus('');
+                return;
             }
+
+            // PASO 2: Crear candidatos con base64 y guardarlos en Firestore YA (garantizado)
+            setProcessingStatus('Guardando candidatos...');
+            const newCandidatesList: CandidateAnalysis[] = prepared.map(p => ({
+                id: p.candidateId,
+                jobId: id as string,
+                name: p.file.name.split('.')[0] || 'Candidato',
+                email: null,
+                matchScore: 0,
+                summary: 'Pendiente de análisis con IA',
+                recruitmentStatus: 'new' as RecruitmentStatus,
+                analyzedAt: new Date().toISOString() as any,
+                originalJobTitle: jobDetails.title,
+                originalFileUrl: null,
+                pros: [],
+                cons: [],
+                cvBase64: p.base64,
+                cvMimeType: p.mimeType,
+            }));
+
+            // Guardar en Firestore de inmediato
+            await Promise.all(newCandidatesList.map(c => saveCandidateAnalysis(id as string, c)));
+
+            // PASO 3: Actualizar UI
+            setCandidates(prev => [...newCandidatesList, ...(prev || [])]);
+            setSelectedCVs([]);
+            setProcessing(false);
+            setProcessingStatus('');
+            showAlert('✅ Candidatos Guardados', `${prepared.length} candidato(s) guardados. Subiendo archivos a la nube en segundo plano...`);
+
+            // PASO 4: Intentar subir a Firebase Storage en background (mejora opcional)
+            prepared.forEach(async (p, i) => {
+                const candidateData = newCandidatesList[i];
+                try {
+                    const safeFileName = p.file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                    const fileRef = ref(storage, `cvs/${jobDetails.companyId || 'anon'}/${id}/${Date.now()}_${safeFileName}`);
+                    const snap = await uploadString(fileRef, p.base64, 'base64', { contentType: p.mimeType });
+                    const storageUrl = await getDownloadURL(snap.ref);
+
+                    // Actualizar Firestore con la URL real
+                    const docRef = doc(db, 'jobs', id as string, 'candidates', candidateData.id);
+                    await setDoc(docRef, { originalFileUrl: storageUrl }, { merge: true });
+
+                    // Actualizar UI
+                    setCandidates(prev => (prev || []).map(c =>
+                        c.id === candidateData.id ? { ...c, originalFileUrl: storageUrl } : c
+                    ));
+                } catch (storageErr: any) {
+                    // Storage no disponible - OK, el candidato ya está guardado con base64
+                    console.warn(`Storage no disponible para ${p.file.name}:`, storageErr.message);
+                }
+            });
+
         } catch (error: any) {
-            showAlert("Error fatal", error.message);
-        } finally {
+            console.error('Upload fatal:', error);
+            showAlert('Error', error.message);
             setProcessing(false);
             setProcessingStatus('');
         }
@@ -330,7 +324,7 @@ export default function JobDetailScreen() {
         }
     };
 
-    const handlePickExcel = async () => {
+    const handleUploadExcel = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'],
@@ -364,47 +358,36 @@ export default function JobDetailScreen() {
             }
 
             let processedCount = 0;
-            let errors: string[] = [];
-            const rowsToProcess = jsonData.slice(0, 50);
+            const rowsToProcess = jsonData.slice(0, 100); // More rows allowed for simple upload
 
             for (const row of rowsToProcess) {
                 try {
-                    const rowDataString = JSON.stringify(row);
-                    const aiResult = await analyzeExcelRowForCompany(rowDataString, jobDetails.description, excelKeywords);
-
+                    const r = row as any;
                     const newCandidate: CandidateAnalysis = {
                         id: Math.random().toString(36).substring(7),
                         jobId: id as string,
-                        name: aiResult.name || "Candidato",
-                        email: aiResult.email,
-                        phoneNumber: aiResult.phoneNumber,
-                        matchScore: aiResult.matchScore,
-                        summary: aiResult.summary,
-                        pros: aiResult.pros,
-                        cons: aiResult.cons,
-                        keywordsValidation: aiResult.keywordsValidation || null,
-                        matchStatus: aiResult.matchScore >= 80 ? 'green' : aiResult.matchScore >= 60 ? 'yellow' : 'red',
-                        recruitmentStatus: 'screening',
-                        analyzedAt: new Date().toISOString(),
+                        name: r.Nombre || r.Name || "Candidato Excel",
+                        email: r.Email || r.Correo || null,
+                        phoneNumber: r.Telefono || r.Phone || null,
+                        matchScore: 0,
+                        summary: r.Resumen || r.Summary || "Importado de Excel - Sin analizar",
+                        experience: r.Experiencia || r.Experience || null,
+                        skills: r.Habilidades || r.Skills || null,
+                        recruitmentStatus: 'new',
+                        analyzedAt: null as any,
                         originalJobTitle: jobDetails.title
                     };
 
                     await saveCandidateAnalysis(id as string, newCandidate);
                     processedCount++;
-
-                    if (rowsToProcess.indexOf(row) < rowsToProcess.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
                 } catch (e: any) {
-                    errors.push(`Fila error: ${e.message}`);
+                    console.error("Row error:", e);
                 }
             }
 
             if (processedCount > 0) {
-                showAlert("Éxito", `${processedCount} candidatos analizados desde Excel correctamente.`);
+                showAlert("Éxito", `${processedCount} candidatos subidos desde Excel. Ahora puedes analizarlos con IA.`);
                 loadJobAndCandidates();
-            } else if (errors.length > 0) {
-                showAlert("Error", `Errores:\n${errors[0]}`);
             }
         } catch (error: any) {
             showAlert("Error", error.message);
@@ -430,11 +413,11 @@ export default function JobDetailScreen() {
             const batch = writeBatch(db);
             selectedIds.forEach(cid => {
                 const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
-                batch.update(docRef, { recruitmentStatus: 'screening' });
+                batch.set(docRef, { recruitmentStatus: 'screening' }, { merge: true });
             });
             await batch.commit();
 
-            setCandidates(prev => prev.map(c => 
+            setCandidates(prev => (prev || []).map(c => 
                 selectedIds.includes(c.id) ? { ...c, recruitmentStatus: 'screening' } : c
             ));
             setSelectedIds([]);
@@ -448,23 +431,29 @@ export default function JobDetailScreen() {
         }
     };
 
-    const handleBulkMove = async (newStatus: RecruitmentStatus) => {
-        if (selectedIds.length === 0) return;
+    const handleBulkMove = async (newStatus: RecruitmentStatus, targetIds?: string[]) => {
+        const idsToMove = targetIds || selectedIds;
+        if (idsToMove.length === 0) return;
         setLoading(true);
         try {
             const batch = writeBatch(db);
-            selectedIds.forEach(cid => {
+            idsToMove.forEach(cid => {
                 const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
-                batch.update(docRef, { recruitmentStatus: newStatus });
+                batch.set(docRef, { recruitmentStatus: newStatus }, { merge: true });
             });
             await batch.commit();
 
-            setCandidates(prev => prev.map(c => 
-                selectedIds.includes(c.id) ? { ...c, recruitmentStatus: newStatus } : c
+            setCandidates(prev => (prev || []).map(c => 
+                idsToMove.includes(c.id) ? { ...c, recruitmentStatus: newStatus } : c
             ));
-            setSelectedIds([]);
-            if (isSelectionMode) setIsSelectionMode(false);
-            showAlert("Éxito", `${selectedIds.length} candidatos movidos.`);
+            if (!targetIds) {
+                setSelectedIds([]);
+                if (isSelectionMode) setIsSelectionMode(false);
+            }
+            showAlert("Éxito", `${idsToMove.length} candidatos movidos.`);
+        } catch (err) {
+            console.error(err);
+            showAlert("Error", "No se pudieron mover los candidatos.");
         } finally {
             setLoading(false);
         }
@@ -480,7 +469,7 @@ export default function JobDetailScreen() {
                     batch.delete(docRef);
                 });
                 await batch.commit();
-                setCandidates(prev => prev.filter(c => !selectedIds.includes(c.id)));
+                setCandidates(prev => (prev || []).filter(c => !selectedIds.includes(c.id)));
                 setSelectedIds([]);
                 setIsSelectionMode(false);
                 showAlert("Eliminados", "Los candidatos han sido eliminados satisfactoriamente.");
@@ -564,18 +553,43 @@ export default function JobDetailScreen() {
             // Case 2: External Applicant (CV PDF/Word)
             else if (candidate.originalFileUrl || cvBase64) {
                 setProcessingStatus(`Extrayendo texto del Currículum...`);
-                // Passing base64 if URL is not available
-                textToAnalyze = await extractTextFromDocument(candidate.originalFileUrl || cvBase64);
+                
+                const fileSource = candidate.originalFileUrl || cvBase64;
+                let mimeType = (candidate as any).cvMimeType || (candidate as any).cv_mime_type || 'application/pdf';
+                
+                // Si es base64 y el mimeType parece ser PDF, verificamos si realmente es un Word por su header
+                if (fileSource && !fileSource.startsWith('http') && (fileSource.includes('UEsDBBQ') || fileSource.includes('AQAAIAQAABMAA'))) {
+                    mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                } else if (fileSource && fileSource.startsWith('http')) {
+                    // Si es URL, inferimos por extensión si no hay mimeType
+                    if (fileSource.toLowerCase().includes('.docx') || fileSource.toLowerCase().includes('.doc')) {
+                        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                    }
+                }
+                
+                // Passing base64 if URL is not available, with correct mimeType for Word detection
+                textToAnalyze = await extractTextFromDocument(fileSource, mimeType);
             }
-            // Case 3: Excel or manual with some summary
-            else if (candidate.summary && !candidate.summary.includes('🚫')) {
-                 textToAnalyze = candidate.summary;
+            // Case 3: Excel or manual with some summary/experience
+            else if (candidate.summary || (candidate as any).experience || (candidate as any).skills) {
+                 textToAnalyze = `CANDIDATO: ${candidate.name}\nRESUMEN: ${candidate.summary || ''}\nEXPERIENCIA: ${(candidate as any).experience || ''}\nHABILIDADES: ${(candidate as any).skills || ''}`;
             }
 
             if (!textToAnalyze) throw new Error("No hay contenido suficiente para analizar automáticamente. Verifica que el candidato tenga un CV adjunto o perfil de LinkedIn capturado.");
 
             setProcessingStatus(`Ejecutando IA Veritly DNA...`);
-            const aiResult = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+            
+            let aiResult;
+            const isExcelCandidate = (candidate as any).experience || (candidate as any).skills;
+            
+            if (isExcelCandidate && !candidate.originalFileUrl && !cvBase64) {
+                // Limpiar el summary si es el default de Excel
+                const cleanSummary = (candidate.summary || '').includes('Importado de Excel') ? '' : candidate.summary;
+                const structuredData = `CANDIDATO: ${candidate.name}\nRESUMEN: ${cleanSummary}\nEXPERIENCIA: ${(candidate as any).experience || ''}\nHABILIDADES: ${(candidate as any).skills || ''}`;
+                aiResult = await analyzeExcelRowForCompany(structuredData, jobDetails.description, excelKeywords);
+            } else {
+                aiResult = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+            }
             
             const updatedCandidate = {
                 ...candidate,
@@ -600,7 +614,7 @@ export default function JobDetailScreen() {
             );
             await setDoc(docRef, sanitizedData, { merge: true });
             
-            setCandidates(prev => prev.map(c => c.id === candidate.id ? (updatedCandidate as any) : c));
+            setCandidates(prev => (prev || []).map(c => c.id === candidate.id ? (updatedCandidate as any) : c));
             setSelectedCandidate(updatedCandidate as any);
             showAlert("Éxito", "Análisis completado satisfactoriamente.");
         } catch (err: any) {
@@ -612,12 +626,96 @@ export default function JobDetailScreen() {
         }
     };
 
+    useEffect(() => {
+        const convertWordToHtml = async () => {
+            if (!selectedCandidate) {
+                setWordPreviewHtml(null);
+                return;
+            }
+            
+            const base64 = (selectedCandidate as any).cvBase64;
+            // Detección de Word por header
+            const isWord = base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'));
+            
+            if (isWord) {
+                setIsPreviewLoading(true);
+                try {
+                    const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+                    const byteCharacters = atob(rawBase64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    
+                    const result = await mammoth.convertToHtml({ arrayBuffer: byteArray.buffer });
+                    setWordPreviewHtml(result.value);
+                } catch (e) {
+                    console.error("Error previsualizando Word:", e);
+                    setWordPreviewHtml("<p style='color: #64748b; text-align: center; padding: 20px;'>No se pudo generar la vista previa visual de este documento Word. Puedes descargarlo para verlo completo.</p>");
+                } finally {
+                    setIsPreviewLoading(false);
+                }
+            } else {
+                setWordPreviewHtml(null);
+            }
+        };
+        convertWordToHtml();
+    }, [selectedCandidate]);
+
+    useEffect(() => {
+        if (selectedCandidate) {
+            const updatedCandidate = candidates.find(c => c.id === selectedCandidate.id);
+            if (updatedCandidate) {
+                // Sincronizar si hay cambios importantes (como la URL del CV que llega en segundo plano o el status)
+                if (updatedCandidate.originalFileUrl !== selectedCandidate.originalFileUrl || 
+                    updatedCandidate.recruitmentStatus !== selectedCandidate.recruitmentStatus ||
+                    updatedCandidate.matchScore !== selectedCandidate.matchScore ||
+                    (updatedCandidate as any).isUploading !== (selectedCandidate as any).isUploading) {
+                    setSelectedCandidate(updatedCandidate);
+                }
+            }
+        }
+    }, [candidates, selectedCandidate?.id]);
+
     const handleQuickDiscard = async (candidateId: string) => {
         try {
-            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, recruitmentStatus: 'rejected' } : c));
+            setCandidates(prev => (prev || []).map(c => c.id === candidateId ? { ...c, recruitmentStatus: 'rejected' } : c));
             await updateCandidateStatus(id as string, candidateId, 'rejected');
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const handleIndividualDelete = async (candidateId: string) => {
+        const executeDelete = async () => {
+            setLoading(true);
+            try {
+                const docRef = doc(db, 'jobs', id as string, 'candidates', candidateId);
+                await deleteDoc(docRef);
+                setCandidates(prev => (prev || []).filter(c => c.id !== candidateId));
+                showAlert("Éxito", "Candidato eliminado permanentemente.");
+            } catch (err) {
+                console.error(err);
+                showAlert("Error", "No se pudo eliminar el candidato.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm('¿Estás seguro de que quieres eliminar a este candidato de forma permanente?')) {
+                executeDelete();
+            }
+        } else {
+            Alert.alert(
+                "Eliminar Candidato",
+                "¿Estás seguro de que quieres eliminar a este candidato de forma permanente?",
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Eliminar", style: "destructive", onPress: executeDelete }
+                ]
+            );
         }
     };
 
@@ -658,7 +756,7 @@ export default function JobDetailScreen() {
             await setDoc(docRef, updatedData, { merge: true });
 
             // Update local state
-            setCandidates(prev => prev.map(c => 
+            setCandidates(prev => (prev || []).map(c => 
                 c.id === selectedCandidate.id ? { ...c, ...updatedData, salaryExpectation: updatedData.salaryExpectation || undefined } : c
             ));
             setSelectedCandidate({ 
@@ -682,7 +780,7 @@ export default function JobDetailScreen() {
         if (!selectedCandidate) return;
         setSelectedCandidate({ ...selectedCandidate, recruitmentStatus: newStatus });
         await updateCandidateStatus(id as string, selectedCandidate.id, newStatus);
-        setCandidates(prev => prev.map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
+        setCandidates(prev => (prev || []).map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
     };
 
     const handleBulkAnalyze = async () => {
@@ -756,7 +854,7 @@ export default function JobDetailScreen() {
                 await setDoc(docRef, sanitizedBulkData, { merge: true });
                 
                 // Update local state for each processed candidate
-                setCandidates(prev => prev.map(c => 
+                setCandidates(prev => (prev || []).map(c => 
                     c.id === cand.id ? { ...c, ...sanitizedBulkData } : c
                 ));
                 
@@ -776,13 +874,45 @@ export default function JobDetailScreen() {
         }
     }
 
-    const viewCandidateCV = async (cvUrl?: string) => {
-        if (!cvUrl) return showAlert("Sin CV", "Este candidato no tiene un currículum adjunto.");
+    const viewCandidateCV = async (cvUrl?: string, cvBase64?: string, candidateName?: string, cvMimeType?: string) => {
+        const url = cvUrl;
+        const base64 = cvBase64;
+        let mimeType = cvMimeType || 'application/pdf';
+
+        if (!url && !base64) return showAlert("Sin CV", "Este candidato no tiene un currículum adjunto.");
+
+        // Auto-sanación para base64
+        if (base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'))) {
+            if (mimeType === 'application/pdf' || mimeType === 'application/octet-stream') {
+                mimeType = base64.includes('0M8R4KGx') ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            }
+        }
+
         try {
-            if (Platform.OS === 'web') {
-                window.open(cvUrl, '_blank');
-            } else {
-                await Linking.openURL(cvUrl);
+            if (url) {
+                if (Platform.OS === 'web') {
+                    window.open(url, '_blank');
+                } else {
+                    await Linking.openURL(url);
+                }
+            } else if (base64) {
+                const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+                const dataUri = `data:${mimeType};base64,${rawBase64}`;
+
+                if (Platform.OS === 'web') {
+                    if (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword')) {
+                        const link = document.createElement('a');
+                        link.href = dataUri;
+                        link.download = `${candidateName || 'CV'}${mimeType.includes('wordprocessingml') ? '.docx' : '.doc'}`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } else {
+                        window.open(dataUri, '_blank');
+                    }
+                } else {
+                    await Linking.openURL(dataUri);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -909,16 +1039,16 @@ export default function JobDetailScreen() {
                     {selectedCVs.length > 0 ? (
                         <View style={{flexDirection: 'row', gap: 10, flex: 1}}>
                             <TouchableOpacity 
-                                onPress={handleAnalyzeCVs} 
+                                onPress={handleUploadCVs} 
                                 disabled={processing}
                                 style={styles.rankingActionBtn}
                             >
                                 <LinearGradient
-                                    colors={['#8b5cf6', '#7c3aed']}
+                                    colors={['#10b981', '#059669']}
                                     style={styles.rankingActionGradient}
                                 >
-                                    <Sparkles size={18} color="white" />
-                                    <Text style={styles.rankingActionText}>Analizar {selectedCVs.length} CV{selectedCVs.length > 1 ? 's' : ''} con IA</Text>
+                                    <Upload size={18} color="white" />
+                                    <Text style={styles.rankingActionText}>Subir {selectedCVs.length} Candidato{selectedCVs.length > 1 ? 's' : ''}</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.rankingActionBtnSecondary, {flex: 0, paddingHorizontal: 15}]} onPress={() => setSelectedCVs([])}>
@@ -927,26 +1057,30 @@ export default function JobDetailScreen() {
                         </View>
                     ) : (
                         <>
-                            <TouchableOpacity 
-                                onPress={handleSelectCVs} 
-                                disabled={processing}
-                                style={styles.rankingActionBtn}
-                            >
-                                <LinearGradient
-                                    colors={['#3b82f6', '#2563eb']}
-                                    style={styles.rankingActionGradient}
+                            {(!companyFeatures.length || companyFeatures.includes("Subida CVs (PDF/Word)")) && (
+                                <TouchableOpacity 
+                                    onPress={handleSelectCVs} 
+                                    disabled={processing}
+                                    style={styles.rankingActionBtn}
                                 >
-                                    <FileText size={18} color="white" />
-                                    <Text style={styles.rankingActionText}>Subir CVs (PDF/Word)</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                onPress={() => setShowExcelModal(true)}
-                                style={styles.rankingActionBtnSecondary}
-                            >
-                                <Table size={18} color="#3b82f6" />
-                                <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
-                            </TouchableOpacity>
+                                    <LinearGradient
+                                        colors={['#3b82f6', '#2563eb']}
+                                        style={styles.rankingActionGradient}
+                                    >
+                                        <FileText size={18} color="white" />
+                                        <Text style={styles.rankingActionText}>Subir CVs (PDF/Word)</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+                            {(!companyFeatures.length || companyFeatures.includes("Subida masiva por Excel")) && (
+                                <TouchableOpacity 
+                                    onPress={() => setShowExcelModal(true)}
+                                    style={styles.rankingActionBtnSecondary}
+                                >
+                                    <Table size={18} color="#3b82f6" />
+                                    <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
+                                </TouchableOpacity>
+                            )}
                         </>
                     )}
                     {activeTab === 'ranking' && (
@@ -1005,27 +1139,68 @@ export default function JobDetailScreen() {
                                         </View>
                                     </View>
 
-                                    <View style={styles.quickActions}>
+                                        <View style={styles.quickActions}>
                                         {!isSelectionMode && (
                                             <>
-                                                <TouchableOpacity
-                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
-                                                    onPress={(e) => {
-                                                        e.stopPropagation();
-                                                        handleQuickDiscard(item.id);
-                                                    }}
-                                                >
-                                                    <UserX size={18} color="#ef4444" />
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    style={[styles.iconButton, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}
-                                                    onPress={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleSelection(item.id);
-                                                    }}
-                                                >
-                                                    <CheckSquare size={18} color="#10b981" />
-                                                </TouchableOpacity>
+                                                {(item.matchScore === 0 || !item.matchScore) && (
+                                                    <TooltipWrapper title="Analizar con IA (Consume créditos)">
+                                                        <TouchableOpacity
+                                                            style={[styles.iconButton, { backgroundColor: 'rgba(139, 92, 246, 0.1)', width: 100 }]}
+                                                            onPress={(e) => {
+                                                                e.stopPropagation();
+                                                                handleAnalyzeIndividualCandidate(item);
+                                                            }}
+                                                        >
+                                                            <Sparkles size={14} color="#8b5cf6" />
+                                                            <Text style={{ color: '#8b5cf6', fontSize: 10, fontWeight: 'bold', marginLeft: 5 }}>ANALIZAR</Text>
+                                                        </TouchableOpacity>
+                                                    </TooltipWrapper>
+                                                )}
+                                                <TooltipWrapper title="Mover al Pipeline ATS">
+                                                    <TouchableOpacity
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(16, 185, 129, 0.1)', width: 80 }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            handleBulkMove('screening', [item.id]);
+                                                        }}
+                                                    >
+                                                        <FileText size={14} color="#10b981" />
+                                                        <Text style={{ color: '#10b981', fontSize: 10, fontWeight: 'bold', marginLeft: 5 }}>MOVER</Text>
+                                                    </TouchableOpacity>
+                                                </TooltipWrapper>
+                                                <TooltipWrapper title="Descartar Candidato">
+                                                    <TouchableOpacity
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            handleQuickDiscard(item.id);
+                                                        }}
+                                                    >
+                                                        <UserX size={18} color="#ef4444" />
+                                                    </TouchableOpacity>
+                                                </TooltipWrapper>
+                                                <TooltipWrapper title="Eliminar Permanentemente">
+                                                    <TouchableOpacity
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            handleIndividualDelete(item.id);
+                                                        }}
+                                                    >
+                                                        <Trash2 size={18} color="#ef4444" />
+                                                    </TouchableOpacity>
+                                                </TooltipWrapper>
+                                                <TooltipWrapper title="Seleccionar para acciones masivas">
+                                                    <TouchableOpacity
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleSelection(item.id);
+                                                        }}
+                                                    >
+                                                        <CheckSquare size={18} color="#10b981" />
+                                                    </TouchableOpacity>
+                                                </TooltipWrapper>
                                             </>
                                         )}
                                         <TouchableOpacity
@@ -1035,7 +1210,7 @@ export default function JobDetailScreen() {
                                                 openCandidateModal(item);
                                             }}
                                         >
-                                            <ChevronRight size={18} color="#94a3b8" />
+                                            <ChevronRight size={18} color="#64748B" />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -1099,27 +1274,43 @@ export default function JobDetailScreen() {
                                     <View style={styles.quickActions}>
                                         {!isSelectionMode && (
                                             <>
-                                                <TouchableOpacity
-                                                    style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', alignItems: 'center', minWidth: 60 }]}
-                                                    onPress={(e) => {
-                                                        e.stopPropagation();
-                                                        handleQuickDiscard(item.id);
-                                                    }}
-                                                >
-                                                    <UserX size={18} color="#ef4444" />
-                                                    <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: 'bold', marginTop: 2 }}>DESCARTAR</Text>
-                                                </TouchableOpacity>
-                                                {item.phoneNumber && (
+                                                <TooltipWrapper title="Descartar Candidato">
                                                     <TouchableOpacity
-                                                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', alignItems: 'center', minWidth: 50 }]}
                                                         onPress={(e) => {
                                                             e.stopPropagation();
-                                                            openWhatsApp(item.phoneNumber);
+                                                            handleQuickDiscard(item.id);
                                                         }}
                                                     >
-                                                        <MessageSquare size={18} color="#10b981" />
-                                                        <Text style={{ color: '#10b981', fontSize: 9, fontWeight: 'bold', marginTop: 2 }}>WHATSAPP</Text>
+                                                        <UserX size={16} color="#ef4444" />
+                                                        <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>DESCARTAR</Text>
                                                     </TouchableOpacity>
+                                                </TooltipWrapper>
+                                                <TooltipWrapper title="Eliminar Permanentemente">
+                                                    <TouchableOpacity
+                                                        style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', alignItems: 'center', minWidth: 50 }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation();
+                                                            handleIndividualDelete(item.id);
+                                                        }}
+                                                    >
+                                                        <Trash2 size={16} color="#ef4444" />
+                                                        <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>ELIMINAR</Text>
+                                                    </TouchableOpacity>
+                                                </TooltipWrapper>
+                                                {item.phoneNumber && (
+                                                    <TooltipWrapper title="Contactar por WhatsApp">
+                                                        <TouchableOpacity
+                                                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                                                            onPress={(e) => {
+                                                                e.stopPropagation();
+                                                                openWhatsApp(item.phoneNumber);
+                                                            }}
+                                                        >
+                                                            <MessageSquare size={16} color="#10b981" />
+                                                            <Text style={{ color: '#10b981', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>WHATSAPP</Text>
+                                                        </TouchableOpacity>
+                                                    </TooltipWrapper>
                                                 )}
                                             </>
                                         )}
@@ -1265,12 +1456,12 @@ export default function JobDetailScreen() {
             <Modal visible={!!selectedCandidate} animationType="slide" presentationStyle="pageSheet">
                 {selectedCandidate && (
                     <View style={styles.modalContainer}>
-                        <StatusBar barStyle="light-content" />
+                        <StatusBar barStyle="dark-content" />
                         <ScrollView style={styles.modalContent}>
                             {/* Modal Header */}
                             <View style={styles.modalHeader}>
                                 <TouchableOpacity onPress={() => setSelectedCandidate(null)} style={styles.modalBackButton}>
-                                    <ArrowLeft size={24} color="white" />
+                                    <ArrowLeft size={24} color="#1E293B" />
                                 </TouchableOpacity>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.modalName}>{selectedCandidate.name}</Text>
@@ -1361,6 +1552,28 @@ export default function JobDetailScreen() {
 
                             </View>
 
+                            {/* Excel Sourced Info */}
+                            {((selectedCandidate as any).experience || (selectedCandidate as any).skills) && (
+                                <View style={{ marginHorizontal: 20, marginBottom: 20, padding: 15, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#10b981' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                        <Table size={16} color="#10b981" />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Datos Importados de Excel</Text>
+                                    </View>
+                                    {(selectedCandidate as any).experience && (
+                                        <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>
+                                            <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Experiencia: </Text>
+                                            {(selectedCandidate as any).experience}
+                                        </Text>
+                                    )}
+                                    {(selectedCandidate as any).skills && (
+                                        <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>
+                                            <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Habilidades: </Text>
+                                            {(selectedCandidate as any).skills}
+                                        </Text>
+                                    )}
+                                </View>
+                            )}
+
                             {/* LinkedIn Sourced Info */}
                             {((selectedCandidate as any).about || selectedCandidate.role) && (
                                 <View style={{ marginHorizontal: 20, marginBottom: 20, padding: 15, backgroundColor: 'rgba(66, 69, 194, 0.1)', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#4245c2' }}>
@@ -1398,12 +1611,12 @@ export default function JobDetailScreen() {
                                 <Text style={styles.aiSummary}>{selectedCandidate.summary}</Text>
 
                                 <Text style={styles.subsectionTitle}>✅ Puntos Fuertes</Text>
-                                {selectedCandidate.pros.map((p, i) => (
+                                {(selectedCandidate.pros || []).map((p, i) => (
                                     <Text key={i} style={styles.proText}>• {p}</Text>
                                 ))}
 
                                 <Text style={[styles.subsectionTitle, { marginTop: 16 }]}>⚠️ A Considerar</Text>
-                                {selectedCandidate.cons.map((c, i) => (
+                                {(selectedCandidate.cons || []).map((c, i) => (
                                     <Text key={i} style={styles.conText}>• {c}</Text>
                                 ))}
 
@@ -1464,31 +1677,61 @@ export default function JobDetailScreen() {
                             {/* CV Preview OR Profile Text (Web Only) */}
                             {Platform.OS === 'web' && (
                                 <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
-                                    {(selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cvBase64) ? (
+                                    {(selectedCandidate as any).isUploading ? (
+                                        <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed' }}>
+                                            <ActivityIndicator size="large" color="#3b82f6" />
+                                            <Text style={{ marginTop: 15, color: '#475569', fontSize: 14, fontWeight: '500' }}>El documento se está asegurando en la nube...</Text>
+                                            <Text style={{ marginTop: 5, color: '#94a3b8', fontSize: 12 }}>Esto puede tomar unos segundos dependiendo del tamaño.</Text>
+                                        </View>
+                                    ) : (selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cvBase64) ? (
                                         <>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                                 <FileText size={18} color="#38bdf8" />
                                                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Vista Previa del CV</Text>
                                             </View>
-                                            <View style={{ height: 600, backgroundColor: '#1e293b', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#4245c2' }}>
-                                        {(() => {
+                                            <View style={{ height: 600, backgroundColor: '#F8FAFC', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' }}>
+                                                {(() => {
                                                     const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url || '';
                                                     const base64 = (selectedCandidate as any).cvBase64 || '';
                                                     
                                                     if (!url && !base64) return null;
                                                     
+                                                    if (isPreviewLoading) {
+                                                        return (
+                                                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                                                <ActivityIndicator size="large" color="#3b82f6" />
+                                                                <Text style={{ marginTop: 10, color: '#64748b' }}>Cargando vista previa...</Text>
+                                                            </View>
+                                                        );
+                                                    }
+
+                                                    if (wordPreviewHtml) {
+                                                        return (
+                                                            <ScrollView style={{ flex: 1, padding: 30 }}>
+                                                                <div 
+                                                                    style={{ color: '#1e293b', fontSize: '14px', lineHeight: '1.6', fontFamily: 'serif' }}
+                                                                    dangerouslySetInnerHTML={{ __html: wordPreviewHtml }} 
+                                                                />
+                                                            </ScrollView>
+                                                        );
+                                                    }
+
                                                     let iframeSrc = '';
                                                     if (url) {
                                                         const isWord = url.toLowerCase().includes('.doc') || url.toLowerCase().includes('.docx');
-                                                        iframeSrc = isWord ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true` : url;
+                                                        // Usar Google Docs Viewer para Word URLs
+                                                        iframeSrc = isWord 
+                                                            ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true` 
+                                                            : url;
                                                     } else if (base64) {
-                                                        // Detect if it's already a data URI or just raw base64
+                                                        // Para base64, si no es Word (manejado arriba), asumimos PDF
                                                         iframeSrc = base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`;
                                                     }
                                                     
                                                     return (
                                                         <iframe 
-                                                            key={selectedCandidate.id} src={iframeSrc}
+                                                            key={selectedCandidate.id} 
+                                                            src={iframeSrc}
                                                             style={{ width: '100%', height: '100%', border: 'none' }}
                                                         />
                                                     );
@@ -1519,15 +1762,46 @@ export default function JobDetailScreen() {
                                     onPress={() => {
                                         const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url;
                                         const base64 = (selectedCandidate as any).cvBase64;
+                                        let mimeType = (selectedCandidate as any).cvMimeType || (selectedCandidate as any).cv_mime_type;
                                         
-                                        if (!url && !base64) return showAlert("CV no disponible", "Este candidato no tiene un archivo adjunto (puede ser de LinkedIn o Excel).");
-                                        
-                                        const target = url || (base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`);
-                                        
-                                        if (Platform.OS === 'web') {
-                                            window.open(target, '_blank');
-                                        } else {
-                                            Linking.openURL(target);
+                                        // Auto-sanación: Si el base64 tiene el header de un DOCX o DOC
+                                        if (base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'))) {
+                                            if (!mimeType || mimeType === 'application/pdf' || mimeType === 'application/octet-stream') {
+                                                mimeType = base64.includes('0M8R4KGx') ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                                            }
+                                        } else if (!mimeType) {
+                                            mimeType = 'application/pdf';
+                                        }
+
+                                        if (!url && !base64) {
+                                            return showAlert("CV no disponible", "Este candidato no tiene un archivo adjunto. Puede ser de LinkedIn, Excel, o el archivo aún no terminó de sincronizarse.");
+                                        }
+
+                                        if (url) {
+                                            if (Platform.OS === 'web') {
+                                                window.open(url, '_blank');
+                                            } else {
+                                                Linking.openURL(url);
+                                            }
+                                        } else if (base64) {
+                                            const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+                                            const dataUri = `data:${mimeType};base64,${rawBase64}`;
+                                            
+                                            if (Platform.OS === 'web') {
+                                                // Para Word, forzamos descarga ya que el navegador no puede previsualizarlo nativamente
+                                                if (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword')) {
+                                                    const link = document.createElement('a');
+                                                    link.href = dataUri;
+                                                    link.download = `${selectedCandidate.name || 'CV'}${mimeType.includes('wordprocessingml') ? '.docx' : '.doc'}`;
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                } else {
+                                                    window.open(dataUri, '_blank');
+                                                }
+                                            } else {
+                                                Linking.openURL(dataUri);
+                                            }
                                         }
                                     }}
                                 >
@@ -1600,7 +1874,7 @@ export default function JobDetailScreen() {
                             <Text style={styles.inputHint}>Revisaremos estrictamente que el candidato posea estos requisitos.</Text>
                         </View>
 
-                        <TouchableOpacity style={styles.dropzone} onPress={handlePickExcel} disabled={processing}>
+                        <TouchableOpacity style={styles.dropzone} onPress={handleUploadExcel} disabled={processing}>
                             <Upload size={32} color="#10b981" style={{ marginBottom: 10 }} />
                             <Text style={styles.dropzoneTitle}>Haz clic para seleccionar tu Base de Datos</Text>
                             <Text style={styles.dropzoneSubtitle}>Soporta .xlsx y .csv</Text>
@@ -1611,12 +1885,12 @@ export default function JobDetailScreen() {
 
             {/* PROCESSING OVERLAY (Modal to show above other modals) */}
             <Modal transparent visible={processing} animationType="fade">
-                <View style={[styles.processingOverlay, { backgroundColor: 'rgba(15, 23, 42, 0.9)' }]}>
+                <View style={[styles.processingOverlay, { backgroundColor: 'rgba(255, 255, 255, 0.8)' }]}>
                     <View style={styles.processingCard}>
                         <ActivityIndicator size="large" color="#3b82f6" />
-                        <Text style={styles.processingTitle}>Procesando con IA</Text>
+                        <Text style={styles.processingTitle}>Procesando Candidatos</Text>
                         <Text style={styles.processingText}>{processingStatus}</Text>
-                        <Text style={{ color: '#64748b', fontSize: 11, textAlign: 'center' }}>
+                        <Text style={{ color: '#64748b', fontSize: 11, textAlign: 'center', marginTop: 10 }}>
                             Por favor espera unos segundos...
                         </Text>
                     </View>
@@ -1739,42 +2013,43 @@ const styles = StyleSheet.create({
     },
     processingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(15, 23, 42, 0.8)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
         zIndex: 9999,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20
     },
     processingCard: {
-        backgroundColor: '#1E293B',
+        backgroundColor: '#FFFFFF',
         padding: 30,
-        borderRadius: 20,
+        borderRadius: 24,
         alignItems: 'center',
         width: '100%',
         maxWidth: 320,
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#E2E8F0',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 15,
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
         elevation: 10
     },
     processingTitle: {
-        color: 'white',
+        color: '#1E293B',
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '900',
         marginTop: 15,
         marginBottom: 8
     },
     processingText: {
-        color: '#38bdf8',
+        color: '#3b82f6',
         fontSize: 14,
+        fontWeight: '700',
         textAlign: 'center',
         marginBottom: 15
     },
     processingWarning: {
-        color: '#64748b',
+        color: '#94a3b8',
         fontSize: 12,
         textAlign: 'center'
     },
@@ -2052,7 +2327,7 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: '#0F172A'
+        backgroundColor: '#F8FAFC'
     },
     modalContent: {
         flex: 1
@@ -2062,8 +2337,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        backgroundColor: 'white',
         borderBottomWidth: 1,
-        borderBottomColor: '#1e293b'
+        borderBottomColor: '#E2E8F0'
     },
     modalBackButton: {
         marginRight: 15,
@@ -2072,7 +2348,7 @@ const styles = StyleSheet.create({
     modalName: {
         fontSize: 24,
         fontWeight: '900',
-        color: 'white'
+        color: '#1E293B'
     },
     modalEmail: {
         fontSize: 14,
@@ -2084,11 +2360,12 @@ const styles = StyleSheet.create({
     },
     matchSection: {
         alignItems: 'center',
-        paddingVertical: 30
+        paddingVertical: 30,
+        backgroundColor: 'white'
     },
     matchLabel: {
         fontSize: 14,
-        color: '#94a3b8',
+        color: '#64748B',
         fontWeight: '600',
         marginTop: 12,
         letterSpacing: 2,
@@ -2097,11 +2374,11 @@ const styles = StyleSheet.create({
     aiCard: {
         margin: 20,
         marginTop: 10,
-        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+        backgroundColor: 'rgba(251, 191, 36, 0.05)',
         borderRadius: 16,
         padding: 20,
-        borderWidth: 2,
-        borderColor: 'rgba(251, 191, 36, 0.3)'
+        borderWidth: 1,
+        borderColor: 'rgba(251, 191, 36, 0.2)'
     },
     aiCardHeader: {
         flexDirection: 'row',
@@ -2116,34 +2393,34 @@ const styles = StyleSheet.create({
     },
     aiSummary: {
         fontSize: 15,
-        color: '#cbd5e1',
+        color: '#475569',
         lineHeight: 24,
         marginBottom: 16
     },
     subsectionTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#94a3b8',
+        color: '#64748B',
         marginBottom: 8,
         textTransform: 'uppercase',
         letterSpacing: 0.5
     },
     proText: {
         fontSize: 14,
-        color: '#10b981',
+        color: '#059669',
         marginBottom: 4,
         lineHeight: 20
     },
     conText: {
         fontSize: 14,
-        color: '#f59e0b',
+        color: '#D97706',
         marginBottom: 4,
         lineHeight: 20
     },
     sectionTitle: {
         fontSize: 16,
         fontWeight: '800',
-        color: 'white',
+        color: '#1E293B',
         marginHorizontal: 20,
         marginTop: 20,
         marginBottom: 12
@@ -2178,21 +2455,21 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: 'rgba(30, 41, 59, 0.6)',
+        backgroundColor: 'white',
         borderRadius: 12,
         marginBottom: 10,
         borderWidth: 1,
-        borderColor: 'rgba(100, 116, 139, 0.2)'
+        borderColor: '#E2E8F0'
     },
     historyTitle: {
         fontSize: 15,
         fontWeight: '700',
-        color: 'white'
+        color: '#1E293B'
     },
     historyScore: {
         fontSize: 16,
         fontWeight: '800',
-        color: '#38bdf8'
+        color: '#4F46E5'
     },
     historyStatus: {
         paddingHorizontal: 8,
@@ -2218,12 +2495,12 @@ const styles = StyleSheet.create({
         gap: 15
     },
     cvBigTitle: {
-        color: 'white',
+        color: '#1E293B',
         fontSize: 16,
         fontWeight: '800'
     },
     cvBigSub: {
-        color: '#94a3b8',
+        color: '#64748B',
         fontSize: 12,
         marginTop: 2
     },
@@ -2266,13 +2543,16 @@ const styles = StyleSheet.create({
         padding: 20
     },
     excelModalContent: {
-        backgroundColor: '#1E293B',
-        borderRadius: 20,
+        backgroundColor: 'white',
+        borderRadius: 24,
         padding: 24,
-        width: '100%',
+        width: '90%',
         maxWidth: 500,
-        borderWidth: 1,
-        borderColor: '#334155'
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 10
     },
     excelModalHeader: {
         flexDirection: 'row',
@@ -2281,9 +2561,9 @@ const styles = StyleSheet.create({
         marginBottom: 20
     },
     excelModalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: 'white'
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#1E293B'
     },
     infoBox: {
         flexDirection: 'row',
@@ -2294,13 +2574,13 @@ const styles = StyleSheet.create({
         marginBottom: 16
     },
     infoTextTitle: {
-        color: '#38bdf8',
+        color: '#0369A1',
         fontWeight: '700',
         fontSize: 14,
         marginBottom: 4
     },
     infoText: {
-        color: '#cbd5e1',
+        color: '#475569',
         fontSize: 13,
         lineHeight: 20
     },
@@ -2325,18 +2605,18 @@ const styles = StyleSheet.create({
         marginBottom: 24
     },
     inputLabel: {
-        color: '#f8fafc',
+        color: '#475569',
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 8
     },
     textInput: {
-        backgroundColor: '#0F172A',
+        backgroundColor: '#F1F5F9',
         borderWidth: 1,
-        borderColor: '#334155',
-        borderRadius: 8,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
         padding: 12,
-        color: 'white',
+        color: '#1E293B',
         fontSize: 14
     },
     inputHint: {
@@ -2355,7 +2635,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center'
     },
     dropzoneTitle: {
-        color: 'white',
+        color: '#1E293B',
         fontWeight: '700',
         fontSize: 16,
         marginBottom: 4,
@@ -2368,35 +2648,35 @@ const styles = StyleSheet.create({
     },
     // Candidate Edit Form Styles
     editSection: {
-        backgroundColor: '#1E293B',
+        backgroundColor: 'white',
         padding: 20,
         marginHorizontal: 20,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#3b82f6',
+        borderColor: '#E2E8F0',
         marginTop: 10,
         marginBottom: 20
     },
     editSectionTitle: {
-        color: 'white',
+        color: '#1E293B',
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 15
     },
     modalLabel: {
-        color: '#94a3b8',
+        color: '#64748B',
         fontSize: 13,
         fontWeight: 'bold',
         marginBottom: 6,
         marginTop: 10
     },
     modalInput: {
-        backgroundColor: '#0F172A',
+        backgroundColor: '#F1F5F9',
         borderWidth: 1,
-        borderColor: '#334155',
-        borderRadius: 8,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
         padding: 12,
-        color: 'white',
+        color: '#1E293B',
         fontSize: 14
     },
     saveEditBtn: {
