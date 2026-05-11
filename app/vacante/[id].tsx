@@ -1016,7 +1016,6 @@ export default function ExternalApplication() {
                             </Text>
                         </View>
                     </View>
-                    </Text>
                     {user && (
                         <View style={styles.userPill}>
                             <CheckCircle2 size={14} color="#10b981" />

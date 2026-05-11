@@ -288,6 +288,7 @@ export default function CompanyProfile() {
 
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
+                <View style={styles.sectionHeader}>
                     <Building2 color="#38bdf8" size={24} />
                     <Text style={styles.sectionTitle}>Datos Corporativos</Text>
                 </View>
