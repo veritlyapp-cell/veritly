@@ -7,10 +7,10 @@ const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 // 🔄 LISTA DE MODELOS OFICIALES (Actualizada mayo 2026)
 // La app probará en este orden hasta que uno funcione.
 const MODELS_TO_TRY = [
-    "gemini-1.5-flash",      // 1. Principal — rápido y capaz
-    "gemini-1.5-pro",        // 2. Alta capacidad — para documentos complejos
-    "gemini-1.5-flash-8b",   // 3. Ultra ligero — para respuestas rápidas
-    "gemini-1.0-pro"         // 4. Fallback estable
+    "gemini-3.1-flash-lite", // 1. Vanguardia (Mayo 2026) — Máxima eficiencia
+    "gemini-2.5-pro",        // 2. Premium — Razonamiento superior
+    "gemini-2.5-flash",      // 3. Estándar — Alta velocidad
+    "gemini-2.0-flash"       // 4. Fallback legacy
 ];
 
 // --- FUNCIÓN INTELIGENTE DE PETICIÓN ---
