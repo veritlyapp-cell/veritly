@@ -134,8 +134,16 @@ export default function JobDetailScreen() {
                         const compDoc = await getDoc(doc(db, 'users_empresas', compId));
                         if (compDoc.exists()) {
                             const compData = compDoc.data();
-                            if (compData.plan?.features) {
-                                setCompanyFeatures(compData.plan.features);
+                            const planId = compData.subscription?.plan || 'beta_free';
+                            
+                            // 🔍 Buscar características en la configuración global del plan
+                            const planConfigDoc = await getDoc(doc(db, 'config_plans', planId));
+                            if (planConfigDoc.exists()) {
+                                const planConfig = planConfigDoc.data();
+                                setCompanyFeatures(planConfig.features || []);
+                            } else {
+                                // Fallback si no hay config de plan (usar los del user si existen)
+                                setCompanyFeatures(compData.subscription?.features || []);
                             }
                         }
                     }
@@ -1057,7 +1065,7 @@ export default function JobDetailScreen() {
                         </View>
                     ) : (
                         <>
-                            {(!companyFeatures.length || companyFeatures.includes("Subida CVs (PDF/Word)")) && (
+                            {(companyFeatures.includes("Subida CVs (PDF/Word)")) && (
                                 <TouchableOpacity 
                                     onPress={handleSelectCVs} 
                                     disabled={processing}
@@ -1072,7 +1080,7 @@ export default function JobDetailScreen() {
                                     </LinearGradient>
                                 </TouchableOpacity>
                             )}
-                            {(!companyFeatures.length || companyFeatures.includes("Subida masiva por Excel")) && (
+                            {(companyFeatures.includes("Subida masiva por Excel")) && (
                                 <TouchableOpacity 
                                     onPress={() => setShowExcelModal(true)}
                                     style={styles.rankingActionBtnSecondary}

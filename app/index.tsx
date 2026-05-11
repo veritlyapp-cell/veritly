@@ -214,21 +214,14 @@ export default function VeritlyLandingPage() {
 
                     <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
                         {systemPlans.map((plan) => {
-                            const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
+                            const isRecommended = plan.isRecommended;
                             const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
-                            
-                            // FORZAR DESPLIEGUE: Si es el plan Pro, ya no es "Soon"
-                            const isComingSoon = isPro ? false : plan.isComingSoon;
-                            
-                            // Fallbacks de precios
-                            let monthlyPrice = plan.priceMonthly;
-                            if (isPro && (!monthlyPrice || monthlyPrice === 0)) {
-                                monthlyPrice = 180;
-                            }
+                            const isComingSoon = plan.isComingSoon;
+                            const monthlyPrice = plan.priceMonthly;
 
                             return (
-                                <View key={plan.id} style={[styles.pricingCard, isPro && !isComingSoon && styles.pricingCardActive]}>
-                                    {isPro && !isComingSoon && (
+                                <View key={plan.id} style={[styles.pricingCard, isRecommended && !isComingSoon && styles.pricingCardActive]}>
+                                    {isRecommended && !isComingSoon && (
                                         <View style={styles.bestValueBadge}>
                                             <Text style={styles.bestValueText}>RECOMENDADO</Text>
                                         </View>
@@ -238,7 +231,7 @@ export default function VeritlyLandingPage() {
                                             <Text style={styles.bestValueText}>PRÓXIMAMENTE</Text>
                                         </View>
                                     )}
-                                    <Text style={[styles.planName, isPro && !isComingSoon && { color: COLORS.primary }]}>{plan.name}</Text>
+                                    <Text style={[styles.planName, isRecommended && !isComingSoon && { color: COLORS.primary }]}>{plan.name}</Text>
                                     <View style={styles.priceRow}>
                                         <Text style={styles.planPrice}>S/ {monthlyPrice || 0}</Text>
                                         <Text style={styles.planPriceUnit}>/ mes</Text>
@@ -251,22 +244,20 @@ export default function VeritlyLandingPage() {
                                         <FeatureItemLanding text={`${plan.aiAnalysisLimit} Análisis de IA`} />
                                         <FeatureItemLanding text={`${plan.internalVacanciesLimit} Vacantes Activas`} />
                                         <FeatureItemLanding text={`${plan.publicVacanciesLimit} Vacantes Públicas`} />
-                                        
                                         {plan.features && plan.features.length > 0 ? (
                                             plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((feat: string) => (
                                                 <FeatureItemLanding key={feat} text={feat} />
                                             ))
                                         ) : (
-                                            isPro && <FeatureItemLanding text="Exportación a Excel/PDF" />
+                                            isRecommended && <FeatureItemLanding text="Exportación a Excel/PDF" />
                                         )}
                                     </View>
-
                                     <TouchableOpacity 
-                                        style={isComingSoon ? styles.planButtonDisabled : (isPro ? styles.planButtonPrimary : styles.planButtonSecondary)}
+                                        style={isComingSoon ? styles.planButtonDisabled : (isRecommended ? styles.planButtonPrimary : styles.planButtonSecondary)}
                                         onPress={() => !isComingSoon && router.push('/empresa/signin?register=true')}
                                         disabled={isComingSoon}
                                     >
-                                        <Text style={isComingSoon ? styles.planButtonDisabledText : (isPro ? styles.planButtonPrimaryText : styles.planButtonSecondaryText)}>
+                                        <Text style={isComingSoon ? styles.planButtonDisabledText : (isRecommended ? styles.planButtonPrimaryText : styles.planButtonSecondaryText)}>
                                             {isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Probar Gratis' : 'Empezar ahora')}
                                         </Text>
                                     </TouchableOpacity>

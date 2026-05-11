@@ -223,22 +223,15 @@ export default function PricingScreen() {
                 
                 {systemPlans.map((plan) => {
                     const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
-                    const isPro = plan.id === 'plan_pro' || plan.name?.toLowerCase() === 'pro';
+                    const isRecommended = plan.isRecommended;
+                    const isComingSoon = plan.isComingSoon;
                     
-                    // FORZAR DESPLIEGUE: Si es el plan Pro, ya no es "Soon"
-                    const isComingSoon = isPro ? false : plan.isComingSoon;
-                    
-                    // Fallbacks de precios si el DB no tiene los nuevos
-                    let price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
-                    if (isPro && (!price || price === 0)) {
-                        price = billingPeriod === 'monthly' ? 180 : 1800;
-                    }
-                    
+                    const price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
                     const isCurrentPlan = auth.currentUser && (auth.currentUser as any).subscription?.plan === plan.name;
 
                     return (
-                        <View key={plan.id} style={[styles.card, isPro && styles.cardPro, isBeta && { borderColor: '#10b981', borderWidth: 2 }, isComingSoon && { opacity: 0.8 }]}>
-                            {isPro && !isComingSoon && (
+                        <View key={plan.id} style={[styles.card, isRecommended && styles.cardPro, isBeta && { borderColor: '#10b981', borderWidth: 2 }, isComingSoon && { opacity: 0.8 }]}>
+                            {isRecommended && !isComingSoon && (
                                 <View style={styles.badgeProContainer}>
                                     <Text style={styles.badgeProText}>RECOMENDADO</Text>
                                 </View>
@@ -249,7 +242,7 @@ export default function PricingScreen() {
                                 </View>
                             )}
 
-                            <Text style={[styles.planName, isPro && { color: '#4F46E5' }]}>{plan.name}</Text>
+                            <Text style={[styles.planName, isRecommended && { color: '#4F46E5' }]}>{plan.name}</Text>
                             <View style={styles.priceRow}>
                                 <Text style={styles.planPrice}>
                                     {locationInfo.symbol} {price || 0}
@@ -258,19 +251,19 @@ export default function PricingScreen() {
                             </View>
                             <Text style={styles.planDesc}>{isBeta ? 'Plan de lanzamiento para consultoras.' : `Plan para potenciar tu reclutamiento.`}</Text>
                             
-                            <View style={[styles.divider, isPro && styles.dividerPro]} />
+                            <View style={[styles.divider, isRecommended && styles.dividerPro]} />
                             
                             <View style={styles.features}>
-                                <FeatureItem text={`${plan.aiAnalysisLimit} Análisis de IA`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
-                                <FeatureItem text={`${plan.internalVacanciesLimit} Vacantes Internas`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
-                                <FeatureItem text={`${plan.publicVacanciesLimit} Vacantes Públicas`} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.aiAnalysisLimit} Análisis de IA`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.internalVacanciesLimit} Vacantes Internas`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.publicVacanciesLimit} Vacantes Públicas`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
                                 
                                 {plan.features && plan.features.length > 0 ? (
                                     plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((feat: string) => (
-                                        <FeatureItem key={feat} text={feat} color="#4B5563" iconColor={isPro ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                        <FeatureItem key={feat} text={feat} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
                                     ))
                                 ) : (
-                                    isPro && <FeatureItem text="Exportación a Excel/PDF" color="#4B5563" iconColor="#4F46E5" />
+                                    isRecommended && <FeatureItem text="Exportación a Excel/PDF" color="#4B5563" iconColor="#4F46E5" />
                                 )}
                             </View>
                             
@@ -284,7 +277,7 @@ export default function PricingScreen() {
                                     disabled={isComingSoon}
                                     style={{ opacity: isComingSoon ? 0.6 : 1 }}
                                 >
-                                    <View style={[styles.buttonPro, { backgroundColor: isComingSoon ? '#9CA3AF' : (isPro ? '#4F46E5' : '#111827') }]}>
+                                    <View style={[styles.buttonPro, { backgroundColor: isComingSoon ? '#9CA3AF' : (isRecommended ? '#4F46E5' : '#111827') }]}>
                                         <Text style={styles.buttonProText}>{isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Empezar Gratis' : 'Contratar')}</Text>
                                     </View>
                                 </TouchableOpacity>

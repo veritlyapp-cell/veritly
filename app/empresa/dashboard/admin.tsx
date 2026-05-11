@@ -65,6 +65,7 @@ export default function EmpresaAdminDashboard() {
         priceMonthly: 0,
         priceAnnual: 0,
         isComingSoon: false,
+        isRecommended: false,
         features: [],
     });
 
@@ -170,6 +171,7 @@ export default function EmpresaAdminDashboard() {
             const planId = newPlan.id || Math.random().toString(36).substring(7);
             await setDoc(doc(db, 'config_plans', planId), {
                 ...newPlan,
+                isRecommended: newPlan.isRecommended || false,
                 updatedAt: new Date()
             });
             Alert.alert("Éxito", "Plan guardado.");
@@ -191,6 +193,7 @@ export default function EmpresaAdminDashboard() {
                 priceMonthly: 0, 
                 priceAnnual: 0, 
                 isComingSoon: false,
+                isRecommended: false,
                 features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Soporte Directo"]
             },
             { 
@@ -199,9 +202,9 @@ export default function EmpresaAdminDashboard() {
                 aiAnalysisLimit: 500, 
                 internalVacanciesLimit: 20, 
                 publicVacanciesLimit: 5, 
-                priceMonthly: 180, 
                 priceAnnual: 1800, 
-                isComingSoon: true,
+                isComingSoon: false,
+                isRecommended: true,
                 features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Filtros Avanzados"]
             },
             { 
@@ -210,9 +213,9 @@ export default function EmpresaAdminDashboard() {
                 aiAnalysisLimit: 2000, 
                 internalVacanciesLimit: 50, 
                 publicVacanciesLimit: 15, 
-                priceMonthly: 400, 
                 priceAnnual: 4000, 
                 isComingSoon: true,
+                isRecommended: false,
                 features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica"]
             },
         ];
@@ -266,6 +269,7 @@ export default function EmpresaAdminDashboard() {
                 priceMonthly: 0,
                 priceAnnual: 0,
                 isComingSoon: false,
+                isRecommended: false,
                 features: [],
             });
         }
@@ -309,6 +313,7 @@ export default function EmpresaAdminDashboard() {
             <View style={{ flex: 1.5 }}>
                 <Text style={styles.cellSub}>IA: {item.aiAnalysisLimit}</Text>
                 <Text style={styles.cellSub}>S/ {item.priceMonthly || 0} mes</Text>
+                {item.isRecommended && <Text style={[styles.cellSub, { color: COLORS.success, fontWeight: 'bold' }]}>★ RECOMENDADO</Text>}
                 <Text style={styles.cellSub}>{item.features?.length || 0} características</Text>
             </View>
             <TouchableOpacity style={styles.actionBtn} onPress={() => openPlanModal(item)}>
@@ -515,6 +520,17 @@ export default function EmpresaAdminDashboard() {
                                             {newPlan.isComingSoon && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
                                         </View>
                                         <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Próximamente</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                    <TouchableOpacity 
+                                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}
+                                        onPress={() => setNewPlan({...newPlan, isRecommended: !newPlan.isRecommended})}
+                                    >
+                                        <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.success, backgroundColor: newPlan.isRecommended ? COLORS.success : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                            {newPlan.isRecommended && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                                        </View>
+                                        <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Recomendado</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
