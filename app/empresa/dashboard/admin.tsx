@@ -1,6 +1,6 @@
-import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where, limit } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus } from 'lucide-react-native';
+import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus, MessageSquare } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, TextInput, Modal, Platform } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -41,7 +41,8 @@ export default function EmpresaAdminDashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [totalB2C, setTotalB2C] = useState(0);
-    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes'>('cuentas');
+    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback'>('cuentas');
+    const [feedback, setFeedback] = useState<any[]>([]);
     
     // Edit Modal State (Cuentas)
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -92,9 +93,10 @@ export default function EmpresaAdminDashboard() {
             setPlans(plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
             // Fetch B2C metrics
+            // Fetch Feedback
             try {
-                const b2cSnapshot = await getDocs(query(collection(db, 'users_candidatos')));
-                setTotalB2C(b2cSnapshot.size);
+                const feedbackSnap = await getDocs(query(collection(db, 'feedback'), orderBy('createdAt', 'desc'), limit(50)));
+                setFeedback(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             } catch(e) {}
         } catch (error) {
             console.error("Error cargando data admin:", error);
@@ -141,6 +143,12 @@ export default function EmpresaAdminDashboard() {
                         onPress={() => setActiveTab('planes')}
                     >
                         <Text style={[styles.tabBtnText, activeTab === 'planes' && styles.tabBtnTextActive]}>Configurar Planes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'feedback' && styles.tabBtnActive]}
+                        onPress={() => setActiveTab('feedback')}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'feedback' && styles.tabBtnTextActive]}>Sugerencias</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -356,7 +364,9 @@ export default function EmpresaAdminDashboard() {
                     
                     <View style={styles.tableContainer}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                            <Text style={styles.sectionTitle}>{activeTab === 'cuentas' ? 'Cuentas B2B' : 'Planes del Sistema'}</Text>
+                            <Text style={styles.sectionTitle}>
+                                {activeTab === 'cuentas' ? 'Cuentas B2B' : (activeTab === 'planes' ? 'Planes del Sistema' : 'Sugerencias / Feedback')}
+                            </Text>
                             {activeTab === 'planes' && (
                                 <View style={{ flexDirection: 'row', gap: 10 }}>
                                     {plans.length === 0 && (
@@ -374,11 +384,24 @@ export default function EmpresaAdminDashboard() {
                         </View>
                         
                         <FlatList
-                            data={activeTab === 'cuentas' ? companies : plans}
+                            data={activeTab === 'cuentas' ? companies : (activeTab === 'planes' ? plans : feedback)}
                             keyExtractor={i => i.uid || i.id}
-                            renderItem={activeTab === 'cuentas' ? renderRow : renderPlanRow}
+                            renderItem={({ item }) => {
+                                if (activeTab === 'cuentas') return renderRow({ item });
+                                if (activeTab === 'planes') return renderPlanRow({ item });
+                                return (
+                                    <View style={styles.feedbackCard}>
+                                        <View style={styles.feedbackHeader}>
+                                            <Text style={styles.feedbackEmail}>{item.email}</Text>
+                                            <Text style={styles.feedbackDate}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'}</Text>
+                                        </View>
+                                        <Text style={styles.feedbackMessage}>{item.message}</Text>
+                                    </View>
+                                );
+                            }}
                             contentContainerStyle={{ paddingBottom: 50 }}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={COLORS.primary} />}
+                            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30, color: COLORS.textTertiary }}>No hay datos para mostrar.</Text>}
                         />
                     </View>
                 </View>
@@ -621,5 +644,10 @@ const styles = StyleSheet.create({
     cancelBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.05)' },
     cancelBtnText: { color: COLORS.textSecondary, fontWeight: '700' },
     saveBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 14, backgroundColor: COLORS.primary },
-    saveBtnText: { color: 'white', fontWeight: '800' }
+    saveBtnText: { color: 'white', fontWeight: '800' },
+    feedbackCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+    feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    feedbackEmail: { fontWeight: 'bold', color: '#111827', fontSize: 14 },
+    feedbackDate: { color: '#64748b', fontSize: 12 },
+    feedbackMessage: { color: '#374151', fontSize: 14, lineHeight: 20 },
 });

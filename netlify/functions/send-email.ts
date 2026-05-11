@@ -5,9 +5,10 @@ import nodemailer from 'nodemailer';
 export const handler: Handler = async (event, context) => {
     // CORS Headers
     // A-01 FIX: CORS restringido a los dominios de Veritly (previene uso como relay de spam)
-    const allowedOrigins = ['https://www.veritlyapp.com', 'https://veritlyapp.com'];
     const origin = event.headers.origin || event.headers.Origin || '';
-    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    const isNetlifyPreview = origin.endsWith('.netlify.app');
+    const allowedOrigins = ['https://www.veritlyapp.com', 'https://veritlyapp.com'];
+    const corsOrigin = (allowedOrigins.includes(origin) || isNetlifyPreview) ? origin : allowedOrigins[0];
 
     const headers = {
         'Access-Control-Allow-Origin': corsOrigin,
