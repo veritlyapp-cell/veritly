@@ -1117,33 +1117,35 @@ export default function JobDetailScreen() {
                                 onLongPress={() => toggleSelection(item.id)}
                             >
                                 <View style={styles.cardContent}>
-                                    {isSelectionMode && (
-                                        <View style={{ marginRight: 12 }}>
-                                            {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                    <View style={styles.cardTopRow}>
+                                        {isSelectionMode && (
+                                            <View style={{ marginRight: 12 }}>
+                                                {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                            </View>
+                                        )}
+                                        <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
+                                            <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                            <View style={styles.validationSeal}>
+                                                <CheckCircle2 color="#2563EB" size={18} fill="white" />
+                                            </View>
                                         </View>
-                                    )}
-                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
-                                        <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
-                                        <View style={styles.validationSeal}>
-                                            <CheckCircle2 color="#2563EB" size={18} fill="white" />
-                                        </View>
-                                    </View>
 
-                                    <View style={styles.cardInfo}>
-                                        <Text style={styles.candidateName}>{item.name}</Text>
-                                        <Text style={styles.candidateSalary}>
-                                            Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
-                                        </Text>
-                                        <Text style={styles.candidateDate}>
-                                            {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
-                                                day: 'numeric',
-                                                month: 'short'
-                                            })}
-                                        </Text>
-                                        <View style={[styles.statusPill, { backgroundColor: item.recruitmentStatus === 'sourcing_pending' ? 'rgba(66, 69, 194, 0.15)' : 'rgba(56, 189, 248, 0.1)' }]}>
-                                            <Text style={[styles.statusPillText, { color: item.recruitmentStatus === 'sourcing_pending' ? '#38bdf8' : '#38bdf8' }]}>
-                                                {item.recruitmentStatus === 'sourcing_pending' ? 'IMPORTADO LINKEDIN' : 'PENDIENTE REVISIÓN'}
+                                        <View style={styles.cardInfo}>
+                                            <Text style={styles.candidateName} numberOfLines={2}>{item.name}</Text>
+                                            <Text style={styles.candidateSalary}>
+                                                Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
                                             </Text>
+                                            <Text style={styles.candidateDate}>
+                                                {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
+                                                    day: 'numeric',
+                                                    month: 'short'
+                                                })}
+                                            </Text>
+                                            <View style={[styles.statusPill, { backgroundColor: item.recruitmentStatus === 'sourcing_pending' ? 'rgba(66, 69, 194, 0.15)' : 'rgba(56, 189, 248, 0.1)' }]}>
+                                                <Text style={[styles.statusPillText, { color: item.recruitmentStatus === 'sourcing_pending' ? '#38bdf8' : '#38bdf8' }]}>
+                                                    {item.recruitmentStatus === 'sourcing_pending' ? 'IMPORTADO LINKEDIN' : 'PENDIENTE REVISIÓN'}
+                                                </Text>
+                                            </View>
                                         </View>
                                     </View>
 
@@ -2132,10 +2134,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(79, 70, 229, 0.05)'
     },
     cardContent: {
-        flexDirection: 'row',
         padding: 16,
+    },
+    cardTopRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        flexWrap: 'wrap', // Permite que los elementos bajen si no hay espacio
+        marginBottom: 12,
     },
     progressContainer: {
         marginRight: 12,
@@ -2151,26 +2155,24 @@ const styles = StyleSheet.create({
     },
     cardInfo: {
         flex: 1,
-        minWidth: 150, // Asegura que el texto no se estruje
-        marginVertical: 4
     },
     candidateName: {
         fontSize: 18,
         fontWeight: '800',
         color: '#111827',
-        marginBottom: 6,
+        marginBottom: 4,
         letterSpacing: -0.3
     },
     candidateSalary: {
         fontSize: 13,
         color: '#059669',
         fontWeight: '600',
-        marginBottom: 6
+        marginBottom: 2
     },
     candidateDate: {
         fontSize: 12,
         color: '#6B7280',
-        marginBottom: 10
+        marginBottom: 8
     },
     statusPill: {
         alignSelf: 'flex-start',
@@ -2187,8 +2189,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 8,
         flexWrap: 'wrap',
-        marginTop: 10,
-        minWidth: '100%', // En móviles pequeños, esto forzará que ocupen su propia fila si es necesario
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9'
     },
     iconButton: {
         width: 40,
