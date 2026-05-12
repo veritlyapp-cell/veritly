@@ -2133,11 +2133,12 @@ const styles = StyleSheet.create({
     },
     cardContent: {
         flexDirection: 'row',
-        padding: 20,
-        alignItems: 'center'
+        padding: 16,
+        alignItems: 'center',
+        flexWrap: 'wrap', // Permite que los elementos bajen si no hay espacio
     },
     progressContainer: {
-        marginRight: 20,
+        marginRight: 12,
         position: 'relative'
     },
     validationSeal: {
@@ -2149,7 +2150,9 @@ const styles = StyleSheet.create({
         padding: 2,
     },
     cardInfo: {
-        flex: 1
+        flex: 1,
+        minWidth: 150, // Asegura que el texto no se estruje
+        marginVertical: 4
     },
     candidateName: {
         fontSize: 18,
@@ -2182,7 +2185,10 @@ const styles = StyleSheet.create({
     },
     quickActions: {
         flexDirection: 'row',
-        gap: 8
+        gap: 8,
+        flexWrap: 'wrap',
+        marginTop: 10,
+        minWidth: '100%', // En móviles pequeños, esto forzará que ocupen su propia fila si es necesario
     },
     iconButton: {
         width: 40,

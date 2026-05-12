@@ -160,8 +160,8 @@ export default function CompanyJobs() {
         const isActive = item.status !== 'Closed';
         return (
         <View style={[styles.jobCard, !isActive && { borderLeftColor: '#64748b', opacity: 0.7 }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+                <View style={{ flex: 1, minWidth: 200 }}>
                     <Text style={styles.jobTitle}>{item.jobTitle}</Text>
                     <Text style={styles.jobMeta}>{item.location || "Remoto"} • {item.employmentType || "Tiempo Completo"}</Text>
                 </View>
@@ -179,8 +179,8 @@ export default function CompanyJobs() {
                 </TouchableOpacity>
             </View>
 
-            <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'space-between', alignItems: 'center' }}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => router.push(`/empresa/job/${item.id}`)}>
+            <View style={{ flexDirection: 'row', marginTop: 15, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 15 }}>
+                <TouchableOpacity style={[styles.actionButton, { flex: 1, minWidth: 140 }]} onPress={() => router.push(`/empresa/job/${item.id}`)}>
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>VER CANDIDATOS</Text>
                     {item.candidateCount > 0 && (
                         <View style={styles.candidateBadge}>
@@ -189,10 +189,10 @@ export default function CompanyJobs() {
                     )}
                 </TouchableOpacity>
 
-                <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
                     {item.isExternal && (
                         <TouchableOpacity
-                            style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
                             onPress={async () => {
                                 await setStringAsync(`https://veritlyapp.com/vacante/${item.id}`);
                                 Alert.alert("URL copiado", "Comparte este enlace para recibir postulaciones.");
@@ -203,14 +203,14 @@ export default function CompanyJobs() {
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
+                        style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
                         onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
                     >
                         <Pencil color="#94a3b8" size={20} />
                         <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.iconButton, { alignItems: 'center', minWidth: 60 }]}
+                        style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
                         onPress={() => handleDeleteJob(item.id, item.jobTitle)}
                     >
                         <Trash2 color="#ef4444" size={20} />

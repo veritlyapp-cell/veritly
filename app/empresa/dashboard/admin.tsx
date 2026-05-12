@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     tabBtnTextActive: { color: 'white' },
 
     tableContainer: { flex: 1, backgroundColor: COLORS.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
-    tableRow: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.border, alignItems: 'center' },
+    tableRow: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.border, alignItems: 'center', flexWrap: 'wrap', gap: 10 },
     cellMain: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 15 },
     cellSub: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
     cellValue: { color: COLORS.primary, fontSize: 14, fontWeight: '800' },
