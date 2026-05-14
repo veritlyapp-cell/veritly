@@ -52,6 +52,7 @@ export default function EmpresaAdminDashboard() {
         aiAnalysisLimit: 0,
         internalVacanciesLimit: 0,
         publicVacanciesLimit: 0,
+        killerQuestionsLimit: 0,
     });
 
     // Plan Modal State
@@ -60,14 +61,9 @@ export default function EmpresaAdminDashboard() {
     const [newPlan, setNewPlan] = useState({
         id: '',
         name: '',
-        aiAnalysisLimit: 0,
-        internalVacanciesLimit: 0,
-        publicVacanciesLimit: 0,
-        priceMonthly: 0,
-        priceAnnual: 0,
-        isComingSoon: false,
         isRecommended: false,
         features: [],
+        killerQuestionsLimit: 2,
     });
 
     useEffect(() => {
@@ -196,8 +192,9 @@ export default function EmpresaAdminDashboard() {
                 id: 'beta_free', 
                 name: 'Beta Free', 
                 aiAnalysisLimit: 200, 
-                internalVacanciesLimit: 5, 
-                publicVacanciesLimit: 3, 
+                internalVacanciesLimit: 10, 
+                publicVacanciesLimit: 5, 
+                killerQuestionsLimit: 3, 
                 priceMonthly: 0, 
                 priceAnnual: 0, 
                 isComingSoon: false,
@@ -210,6 +207,7 @@ export default function EmpresaAdminDashboard() {
                 aiAnalysisLimit: 500, 
                 internalVacanciesLimit: 20, 
                 publicVacanciesLimit: 5, 
+                killerQuestionsLimit: 5, 
                 priceAnnual: 1800, 
                 isComingSoon: false,
                 isRecommended: true,
@@ -221,6 +219,7 @@ export default function EmpresaAdminDashboard() {
                 aiAnalysisLimit: 2000, 
                 internalVacanciesLimit: 50, 
                 publicVacanciesLimit: 15, 
+                killerQuestionsLimit: 10, 
                 priceAnnual: 4000, 
                 isComingSoon: true,
                 isRecommended: false,
@@ -256,8 +255,9 @@ export default function EmpresaAdminDashboard() {
         setEditSub({
             plan: comp.subscription?.plan || 'beta_free',
             aiAnalysisLimit: comp.subscription?.aiAnalysisLimit || 200,
-            internalVacanciesLimit: comp.subscription?.internalVacanciesLimit || 5,
-            publicVacanciesLimit: comp.subscription?.publicVacanciesLimit || 3,
+            internalVacanciesLimit: comp.subscription?.internalVacanciesLimit || 10,
+            publicVacanciesLimit: comp.subscription?.publicVacanciesLimit || 5,
+            killerQuestionsLimit: comp.subscription?.killerQuestionsLimit || 2,
         });
         setEditModalVisible(true);
     };
@@ -272,8 +272,9 @@ export default function EmpresaAdminDashboard() {
                 id: '',
                 name: '',
                 aiAnalysisLimit: 200,
-                internalVacanciesLimit: 5,
-                publicVacanciesLimit: 3,
+                internalVacanciesLimit: 10,
+                publicVacanciesLimit: 5,
+                killerQuestionsLimit: 2,
                 priceMonthly: 0,
                 priceAnnual: 0,
                 isComingSoon: false,
@@ -321,6 +322,7 @@ export default function EmpresaAdminDashboard() {
             <View style={{ flex: 1.5 }}>
                 <Text style={styles.cellSub}>IA: {item.aiAnalysisLimit}</Text>
                 <Text style={styles.cellSub}>S/ {item.priceMonthly || 0} mes</Text>
+                <Text style={styles.cellSub}>Filtros: {item.killerQuestionsLimit || 0} preguntas</Text>
                 {item.isRecommended && <Text style={[styles.cellSub, { color: COLORS.success, fontWeight: 'bold' }]}>★ RECOMENDADO</Text>}
                 <Text style={styles.cellSub}>{item.features?.length || 0} características</Text>
             </View>
@@ -424,7 +426,7 @@ export default function EmpresaAdminDashboard() {
                         <Text style={styles.label}>Límite Análisis IA</Text>
                         <TextInput 
                             style={styles.input}
-                            value={editSub.aiAnalysisLimit.toString()}
+                            value={(editSub.aiAnalysisLimit || 0).toString()}
                             onChangeText={t => setEditSub({...editSub, aiAnalysisLimit: parseInt(t) || 0})}
                             keyboardType="numeric"
                         />
@@ -434,7 +436,7 @@ export default function EmpresaAdminDashboard() {
                                 <Text style={styles.label}>Vacantes Internas</Text>
                                 <TextInput 
                                     style={styles.input}
-                                    value={editSub.internalVacanciesLimit.toString()}
+                                    value={(editSub.internalVacanciesLimit || 0).toString()}
                                     onChangeText={t => setEditSub({...editSub, internalVacanciesLimit: parseInt(t) || 0})}
                                     keyboardType="numeric"
                                 />
@@ -443,12 +445,20 @@ export default function EmpresaAdminDashboard() {
                                 <Text style={styles.label}>Vacantes Públicas</Text>
                                 <TextInput 
                                     style={styles.input}
-                                    value={editSub.publicVacanciesLimit.toString()}
+                                    value={(editSub.publicVacanciesLimit || 0).toString()}
                                     onChangeText={t => setEditSub({...editSub, publicVacanciesLimit: parseInt(t) || 0})}
                                     keyboardType="numeric"
                                 />
                             </View>
                         </View>
+
+                        <Text style={styles.label}>Límite Preguntas Filtro (Killer)</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={(editSub.killerQuestionsLimit || 0).toString()}
+                            onChangeText={t => setEditSub({...editSub, killerQuestionsLimit: parseInt(t) || 0})}
+                            keyboardType="numeric"
+                        />
 
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 25 }}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
@@ -487,7 +497,7 @@ export default function EmpresaAdminDashboard() {
                             <Text style={styles.label}>Límite Análisis IA</Text>
                             <TextInput 
                                 style={styles.input}
-                                value={newPlan.aiAnalysisLimit.toString()}
+                                value={(newPlan.aiAnalysisLimit || 0).toString()}
                                 onChangeText={t => setNewPlan({...newPlan, aiAnalysisLimit: parseInt(t) || 0})}
                                 keyboardType="numeric"
                             />
@@ -518,8 +528,20 @@ export default function EmpresaAdminDashboard() {
                                     <Text style={styles.label}>Vacantes Internas</Text>
                                     <TextInput 
                                         style={styles.input}
-                                        value={newPlan.internalVacanciesLimit.toString()}
+                                        value={(newPlan.internalVacanciesLimit || 0).toString()}
                                         onChangeText={t => setNewPlan({...newPlan, internalVacanciesLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Límite Preguntas Filtro (Killer)</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={(newPlan.killerQuestionsLimit || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, killerQuestionsLimit: parseInt(t) || 0})}
                                         keyboardType="numeric"
                                     />
                                 </View>
@@ -529,7 +551,7 @@ export default function EmpresaAdminDashboard() {
                                     <Text style={styles.label}>Vacantes Públicas</Text>
                                     <TextInput 
                                         style={styles.input}
-                                        value={newPlan.publicVacanciesLimit.toString()}
+                                        value={(newPlan.publicVacanciesLimit || 0).toString()}
                                         onChangeText={t => setNewPlan({...newPlan, publicVacanciesLimit: parseInt(t) || 0})}
                                         keyboardType="numeric"
                                     />

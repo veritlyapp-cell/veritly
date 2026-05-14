@@ -41,6 +41,7 @@ export default function CreateJob() {
         rubro: string;
         beneficios: string;
     } | null>(null);
+    const [userData, setUserData] = useState<any>(null);
 
     // Limpiar estado cuando vuelves a "Nuevo Perfil" (sin ID)
     useFocusEffect(
@@ -74,19 +75,43 @@ export default function CreateJob() {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    let subscription = data.subscription || { plan: 'beta_free' };
+                    
+                    // [FIX] Query by 'id' field instead of Doc ID
+                    try {
+                        const planId = (subscription.plan || 'beta_free').toLowerCase().replace(' ', '_');
+                        const plansRef = collection(db, 'config_plans');
+                        const qPlan = query(plansRef, where('id', '==', planId));
+                        const planSnap = await getDocs(qPlan);
+                        
+                        if (!planSnap.empty) {
+                            const planData = planSnap.docs[0].data();
+                            subscription = {
+                                ...subscription,
+                                internalVacanciesLimit: planData.internalVacanciesLimit ?? subscription.internalVacanciesLimit,
+                                publicVacanciesLimit: planData.publicVacanciesLimit ?? subscription.publicVacanciesLimit,
+                                killerQuestionsLimit: planData.killerQuestionsLimit ?? subscription.killerQuestionsLimit,
+                                aiAnalysisLimit: planData.aiAnalysisLimit ?? subscription.aiAnalysisLimit
+                            };
+                        }
+                    } catch (planErr) {
+                        console.error("Error syncing plan limits:", planErr);
+                    }
+
+                    setUserData({ ...data, subscription });
                     setCompanyContext({
-                        nombreComercial: data.company?.name || data.nombreComercial || '', // [FIX] Read from nested company.name
+                        nombreComercial: data.company?.name || data.nombreComercial || '', 
                         rubro: data.aiContext?.rubro || '',
                         beneficios: data.aiContext?.beneficios || ''
                     });
-                    console.log("📊 Contexto empresa cargado:", data.nombreComercial, data.aiContext?.rubro);
+                    console.log("📊 Contexto y Límites de Plan sincronizados");
                 }
             } catch (e) {
                 console.error("Error cargando contexto empresa:", e);
             }
         };
         loadCompanyContext();
-    }, []);
+    }, [auth.currentUser]);
 
     const loadJobData = async (jobId: string | string[]) => {
         setInitializing(true);
@@ -275,14 +300,13 @@ export default function CreateJob() {
                 // Validar Límite de Vacantes Activas
                 const jobsQ = query(
                     collection(db, 'jobs'), 
-                    where('companyId', '==', auth.currentUser.uid), 
-                    where('status', '==', 'Open')
+                    where('companyId', '==', auth.currentUser.uid)
                 );
                 const jobsSnap = await getDocs(jobsQ);
                 
                 const userSnap = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
                 const userData = userSnap.data();
-                const limit = userData?.subscription?.jobsLimit || 2; // Default 2 para Beta
+                const limit = userData?.subscription?.internalVacanciesLimit || 10; 
 
                 if (jobsSnap.size >= limit) {
                     throw new Error(`Has alcanzado el límite de vacantes activas para tu plan (${limit}). Pasa a PRO o cierra una vacante existente para publicar más.`);
@@ -572,10 +596,10 @@ export default function CreateJob() {
                                             <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#334155', paddingTop: 15 }}>
                                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                                                     <View style={{ flex: 1 }}>
-                                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Killer Questions (Máx 2)</Text>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Preguntas Filtro (Máx {userData?.subscription?.killerQuestionsLimit || 3})</Text>
                                                         <Text style={{ color: '#94a3b8', fontSize: 11 }}>Preguntas Sí/No que descartan automáticamente.</Text>
                                                     </View>
-                                                    {(jobData?.killerQuestions?.length || 0) < 2 && (
+                                                    {(jobData?.killerQuestions?.length || 0) < (userData?.subscription?.killerQuestionsLimit || 3) && (
                                                         <TouchableOpacity 
                                                             style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#3b82f6' }}
                                                             onPress={() => {

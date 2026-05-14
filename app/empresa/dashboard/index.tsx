@@ -49,12 +49,31 @@ export default function CompanyDashboard() {
             }
 
             const userData = userDoc.data();
-            setUserSubscription(userData.subscription || {
-                plan: 'Beta Free',
-                aiAnalysisLimit: 200,
-                internalVacanciesLimit: 5,
-                publicVacanciesLimit: 3
-            });
+            let subscription = userData.subscription || { plan: 'beta_free' };
+            
+            // [FIX] Query by 'id' field instead of Doc ID
+            try {
+                const planId = (subscription.plan || 'beta_free').toLowerCase().replace(' ', '_');
+                const plansRef = collection(db, 'config_plans');
+                const qPlan = query(plansRef, where('id', '==', planId));
+                const planSnap = await getDocs(qPlan);
+                
+                if (!planSnap.empty) {
+                    const planData = planSnap.docs[0].data();
+                    subscription = {
+                        ...subscription,
+                        internalVacanciesLimit: planData.internalVacanciesLimit ?? subscription.internalVacanciesLimit,
+                        publicVacanciesLimit: planData.publicVacanciesLimit ?? subscription.publicVacanciesLimit,
+                        killerQuestionsLimit: planData.killerQuestionsLimit ?? subscription.killerQuestionsLimit,
+                        aiAnalysisLimit: planData.aiAnalysisLimit ?? subscription.aiAnalysisLimit,
+                        planName: planData.name || subscription.planName
+                    };
+                }
+            } catch (planErr) {
+                console.error("Error syncing dashboard plan limits:", planErr);
+            }
+
+            setUserSubscription(subscription);
             const q = query(
                 collection(db, 'jobs'),
                 where('companyId', '==', auth.currentUser.uid)
@@ -90,8 +109,10 @@ export default function CompanyDashboard() {
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
-        }, [])
+            if (auth.currentUser) {
+                loadData();
+            }
+        }, [auth.currentUser])
     );
 
     const onRefresh = () => {
@@ -145,7 +166,7 @@ export default function CompanyDashboard() {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.welcomeTitle}>Dashboard</Text>
-                    <Text style={styles.welcomeSub}>{jobs.length} Puestos Publicados</Text>
+                    <Text style={styles.welcomeSub}>{jobs.length} Puestos en total</Text>
                 </View>
                 <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
                     <LogOut color={COLORS.error} size={20} />
@@ -184,11 +205,11 @@ export default function CompanyDashboard() {
                         {/* Internal Vacancies */}
                         <View style={styles.limitMiniCard}>
                             <View style={styles.limitMiniHeader}>
-                                <Text style={styles.limitMiniLabel}>Puestos Internos</Text>
-                                <Text style={styles.limitMiniValue}>{activeJobsCount} / {userSubscription?.internalVacanciesLimit || 5}</Text>
+                                <Text style={styles.limitMiniLabel}>Capacidad Total</Text>
+                                <Text style={styles.limitMiniValue}>{jobs.length} / {userSubscription?.internalVacanciesLimit || 10}</Text>
                             </View>
                             <View style={styles.miniBarBg}>
-                                <View style={[styles.miniBarFill, { width: `${Math.min((activeJobsCount / (userSubscription?.internalVacanciesLimit || 5)) * 100, 100)}%` }]} />
+                                <View style={[styles.miniBarFill, { width: `${Math.min((activeJobsCount / (userSubscription?.internalVacanciesLimit || 10)) * 100, 100)}%` }]} />
                             </View>
                         </View>
 
@@ -196,10 +217,10 @@ export default function CompanyDashboard() {
                         <View style={styles.limitMiniCard}>
                             <View style={styles.limitMiniHeader}>
                                 <Text style={styles.limitMiniLabel}>Puestos Públicos</Text>
-                                <Text style={styles.limitMiniValue}>{publicJobsCount} / {userSubscription?.publicVacanciesLimit || 3}</Text>
+                                <Text style={styles.limitMiniValue}>{publicJobsCount} / {userSubscription?.publicVacanciesLimit || 5}</Text>
                             </View>
                             <View style={styles.miniBarBg}>
-                                <View style={[styles.miniBarFill, { width: `${Math.min((publicJobsCount / (userSubscription?.publicVacanciesLimit || 3)) * 100, 100)}%`, backgroundColor: COLORS.accent }]} />
+                                <View style={[styles.miniBarFill, { width: `${Math.min((publicJobsCount / (userSubscription?.publicVacanciesLimit || 5)) * 100, 100)}%`, backgroundColor: COLORS.accent }]} />
                             </View>
                         </View>
                     </View>
