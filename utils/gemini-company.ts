@@ -164,7 +164,8 @@ export const optimizeJobDescription = async (text: string, companyContext?: Comp
        - Responsabilidades (usa viñetas)
        - Requisitos (usa viñetas)
        - Ofrecemos (usa viñetas, incluye los beneficios de la empresa si hay)
-       - Cómo postular
+    
+    5. IMPORTANTE: NO incluyas ninguna sección de "Cómo postular" ni pidas enviar currículums por correo electrónico. La postulación se maneja internamente.
 
     Empieza DIRECTAMENTE con el Título del Puesto.
     `;

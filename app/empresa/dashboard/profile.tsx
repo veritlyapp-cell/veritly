@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X, Camera, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
@@ -18,6 +19,7 @@ export default function CompanyProfile() {
     const [nombreComercial, setNombreComercial] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [uploadingLogo, setUploadingLogo] = useState(false);
+    const [isRucFromDb, setIsRucFromDb] = useState(false);
 
     // UBICACIÓN (Perú)
     const [departamento, setDepartamento] = useState('Lima');
@@ -86,17 +88,24 @@ export default function CompanyProfile() {
                     const data = docSnap.data();
                     console.log("✅ Perfil cargado:", data);
 
-                    // [FIX] Read from nested 'company' object
-                    if (data.company) {
-                        setRuc(data.company.ruc || '');
-                        setRazonSocial(data.company.razonSocial || '');
-                        setNombreComercial(data.company.name || ''); // 'name' is Commercial Name
-                    } else {
-                        // Fallback for legacy data (if any was created at root)
-                        setRuc(data.ruc || '');
-                        setRazonSocial(data.razonSocial || '');
-                        setNombreComercial(data.nombreComercial || '');
+                    // [FIX] Búsqueda exhaustiva de datos (Nueva estructura -> Antigua -> Raíz)
+                    const companyData = data.company || {};
+                    
+                    // Prioridad de búsqueda de RUC
+                    const rucValue = companyData.ruc || data.ruc || data.taxId || '';
+                    
+                    // Prioridad de Razón Social
+                    const razonSocialValue = companyData.razonSocial || data.razonSocial || data.companyName || '';
+                    
+                    // Prioridad de Nombre Comercial
+                    const nameValue = companyData.name || data.nombreComercial || data.name || '';
+
+                    if (rucValue && rucValue.trim() !== '') {
+                        setRuc(rucValue.trim());
+                        setIsRucFromDb(true);
                     }
+                    setRazonSocial(razonSocialValue);
+                    setNombreComercial(nameValue);
 
                     if (data.location) {
                         setDepartamento(data.location.departamento || 'Lima');
@@ -163,6 +172,12 @@ export default function CompanyProfile() {
             return Alert.alert("Faltan Datos", "Por favor completa: \n- " + missing.join("\n- "));
         }
 
+        // [SAFETY] Validación de formato RUC (Solo números y exactamente 11 dígitos)
+        const cleanRuc = ruc.trim();
+        if (cleanRuc.length !== 11 || !/^\d+$/.test(cleanRuc)) {
+            return Alert.alert("RUC Inválido", "El RUC debe tener exactamente 11 números. Verifica que no tenga espacios ni letras.");
+        }
+
         setLoading(true);
         try {
             const user = auth.currentUser;
@@ -200,10 +215,16 @@ export default function CompanyProfile() {
             // updateDoc parses "company.ruc" as nested field update.
             await updateDoc(doc(db, 'users_empresas', user.uid), updateData);
             console.log("✅ Perfil guardado en users_empresas");
-            Alert.alert("¡Actualizado!", "Tus datos han sido guardados correctamente.");
+            Alert.alert("¡Éxito!", "Tus datos han sido guardados correctamente.");
+            
+            // Redirección automática después de 1.5 segundos
+            setTimeout(() => {
+                router.push('/empresa/dashboard/puestos');
+            }, 1500);
 
         } catch (e: any) {
-            Alert.alert("Error al Guardar", e.message);
+            console.error("❌ Error al guardar perfil:", e);
+            Alert.alert("Error al Guardar", "No se pudo guardar la información. Puede ser un problema de permisos en Firestore. \n\nDetalle: " + e.message);
         } finally {
             setLoading(false);
         }
@@ -237,23 +258,39 @@ export default function CompanyProfile() {
 
             setUploadingLogo(true);
             const { uri } = result.assets[0];
+            console.log("📸 Imagen seleccionada URI:", uri);
 
-            // 1. Convertir URI a Blob
-            const response = await fetch(uri);
-            const blob = await response.blob();
+            // [FIX] Mejor manejo de carga para evitar cuelgues
+            let blob;
+            try {
+                console.log("⏳ Convirtiendo URI a Blob...");
+                const response = await fetch(uri);
+                blob = await response.blob();
+                console.log("✅ Blob creado. Tamaño:", blob.size, "bytes");
+            } catch (fetchErr) {
+                console.error("❌ Error en fetch/blob:", fetchErr);
+                throw new Error("No se pudo procesar la imagen seleccionada.");
+            }
 
-            // 2. Subir a Firebase Storage
+            // Validar tamaño (máx 2MB)
+            if (blob.size > 2 * 1024 * 1024) {
+                throw new Error("La imagen es demasiado grande. Máximo 2MB.");
+            }
+
+            console.log("🚀 Subiendo a Firebase Storage...");
             const storageRef = ref(storage, `logos/${auth.currentUser?.uid}_${Date.now()}`);
+            
             await uploadBytes(storageRef, blob);
+            console.log("✅ Subida completada a Storage");
 
-            // 3. Obtener URL
             const url = await getDownloadURL(storageRef);
+            console.log("🔗 URL obtenida:", url);
             setLogoUrl(url);
             
             Alert.alert("¡Éxito!", "Logo cargado. No olvides guardar los cambios al final.");
         } catch (e: any) {
-            console.error("Error uploading logo:", e);
-            Alert.alert("Error", "No se pudo subir el logo: " + e.message);
+            console.error("Error completo subida logo:", e);
+            Alert.alert("Error de Carga", e.message || "No se pudo subir la imagen. Verifica tu conexión.");
         } finally {
             setUploadingLogo(false);
         }
@@ -324,8 +361,18 @@ export default function CompanyProfile() {
 
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>RUC</Text>
-                    <TextInput style={styles.input} value={ruc} onChangeText={setRuc} keyboardType="numeric" maxLength={11} editable={false} selectTextOnFocus={false} />
-                    <Text style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>El RUC no se puede editar.</Text>
+                    <TextInput 
+                        style={[styles.input, !isRucFromDb && { backgroundColor: '#FFFFFF', borderColor: '#4F46E5' }, isRucFromDb && { backgroundColor: '#F1F5F9', color: '#475569' }]} 
+                        value={ruc} 
+                        onChangeText={(text) => setRuc(text.replace(/[^0-9]/g, ''))} // Solo números
+                        keyboardType="numeric" 
+                        maxLength={11} 
+                        editable={!isRucFromDb} 
+                        selectTextOnFocus={!isRucFromDb} 
+                    />
+                    <Text style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
+                        {isRucFromDb ? "El RUC no se puede editar una vez registrado." : "Ingresa los 11 dígitos de tu RUC."}
+                    </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -346,7 +393,7 @@ export default function CompanyProfile() {
 
                 <Text style={styles.label}>Departamento</Text>
                 <TouchableOpacity style={styles.selectButton} onPress={() => openModal('dep')}>
-                    <Text style={{ color: 'white' }}>{departamento || "Seleccionar..."}</Text>
+                    <Text style={{ color: departamento ? '#111827' : '#64748b', fontSize: 15 }}>{departamento || "Seleccionar..."}</Text>
                     <ChevronDown color="#94a3b8" size={20} />
                 </TouchableOpacity>
 
@@ -354,14 +401,14 @@ export default function CompanyProfile() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.label}>Provincia</Text>
                         <TouchableOpacity style={styles.selectButton} onPress={() => openModal('prov')}>
-                            <Text style={{ color: provincia ? 'white' : '#64748b' }}>{provincia || "Seleccionar..."}</Text>
+                            <Text style={{ color: provincia ? '#111827' : '#64748b', fontSize: 15 }}>{provincia || "Seleccionar..."}</Text>
                             <ChevronDown color="#94a3b8" size={20} />
                         </TouchableOpacity>
                     </View>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.label}>Distrito</Text>
                         <TouchableOpacity style={styles.selectButton} onPress={() => openModal('dist')}>
-                            <Text style={{ color: distrito ? 'white' : '#64748b' }}>{distrito || "Seleccionar..."}</Text>
+                            <Text style={{ color: distrito ? '#111827' : '#64748b', fontSize: 15 }}>{distrito || "Seleccionar..."}</Text>
                             <ChevronDown color="#94a3b8" size={20} />
                         </TouchableOpacity>
                     </View>
@@ -424,7 +471,7 @@ export default function CompanyProfile() {
                     style={styles.selectButton}
                     onPress={() => openModal('rubro')}
                 >
-                    <Text style={{ color: rubro ? 'white' : '#64748b' }}>{rubro || "Seleccionar rubro..."}</Text>
+                    <Text style={{ color: rubro ? '#111827' : '#64748b', fontSize: 15 }}>{rubro || "Seleccionar rubro..."}</Text>
                     <ChevronDown color="#94a3b8" size={20} />
                 </TouchableOpacity>
 
@@ -458,14 +505,14 @@ export default function CompanyProfile() {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Seleccionar</Text>
-                            <TouchableOpacity onPress={() => setModalVisible(false)}><X color="white" size={24} /></TouchableOpacity>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}><X color="#111827" size={24} /></TouchableOpacity>
                         </View>
                         <FlatList
                             data={getListData()}
                             keyExtractor={(item) => item}
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.optionItem} onPress={() => handleSelect(item)}>
-                                    <Text style={{ color: 'white', fontSize: 16 }}>{item}</Text>
+                                    <Text style={{ color: '#111827', fontSize: 16 }}>{item}</Text>
                                     {(modalType === 'dep' && departamento === item) || 
                                      (modalType === 'prov' && provincia === item) || 
                                      (modalType === 'dist' && distrito === item) ||

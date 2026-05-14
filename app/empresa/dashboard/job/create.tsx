@@ -239,8 +239,8 @@ export default function CreateJob() {
 
     const handleSave = async () => {
         if (!auth.currentUser || !jobData) return;
+        console.log("💾 Iniciando guardado de puesto...");
         setLoading(true);
-
         try {
             // Convierte salario y tolerancia a números antes de guardar
             const finalData = {
@@ -266,7 +266,10 @@ export default function CreateJob() {
             if (id) {
                 // EDITAR
                 await updateDoc(doc(db, 'jobs', id as string), finalData);
-                Alert.alert("¡Actualizado!", "Los cambios han sido guardados.");
+                Alert.alert("¡Éxito!", "Los cambios han sido guardados correctamente.");
+                setTimeout(() => {
+                    router.push('/empresa/dashboard/puestos');
+                }, 1500);
             } else {
                 // CREAR
                 // Validar Límite de Vacantes Activas
@@ -286,12 +289,15 @@ export default function CreateJob() {
                 }
 
                 const newDoc = await addDoc(collection(db, 'jobs'), finalData);
-                Alert.alert("¡Perfil Guardado!", "Ahora puedes compartir el link o subir CVs.");
-                router.setParams({ id: newDoc.id }); // Convert to edit mode
+                Alert.alert("¡Éxito!", "Vacante publicada con éxito.");
+                setTimeout(() => {
+                    router.push('/empresa/dashboard/puestos');
+                }, 1500);
             }
-            // router.replace('/empresa/dashboard'); // Removiendo redirección para quedarse en el perfil
+            console.log("✅ Proceso de guardado finalizado con éxito");
         } catch (e: any) {
-            Alert.alert("Error al guardar", e.message);
+            console.error("❌ Error al guardar puesto:", e);
+            Alert.alert("Error al guardar", e.message || "Ocurrió un error inesperado al guardar la vacante.");
         } finally {
             setLoading(false);
         }

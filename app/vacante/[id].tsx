@@ -752,12 +752,6 @@ export default function ExternalApplication() {
 
                     {/* Removed static CTA, now sticky below */}
 
-                    {user && (
-                        <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 12, marginTop: -10, marginBottom: 20 }}>
-                            Conectado como {user.email}
-                        </Text>
-                    )}
-
                     <View style={styles.footerPowered}>
                         <Zap size={12} color="#f59e0b" />
                         <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text> · Selección Inteligente</Text>
@@ -1191,7 +1185,15 @@ export default function ExternalApplication() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.termsText}>
                             Acepto que mis datos sean utilizados para este proceso de selección y la{' '}
-                            <Text style={{ color: '#38bdf8' }}>Política de Privacidad</Text>.
+                            <Text 
+                                style={{ color: '#38bdf8', textDecorationLine: 'underline' }} 
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    router.push('/privacy');
+                                }}
+                            >
+                                Política de Privacidad
+                            </Text>.
                         </Text>
                         {formErrors.terms && <Text style={[styles.errorText, { marginTop: 4, marginBottom: 0 }]}>{formErrors.terms}</Text>}
                     </View>
@@ -1226,7 +1228,7 @@ export default function ExternalApplication() {
                     </View>
                     <Text style={styles.recruiterBannerTitle}>Sube CVs y analízalos en segundos con IA</Text>
                     <Text style={styles.recruiterBannerBody}>
-                        No somos una bolsa de trabajo. Somos tu <Text style={{ fontWeight: 'bold', color: 'white' }}>Mini ATS Inteligente</Text> para validar perfiles antes de contratar. Sube PDFs, Excels y elige con datos.
+                        No somos una bolsa de trabajo. Somos tu <Text style={{ fontWeight: 'bold', color: '#111827' }}>Mini ATS Inteligente</Text> para validar perfiles antes de contratar. Sube PDFs, Excels y elige con datos.
                     </Text>
                     <TouchableOpacity 
                         style={styles.recruiterBannerBtn}
@@ -1300,7 +1302,23 @@ const styles = StyleSheet.create({
     skillTagText: { color: '#4F46E5', fontSize: 13, fontWeight: '600' },
 
     // CTA
-    applyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#4F46E5', padding: 18, borderRadius: 16, marginVertical: 20, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+    applyBtn: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: 10, 
+        backgroundColor: '#4F46E5', 
+        paddingVertical: 14, 
+        paddingHorizontal: 30,
+        borderRadius: 14, 
+        alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+        minWidth: Platform.OS === 'web' ? 280 : 'auto',
+        shadowColor: '#4F46E5', 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.2, 
+        shadowRadius: 8, 
+        elevation: 5 
+    },
     applyBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 
     // Footer
@@ -1474,7 +1492,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     recruiterBannerBody: {
-        color: '#6B7280',
+        color: '#4B5563',
         fontSize: 14,
         lineHeight: 20,
         marginBottom: 20,
