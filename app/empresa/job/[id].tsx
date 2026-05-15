@@ -137,9 +137,12 @@ export default function JobDetailScreen() {
                             const planId = compData.subscription?.plan || 'beta_free';
                             
                             // 🔍 Buscar características en la configuración global del plan
-                            const planConfigDoc = await getDoc(doc(db, 'config_plans', planId));
-                            if (planConfigDoc.exists()) {
-                                const planConfig = planConfigDoc.data();
+                            const normalizedPlanId = planId.toLowerCase().replace(' ', '_');
+                            const qPlan = query(collection(db, 'config_plans'), where('id', '==', normalizedPlanId));
+                            const planSnap = await getDocs(qPlan);
+                            
+                            if (!planSnap.empty) {
+                                const planConfig = planSnap.docs[0].data();
                                 setCompanyFeatures(planConfig.features || []);
                             } else {
                                 // Fallback si no hay config de plan (usar los del user si existen)
