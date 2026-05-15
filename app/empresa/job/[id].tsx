@@ -116,43 +116,72 @@ export default function JobDetailScreen() {
         loadJobAndCandidates();
     }, [id]);
 
+    // Carga features del plan del usuario autenticado — mismo patrón que index.tsx
+    const loadCurrentUserFeatures = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        try {
+            let userDoc = await getDoc(doc(db, 'users_empresas', currentUser.uid));
+            if (!userDoc.exists()) {
+                userDoc = await getDoc(doc(db, 'companies', currentUser.uid));
+            }
+            if (!userDoc.exists()) return;
+
+            const userData = userDoc.data();
+            let planId = (userData.subscription?.plan || 'beta_free').toLowerCase().replace(/\s+/g, '_');
+
+            // Aliases: normalizar IDs cortos a los IDs completos del plan
+            const PLAN_ALIASES: Record<string, string> = {
+                'free': 'beta_free',
+                'basic': 'beta_free',
+                'basico': 'beta_free',
+                'beta': 'beta_free',
+                'pro': 'plan_pro',
+                'gold': 'plan_gold',
+            };
+            planId = PLAN_ALIASES[planId] || planId;
+
+            // Mismo patrón que index.tsx: buscar por campo 'id' en config_plans
+            const plansRef = collection(db, 'config_plans');
+            const qPlan = query(plansRef, where('id', '==', planId));
+            const planSnap = await getDocs(qPlan);
+
+            if (!planSnap.empty) {
+                const planData = planSnap.docs[0].data();
+                const globalFeatures: string[] = planData.features || [];
+                const localFeatures: string[] = userData.subscription?.features || [];
+                const mergedFeatures = Array.from(new Set([...globalFeatures, ...localFeatures]));
+                setCompanyFeatures(mergedFeatures);
+            } else {
+                // Fallback: usar features locales del usuario si no hay plan global
+                const localFeatures: string[] = userData.subscription?.features || [];
+                setCompanyFeatures(localFeatures);
+            }
+        } catch (err) {
+            console.error("Error cargando features del usuario actual:", err);
+        }
+    };
+
     const loadJobAndCandidates = async () => {
         setLoading(true);
+        // Cargar features del usuario autenticado de inmediato (no depende del job)
+        await loadCurrentUserFeatures();
         try {
-            if (!jobDetails.description) {
-                const jobDoc = await getDoc(doc(db, 'jobs', id as string));
-                if (jobDoc.exists()) {
-                    const data = jobDoc.data();
-                    const compId = data.companyId || '';
+            // Siempre cargamos el job doc para obtener companyId
+            const jobDoc = await getDoc(doc(db, 'jobs', id as string));
+            if (jobDoc.exists()) {
+                const data = jobDoc.data();
+                const compId = data.companyId || '';
+
+                if (!jobDetails.description) {
                     setJobDetails({
                         title: data.jobTitle || 'Vacante',
                         description: data.optimizedText || data.originalText || '',
                         companyId: compId
                     });
-
-                    if (compId) {
-                        const compDoc = await getDoc(doc(db, 'users_empresas', compId));
-                        if (compDoc.exists()) {
-                            const compData = compDoc.data();
-                            const planId = compData.subscription?.plan || 'beta_free';
-                            
-                            // 🔍 Buscar características en la configuración global del plan
-                            const normalizedPlanId = planId.toLowerCase().replace(' ', '_');
-                            const qPlan = query(collection(db, 'config_plans'), where('id', '==', normalizedPlanId));
-                            const planSnap = await getDocs(qPlan);
-                            
-                            if (!planSnap.empty) {
-                                const planConfig = planSnap.docs[0].data();
-                                setCompanyFeatures(planConfig.features || []);
-                            } else {
-                                // Fallback si no hay config de plan (usar los del user si existen)
-                                setCompanyFeatures(compData.subscription?.features || []);
-                            }
-                        }
-                    }
-                } else {
-                    showAlert("Error", "No se encontró la información del puesto.");
                 }
+            } else if (!jobDetails.description) {
+                showAlert("Error", "No se encontró la información del puesto.");
             }
 
             const data = await getJobCandidates(id as string);
@@ -1068,7 +1097,7 @@ export default function JobDetailScreen() {
                         </View>
                     ) : (
                         <>
-                            {(companyFeatures.includes("Subida CVs (PDF/Word)")) && (
+                            {companyFeatures.includes("Subida CVs (PDF/Word)") && (
                                 <TouchableOpacity 
                                     onPress={handleSelectCVs} 
                                     disabled={processing}
@@ -1083,7 +1112,7 @@ export default function JobDetailScreen() {
                                     </LinearGradient>
                                 </TouchableOpacity>
                             )}
-                            {(companyFeatures.includes("Subida masiva por Excel")) && (
+                            {companyFeatures.includes("Subida masiva por Excel") && (
                                 <TouchableOpacity 
                                     onPress={() => setShowExcelModal(true)}
                                     style={styles.rankingActionBtnSecondary}
@@ -1094,15 +1123,13 @@ export default function JobDetailScreen() {
                             )}
                         </>
                     )}
-                    {activeTab === 'ranking' && (
-                        <TouchableOpacity 
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginLeft: 10 }} 
-                            onPress={handleCleanupPipeline}
-                        >
-                            <Trash2 size={14} color="#ef4444" />
-                            <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>LIMPIAR PIPELINE</Text>
-                        </TouchableOpacity>
-                    )}
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginLeft: 10 }} 
+                        onPress={handleCleanupPipeline}
+                    >
+                        <Trash2 size={14} color="#ef4444" />
+                        <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: 'bold' }}>LIMPIAR PIPELINE</Text>
+                    </TouchableOpacity>
                 </View>
             )}
 

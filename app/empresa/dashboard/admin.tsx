@@ -172,8 +172,11 @@ export default function EmpresaAdminDashboard() {
 
     const handleSavePlan = async () => {
         try {
-            const planId = newPlan.id || Math.random().toString(36).substring(7);
-            await setDoc(doc(db, 'config_plans', planId), {
+            if (!newPlan.id) {
+                Alert.alert("Error", "El plan debe tener un ID único (ej: beta_free, plan_pro)");
+                return;
+            }
+            await setDoc(doc(db, 'config_plans', newPlan.id), {
                 ...newPlan,
                 isRecommended: newPlan.isRecommended || false,
                 updatedAt: new Date()
@@ -199,7 +202,7 @@ export default function EmpresaAdminDashboard() {
                 priceAnnual: 0, 
                 isComingSoon: false,
                 isRecommended: false,
-                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Soporte Directo"]
+                features: ["Subida CVs (PDF/Word)", "Subida masiva por Excel", "Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Soporte Directo"]
             },
             { 
                 id: 'plan_pro', 
@@ -371,12 +374,10 @@ export default function EmpresaAdminDashboard() {
                             </Text>
                             {activeTab === 'planes' && (
                                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                                    {plans.length === 0 && (
-                                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: COLORS.primary }]} onPress={handleRestoreDefaults}>
-                                            <RefreshCw size={16} color="white" />
-                                            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Restaurar Iniciales</Text>
-                                        </TouchableOpacity>
-                                    )}
+                                    <TouchableOpacity style={[styles.addBtn, { backgroundColor: COLORS.primary }]} onPress={handleRestoreDefaults}>
+                                        <RefreshCw size={16} color="white" />
+                                        <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Restaurar Iniciales</Text>
+                                    </TouchableOpacity>
                                     <TouchableOpacity style={styles.addBtn} onPress={() => openPlanModal()}>
                                         <Plus size={16} color="white" />
                                         <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Nuevo Plan</Text>
@@ -484,7 +485,8 @@ export default function EmpresaAdminDashboard() {
                                 style={styles.input}
                                 value={newPlan.id}
                                 onChangeText={t => setNewPlan({...newPlan, id: t})}
-                                editable={!selectedPlan}
+                                editable={true}
+                                placeholder="ej: beta_free, plan_pro"
                             />
 
                             <Text style={styles.label}>Nombre para mostrar</Text>
