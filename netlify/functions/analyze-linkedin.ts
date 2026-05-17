@@ -1,34 +1,45 @@
-// Netlify Function for Veritly - AI Proxy
-// Use this to bypass Google's extension blocking
+// Netlify Function for Veritly - AI Proxy (SECURED)
+import { getCorsHeaders, checkRateLimit } from './_security';
 
-export const handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+export const handler = async (event: any) => {
+  const origin = event.headers.origin || event.headers.Origin || '';
+  const headers = getCorsHeaders(origin);
 
-  // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
+  // ── Rate Limiting ──────────────────────────────────────────────────────
+  const clientIp = event.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return {
+      statusCode: 429,
+      headers,
+      body: JSON.stringify({ error: 'Demasiadas solicitudes. Intenta en 1 minuto.' })
+    };
   }
 
   try {
     if (!event.body) throw new Error('Cuerpo vacío');
     const { prompt } = JSON.parse(event.body);
-    
-    // Usamos el API Key configurado en el servidor (Netlify)
-    const API_KEY = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    
-    if (!API_KEY) {
-        throw new Error('Configuración incompleta: Falta la variable GEMINI_API_KEY en el servidor.');
-    }
-    const model = "gemini-2.5-flash"; // Actualizado a modelo actual (2026)
 
+    if (!prompt || typeof prompt !== 'string' || prompt.length > 10000) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Prompt inválido o demasiado largo.' }) };
+    }
+
+    // Key solo en variable de servidor (sin EXPO_PUBLIC_)
+    const API_KEY = process.env.GEMINI_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Configuración incompleta: Falta GEMINI_API_KEY en el servidor.');
+    }
+
+    const model = "gemini-2.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
-    
-    // Fetch nativo (soportado en Node 18+)
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -46,7 +57,7 @@ export const handler = async (event) => {
       body: JSON.stringify(data)
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error en Proxy:", error.message);
     return {
       statusCode: 500,

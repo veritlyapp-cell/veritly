@@ -2,6 +2,7 @@
 import { Handler } from '@netlify/functions';
 import { initializeApp } from 'firebase/app';
 import { arrayUnion, doc, getDoc, getFirestore, increment, setDoc } from 'firebase/firestore';
+import { getCorsHeaders, checkRateLimit } from './_security';
 
 // Firebase configuration (using same as config/firebase.ts)
 const firebaseConfig = {
@@ -16,20 +17,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+// ⚠️ Sin EXPO_PUBLIC_ — esta key NUNCA sale al cliente
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export const handler: Handler = async (event) => {
-    // A-01 FIX: CORS restringido a los dominios de Veritly (no wildcard)
-    const allowedOrigins = ['https://www.veritlyapp.com', 'https://veritlyapp.com'];
     const origin = event.headers.origin || event.headers.Origin || '';
-    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-
-    const headers = {
-        'Access-Control-Allow-Origin': corsOrigin,
-        'Vary': 'Origin',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    };
+    const headers = getCorsHeaders(origin);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -37,6 +30,16 @@ export const handler: Handler = async (event) => {
 
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, headers, body: 'Method Not Allowed' };
+    }
+
+    // ── Rate Limiting ──────────────────────────────────────────────────────
+    const clientIp = event.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+        return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({ error: 'Demasiadas solicitudes. Intenta en 1 minuto.' })
+        };
     }
 
     try {
