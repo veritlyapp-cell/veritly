@@ -125,7 +125,7 @@ export default function VeritlyLandingPage() {
                                 El filtro de candidatos inteligente que reemplaza al Excel y al correo
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Crea tu convocatoria en 1 minuto. Veritly pre-filtra los CVs automáticamente por ti y te entrega solo a los mejores perfiles con IA. Pruébalo gratis hoy.
+                                Crea tu convocatoria en 1 minuto. Comparte un link único, filtra candidatos con preguntas clave y analiza sus CVs con IA para obtener un Match Score instantáneo.
                             </Text>
 
                             <View style={[
@@ -186,9 +186,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <FileText color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>1. Adiós al correo</Text>
+                            <Text style={styles.cardTitle}>1. Comparte</Text>
                             <Text style={styles.cardDescription}>
-                                Olvídate de descargar 200 PDFs de tu correo de postulación o revisar bandejas desordenadas.
+                                Publica tu vacante y comparte un link único. Centraliza a todos tus postulantes en un solo lugar, olvidándote de los correos colapsados.
                             </Text>
                         </View>
 
@@ -196,9 +196,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <Zap color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>2. Reemplaza los Forms</Text>
+                            <Text style={styles.cardTitle}>2. Filtra</Text>
                             <Text style={styles.cardDescription}>
-                                Reemplaza los formularios planos e incómodos de Google Forms con una experiencia optimizada para el candidato.
+                                Los candidatos responden tus preguntas filtro obligatorias. Quienes no cumplen pasan a descartados y quienes sí, entran directo a tu pipeline operativo.
                             </Text>
                         </View>
 
@@ -206,9 +206,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <Users color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>3. Automatiza el Excel</Text>
+                            <Text style={styles.cardTitle}>3. Analiza con IA</Text>
                             <Text style={styles.cardDescription}>
-                                Deja de ordenar, calcular puntajes y semaforizar candidatos a mano en un Excel. La IA rankea a los mejores por ti.
+                                Usa la IA para comparar el CV de tus candidatos aprobados con el perfil del puesto, generando un Match Score de compatibilidad en segundos.
                             </Text>
                         </View>
                     </View>
