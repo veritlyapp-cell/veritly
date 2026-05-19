@@ -112,7 +112,7 @@ export default function VeritlyLandingPage() {
                         styles.heroContent,
                         isDesktop ? styles.heroContentDesktop : styles.heroContentMobile
                     ]}>
-                        <View style={[styles.heroLeft, isDesktop && { maxWidth: 600 }]}>
+                        <View style={[styles.heroLeft, isDesktop && { flex: 1, maxWidth: 600 }]}>
                             <View style={[styles.trustBadge, { backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
                                 <Sparkles size={14} color={COLORS.accent} />
                                 <Text style={[styles.trustBadgeText, { color: COLORS.accent }]}>R2R: DISEÑADO POR RECLUTADORES PARA RECLUTADORES</Text>
@@ -160,7 +160,7 @@ export default function VeritlyLandingPage() {
                             </View>
                         </View>
 
-                        <View style={[styles.heroRight, !isDesktop && { marginTop: 60 }]}>
+                        <View style={[styles.heroRight, isDesktop && { flex: 1 }, !isDesktop && { marginTop: 60 }]}>
                             <View style={styles.heroImageContainer}>
                                 <Image
                                     source={HeroLaptop}
@@ -416,7 +416,6 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
     },
     heroLeft: {
-        flex: 1,
     },
     trustBadge: {
         flexDirection: 'row',
@@ -473,7 +472,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     heroRight: {
-        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
