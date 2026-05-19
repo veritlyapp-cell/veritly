@@ -143,24 +143,30 @@ export default function VeritlyLandingPage() {
                                 <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjetas de crédito. Configuración en 2 minutos.</Text>
                                 
                                 {/* Social Proof */}
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8, alignSelf: isDesktop ? 'flex-start' : 'center' }}>
+                                <View style={{ 
+                                    flexDirection: isDesktop ? 'row' : 'column', 
+                                    alignItems: 'center', 
+                                    marginTop: 20, 
+                                    gap: 8, 
+                                    alignSelf: isDesktop ? 'flex-start' : 'center' 
+                                }}>
                                     <View style={{ flexDirection: 'row' }}>
                                         {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={16} color="#FBBF24" fill="#FBBF24" />)}
                                     </View>
-                                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' }}>
+                                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: '600', textAlign: 'center' }}>
                                         Únete a +150 reclutadores que ya dejaron el Excel.
                                     </Text>
                                 </View>
                             </View>
                         </View>
 
-                        <View style={[styles.heroRight, !isDesktop && { marginTop: 40 }]}>
+                        <View style={[styles.heroRight, !isDesktop && { marginTop: 60 }]}>
                             <View style={styles.heroImageContainer}>
                                 <Image
                                     source={HeroLaptop}
                                     style={[
                                         styles.heroLaptopImage,
-                                        { height: isDesktop ? 400 : 250, width: isDesktop ? 600 : 350 }
+                                        { height: isDesktop ? 400 : 250, width: isDesktop ? 600 : '100%', maxWidth: 350 }
                                     ]}
                                     resizeMode="contain"
                                 />
