@@ -68,7 +68,7 @@ export default function VeritlyLandingPage() {
 
             <ScrollView 
                 ref={scrollRef}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, !isDesktop && { paddingBottom: 80 }]}
                 stickyHeaderIndices={isDesktop ? [0] : []}
             >
 
@@ -122,10 +122,10 @@ export default function VeritlyLandingPage() {
                                 styles.heroTitle,
                                 { fontSize: isDesktop ? 52 : 36, lineHeight: isDesktop ? 62 : 44 }
                             ]}>
-                                Veritly: Tan fácil como un Form, tan inteligente como un ATS.
+                                El filtro de candidatos inteligente que reemplaza al Excel y al correo
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
-                                Deja de gestionar talento con herramientas de encuestas. Dale a tu consultoría el flujo profesional que merece con un pipeline inteligente, filtros automáticos de salario y match score de perfiles. Todo el poder de un ATS corporativo, a un precio low-cost.
+                                Crea tu convocatoria en 1 minuto. Veritly pre-filtra los CVs automáticamente por ti y te entrega solo a los mejores perfiles con IA. Pruébalo gratis hoy.
                             </Text>
 
                             <View style={[
@@ -136,11 +136,21 @@ export default function VeritlyLandingPage() {
                                     style={[styles.heroPrimaryButton, !isDesktop && { width: '100%', justifyContent: 'center' }]}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
-                                    <Text style={styles.heroPrimaryButtonText}>Probar Veritly</Text>
+                                    <Text style={styles.heroPrimaryButtonText}>Crear mi primer filtro GRATIS</Text>
                                     <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
                                 <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjetas de crédito. Configuración en 2 minutos.</Text>
+                                
+                                {/* Social Proof */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8, alignSelf: isDesktop ? 'flex-start' : 'center' }}>
+                                    <View style={{ flexDirection: 'row' }}>
+                                        {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={16} color="#FBBF24" fill="#FBBF24" />)}
+                                    </View>
+                                    <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' }}>
+                                        Únete a +150 reclutadores que ya dejaron el Excel.
+                                    </Text>
+                                </View>
                             </View>
                         </View>
 
@@ -176,9 +186,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <FileText color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>1. Publica</Text>
+                            <Text style={styles.cardTitle}>1. Adiós al correo</Text>
                             <Text style={styles.cardDescription}>
-                                Sube tu oferta laboral o tus bases de candidatos actuales. Aceptamos CVs en PDF o listas masivas en Excel.
+                                Olvídate de descargar 200 PDFs de tu correo de postulación o revisar bandejas desordenadas.
                             </Text>
                         </View>
 
@@ -186,9 +196,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <Zap color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>2. Filtra</Text>
+                            <Text style={styles.cardTitle}>2. Reemplaza los Forms</Text>
                             <Text style={styles.cardDescription}>
-                                La IA evalúa y rankea los perfiles bajo criterios de competencia y compatibilidad técnica de manera centralizada.
+                                Reemplaza los formularios planos e incómodos de Google Forms con una experiencia optimizada para el candidato.
                             </Text>
                         </View>
 
@@ -196,9 +206,9 @@ export default function VeritlyLandingPage() {
                             <View style={styles.cardIconBox}>
                                 <Users color={COLORS.primary} size={28} />
                             </View>
-                            <Text style={styles.cardTitle}>3. Entrevista</Text>
+                            <Text style={styles.cardTitle}>3. Automatiza el Excel</Text>
                             <Text style={styles.cardDescription}>
-                                Revisa el ranking, los resúmenes generados y enfoca tu tiempo entrevistando solo a los finalistas validados.
+                                Deja de ordenar, calcular puntajes y semaforizar candidatos a mano en un Excel. La IA rankea a los mejores por ti.
                             </Text>
                         </View>
                     </View>
@@ -213,57 +223,33 @@ export default function VeritlyLandingPage() {
                     <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
 
                     <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
-                        {systemPlans.map((plan) => {
-                            const isRecommended = plan.isRecommended;
-                            const isBeta = plan.id === 'beta_free' || plan.name?.toLowerCase().includes('beta');
-                            const isComingSoon = plan.isComingSoon;
-                            const monthlyPrice = plan.priceMonthly;
-
-                            return (
-                                <View key={plan.id} style={[styles.pricingCard, isRecommended && !isComingSoon && styles.pricingCardActive]}>
-                                    {isRecommended && !isComingSoon && (
-                                        <View style={styles.bestValueBadge}>
-                                            <Text style={styles.bestValueText}>RECOMENDADO</Text>
-                                        </View>
-                                    )}
-                                    {isComingSoon && (
-                                        <View style={[styles.bestValueBadge, { backgroundColor: COLORS.textTertiary }]}>
-                                            <Text style={styles.bestValueText}>PRÓXIMAMENTE</Text>
-                                        </View>
-                                    )}
-                                    <Text style={[styles.planName, isRecommended && !isComingSoon && { color: COLORS.primary }]}>{plan.name}</Text>
-                                    <View style={styles.priceRow}>
-                                        <Text style={styles.planPrice}>S/ {monthlyPrice || 0}</Text>
-                                        <Text style={styles.planPriceUnit}>/ mes</Text>
-                                    </View>
-                                    <Text style={styles.planDesc}>
-                                        {isBeta ? 'Ideal para reclutadores independientes y pequeñas consultoras.' : `Potencia tu flujo con más créditos de IA.`}
-                                    </Text>
-                                    
-                                    <View style={styles.planFeatures}>
-                                        <FeatureItemLanding text={`${plan.aiAnalysisLimit} Análisis de IA`} />
-                                        <FeatureItemLanding text={`${plan.internalVacanciesLimit} Vacantes Activas`} />
-                                        <FeatureItemLanding text={`${plan.publicVacanciesLimit} Vacantes Públicas`} />
-                                        {plan.features && plan.features.length > 0 ? (
-                                            plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((feat: string) => (
-                                                <FeatureItemLanding key={feat} text={feat} />
-                                            ))
-                                        ) : (
-                                            isRecommended && <FeatureItemLanding text="Exportación a Excel/PDF" />
-                                        )}
-                                    </View>
-                                    <TouchableOpacity 
-                                        style={isComingSoon ? styles.planButtonDisabled : (isRecommended ? styles.planButtonPrimary : styles.planButtonSecondary)}
-                                        onPress={() => !isComingSoon && router.push('/empresa/signin?register=true')}
-                                        disabled={isComingSoon}
-                                    >
-                                        <Text style={isComingSoon ? styles.planButtonDisabledText : (isRecommended ? styles.planButtonPrimaryText : styles.planButtonSecondaryText)}>
-                                            {isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Probar Gratis' : 'Empezar ahora')}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })}
+                        {/* Plan Beta de Lanzamiento */}
+                        <View style={[styles.pricingCard, styles.pricingCardActive]}>
+                            <View style={styles.bestValueBadge}>
+                                <Text style={styles.bestValueText}>PLAN FUNDADORES</Text>
+                            </View>
+                            <Text style={[styles.planName, { color: COLORS.primary }]}>Plan Beta de Lanzamiento</Text>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.planPrice}>S/ 0</Text>
+                                <Text style={styles.planPriceUnit}>/ permanente</Text>
+                            </View>
+                            <Text style={styles.planDesc}>
+                                Ideal para reclutadores independientes y PYMEs que quieren dejar el Excel atrás.
+                            </Text>
+                            
+                            <View style={styles.planFeatures}>
+                                <FeatureItemLanding text="200 Análisis de perfiles por IA" />
+                                <FeatureItemLanding text="Publicar 5 anuncios en simultáneo" />
+                                <FeatureItemLanding text="Tener en total 10 perfiles en simultáneo" />
+                                <FeatureItemLanding text="Subir CVs por PDF, Word y Excel" />
+                            </View>
+                            <TouchableOpacity 
+                                style={styles.planButtonPrimary}
+                                onPress={() => router.push('/empresa/signin?register=true')}
+                            >
+                                <Text style={styles.planButtonPrimaryText}>Empezar Gratis Ahora</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         {/* Enterprise */}
                         <View style={styles.pricingCard}>
@@ -292,7 +278,7 @@ export default function VeritlyLandingPage() {
                         style={styles.heroPrimaryButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <Text style={styles.heroPrimaryButtonText}>Probar Veritly</Text>
+                        <Text style={styles.heroPrimaryButtonText}>Crear mi primer filtro GRATIS</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -308,6 +294,18 @@ export default function VeritlyLandingPage() {
                 </View>
 
             </ScrollView>
+
+            {/* FLOATING MOBILE CTA */}
+            {!isDesktop && (
+                <View style={styles.floatingMobileCTA}>
+                    <TouchableOpacity
+                        style={styles.floatingButton}
+                        onPress={() => router.push('/empresa/signin?register=true')}
+                    >
+                        <Text style={styles.floatingButtonText}>Crear filtro GRATIS</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -806,6 +804,38 @@ const styles = StyleSheet.create({
     },
     planButtonDisabledText: {
         color: COLORS.textTertiary,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    floatingMobileCTA: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: COLORS.white,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderColor: COLORS.surfaceAlt,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    floatingButton: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    floatingButtonText: {
+        color: COLORS.white,
         fontSize: 16,
         fontWeight: '700',
     },

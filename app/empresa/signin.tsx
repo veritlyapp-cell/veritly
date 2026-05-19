@@ -581,27 +581,6 @@ const styles = StyleSheet.create({
     buttonDisabled: { opacity: 0.7 },
     primaryButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 
-    // Social
-    socialSection: { marginTop: 32 },
-    divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-    dividerText: { color: '#9CA3AF', paddingHorizontal: 16, fontSize: 12, fontWeight: '500' },
-    socialButtons: { flexDirection: 'row', gap: 16 },
-    socialBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E5E7EB'
-    },
-    socialBtnText: { color: '#374151', fontWeight: '600' },
-    socialIcon: { fontSize: 18 },
-
     // Footer Actions
     footer: {
         flexDirection: 'row',
