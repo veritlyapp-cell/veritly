@@ -245,10 +245,6 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
         ]);
 
         const duration = Date.now() - startTime;
-        if (candidateSnap.exists()) {
-            console.log(`✅ [getCurrentUserRole] Found 'candidato' in ${duration}ms`);
-            return 'candidato';
-        }
 
         if (companySnap.exists()) {
             console.log(`✅ [getCurrentUserRole] Found 'empresa' (new) in ${duration}ms`);
@@ -258,6 +254,11 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
         if (legacySnap.exists()) {
             console.log(`⚠️ [getCurrentUserRole] Found 'empresa' (legacy) in ${duration}ms`);
             return 'empresa';
+        }
+
+        if (candidateSnap.exists()) {
+            console.log(`✅ [getCurrentUserRole] Found 'candidato' in ${duration}ms`);
+            return 'candidato';
         }
 
         console.error(`❌ [getCurrentUserRole] User NOT found in any collection after ${duration}ms!`);
