@@ -207,7 +207,7 @@ export default function CompanyOnboarding() {
 
                 <Text style={styles.label}>Departamento *</Text>
                 <TouchableOpacity style={styles.selectButton} onPress={() => openModal('dep')}>
-                    <Text style={{ color: 'white' }}>{departamento || "Seleccionar..."}</Text>
+                    <Text style={{ color: departamento ? '#111827' : '#64748b', fontSize: 15 }}>{departamento || "Seleccionar..."}</Text>
                     <ChevronDown color="#94a3b8" size={20} />
                 </TouchableOpacity>
 
@@ -215,14 +215,14 @@ export default function CompanyOnboarding() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.label}>Provincia *</Text>
                         <TouchableOpacity style={styles.selectButton} onPress={() => openModal('prov')}>
-                            <Text style={{ color: provincia ? 'white' : '#64748b' }}>{provincia || "Seleccionar..."}</Text>
+                            <Text style={{ color: provincia ? '#111827' : '#64748b', fontSize: 15 }}>{provincia || "Seleccionar..."}</Text>
                             <ChevronDown color="#94a3b8" size={20} />
                         </TouchableOpacity>
                     </View>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.label}>Distrito *</Text>
                         <TouchableOpacity style={styles.selectButton} onPress={() => openModal('dist')}>
-                            <Text style={{ color: distrito ? 'white' : '#64748b' }}>{distrito || "Seleccionar..."}</Text>
+                            <Text style={{ color: distrito ? '#111827' : '#64748b', fontSize: 15 }}>{distrito || "Seleccionar..."}</Text>
                             <ChevronDown color="#94a3b8" size={20} />
                         </TouchableOpacity>
                     </View>
