@@ -277,14 +277,14 @@ export default function CompanyOnboarding() {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Seleccionar</Text>
-                            <TouchableOpacity onPress={() => setModalVisible(false)}><X color="white" size={24} /></TouchableOpacity>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}><X color="#111827" size={24} /></TouchableOpacity>
                         </View>
                         <FlatList
                             data={getListData()}
                             keyExtractor={(item) => item}
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.optionItem} onPress={() => handleSelect(item)}>
-                                    <Text style={{ color: 'white', fontSize: 16 }}>{item}</Text>
+                                    <Text style={{ color: '#374151', fontSize: 16 }}>{item}</Text>
                                     {(modalType === 'dep' && departamento === item) || (modalType === 'prov' && provincia === item) || (modalType === 'dist' && distrito === item) ? <View style={styles.selectedDot} /> : null}
                                 </TouchableOpacity>
                             )}
