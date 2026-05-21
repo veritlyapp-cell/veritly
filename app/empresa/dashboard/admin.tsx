@@ -1,6 +1,6 @@
-import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where, limit } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where, limit, collectionGroup, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus, MessageSquare } from 'lucide-react-native';
+import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus, MessageSquare, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, TextInput, Modal, Platform } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -37,6 +37,7 @@ export default function EmpresaAdminDashboard() {
     const router = useRouter();
     const [companies, setCompanies] = useState<CompanyProfile[]>([]);
     const [plans, setPlans] = useState<any[]>([]);
+    const [candidatesCounts, setCandidatesCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -87,6 +88,29 @@ export default function EmpresaAdminDashboard() {
             // Fetch Plans
             const plansSnap = await getDocs(collection(db, 'config_plans'));
             setPlans(plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch dynamic candidate counts to keep AI usage synchronized
+            const jobsSnap = await getDocs(collection(db, 'jobs'));
+            const jobCompanyMap: Record<string, string> = {};
+            jobsSnap.docs.forEach(doc => {
+                jobCompanyMap[doc.id] = doc.data().companyId || '';
+            });
+
+            const counts: Record<string, number> = {};
+            try {
+                const candidatesSnap = await getDocs(query(collectionGroup(db, 'candidates')));
+                candidatesSnap.docs.forEach(doc => {
+                    const candData = doc.data();
+                    const jobId = candData.jobId || doc.ref.parent.parent?.id || '';
+                    const companyId = candData.companyId || jobCompanyMap[jobId] || '';
+                    if (companyId) {
+                        counts[companyId] = (counts[companyId] || 0) + 1;
+                    }
+                });
+                setCandidatesCounts(counts);
+            } catch (groupError) {
+                console.error("Error fetching collectionGroup candidates:", groupError);
+            }
 
             // Fetch B2C metrics
             // Fetch Feedback
@@ -253,6 +277,56 @@ export default function EmpresaAdminDashboard() {
         }
     };
 
+    const handleDeleteCompany = async (companyId: string, email: string) => {
+        const confirmDelete = () => {
+            return new Promise((resolve) => {
+                if (Platform.OS === 'web') {
+                    resolve(window.confirm(`¿Estás seguro de eliminar la cuenta de ${email}?\nEsta acción eliminará su perfil, sus vacantes y sus candidatos.`));
+                } else {
+                    Alert.alert(
+                        "Eliminar Cuenta",
+                        `¿Estás seguro de eliminar la cuenta de ${email}? Esta acción no se puede deshacer y borrará todos sus datos.`,
+                        [
+                            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+                            { text: "Eliminar", style: "destructive", onPress: () => resolve(true) }
+                        ]
+                    );
+                }
+            });
+        };
+
+        const confirmed = await confirmDelete();
+        if (!confirmed) return;
+
+        setLoading(true);
+        try {
+            // 1. Delete company document in users_empresas and companies
+            await deleteDoc(doc(db, 'users_empresas', companyId));
+            await deleteDoc(doc(db, 'companies', companyId)).catch(() => {});
+
+            // 2. Find and delete jobs of this company
+            const jobsQuery = query(collection(db, 'jobs'), where('companyId', '==', companyId));
+            const jobsSnap = await getDocs(jobsQuery);
+            for (const jobDoc of jobsSnap.docs) {
+                // Delete candidates first
+                const candidatesSnap = await getDocs(collection(db, 'jobs', jobDoc.id, 'candidates'));
+                for (const candDoc of candidatesSnap.docs) {
+                    await deleteDoc(doc(db, 'jobs', jobDoc.id, 'candidates', candDoc.id));
+                }
+                // Delete job
+                await deleteDoc(doc(db, 'jobs', jobDoc.id));
+            }
+
+            Alert.alert("Éxito", `La cuenta de ${email} y todos sus datos han sido eliminados.`);
+            fetchData();
+        } catch (error: any) {
+            console.error("Error deleting company:", error);
+            Alert.alert("Error", "No se pudo eliminar la cuenta: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const openEditModal = (comp: CompanyProfile) => {
         setSelectedCompany(comp);
         setEditSub({
@@ -301,7 +375,7 @@ export default function EmpresaAdminDashboard() {
 
                 <View style={{ flex: 1.2 }}>
                     <Text style={styles.cellValue}>{item.subscription?.plan?.toUpperCase() || 'BETA'}</Text>
-                    <Text style={styles.cellSub}>IA: {item.subscription?.candidatesAnalyzed || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
+                    <Text style={styles.cellSub}>IA: {candidatesCounts[item.uid] || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
                 </View>
                 
                 <View style={styles.actionsColumn}>
@@ -310,6 +384,9 @@ export default function EmpresaAdminDashboard() {
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtnAlt} onPress={() => handleResetPassword(item.email)}>
                         <Key size={16} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtnDelete} onPress={() => handleDeleteCompany(item.uid, item.email)}>
+                        <Trash2 size={16} color="white" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -653,9 +730,10 @@ const styles = StyleSheet.create({
     cellSub: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
     cellValue: { color: COLORS.primary, fontSize: 14, fontWeight: '800' },
     
-    actionsColumn: { flexDirection: 'row', gap: 10 },
-    actionBtn: { backgroundColor: COLORS.primary, padding: 10, borderRadius: 10 },
-    actionBtnAlt: { backgroundColor: 'transparent', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: COLORS.primary },
+    actionsColumn: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    actionBtn: { backgroundColor: COLORS.primary, padding: 8, borderRadius: 8 },
+    actionBtnAlt: { backgroundColor: 'transparent', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.primary },
+    actionBtnDelete: { backgroundColor: '#EF4444', padding: 8, borderRadius: 8 },
     addBtn: { backgroundColor: COLORS.success, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
 
     // Modal
