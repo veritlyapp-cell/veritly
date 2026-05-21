@@ -121,11 +121,6 @@ export default function CompanyOnboarding() {
                     phone: celular,
                     email: emailResponsable
                 },
-                subscription: {
-                    plan: 'free',
-                    jobsLimit: 5,
-                    candidatesAnalyzed: 0
-                },
                 profileCompleted: true,
                 status: 'Active',
                 verificationToken: Math.random().toString(36).substring(7),

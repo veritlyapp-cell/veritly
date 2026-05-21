@@ -182,8 +182,9 @@ export async function createCompanyUser(
             subscription: {
                 plan: 'beta_free',
                 aiAnalysisLimit: 200,
-                internalVacanciesLimit: 5,
-                publicVacanciesLimit: 3,
+                internalVacanciesLimit: 10,
+                publicVacanciesLimit: 5,
+                killerQuestionsLimit: 3,
                 candidatesAnalyzed: 0,
                 status: 'active'
             },

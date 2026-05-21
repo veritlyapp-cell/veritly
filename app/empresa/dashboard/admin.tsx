@@ -38,6 +38,8 @@ export default function EmpresaAdminDashboard() {
     const [companies, setCompanies] = useState<CompanyProfile[]>([]);
     const [plans, setPlans] = useState<any[]>([]);
     const [candidatesCounts, setCandidatesCounts] = useState<Record<string, number>>({});
+    const [totalJobsCounts, setTotalJobsCounts] = useState<Record<string, number>>({});
+    const [publicJobsCounts, setPublicJobsCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -89,12 +91,25 @@ export default function EmpresaAdminDashboard() {
             const plansSnap = await getDocs(collection(db, 'config_plans'));
             setPlans(plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // Fetch dynamic candidate counts to keep AI usage synchronized
+            // Fetch dynamic candidate counts and job metrics to keep AI usage synchronized
             const jobsSnap = await getDocs(collection(db, 'jobs'));
             const jobCompanyMap: Record<string, string> = {};
+            const totalJobsMap: Record<string, number> = {};
+            const publicJobsMap: Record<string, number> = {};
+            
             jobsSnap.docs.forEach(doc => {
-                jobCompanyMap[doc.id] = doc.data().companyId || '';
+                const jobData = doc.data();
+                const companyId = jobData.companyId || '';
+                jobCompanyMap[doc.id] = companyId;
+                if (companyId) {
+                    totalJobsMap[companyId] = (totalJobsMap[companyId] || 0) + 1;
+                    if (jobData.isExternal === true) {
+                        publicJobsMap[companyId] = (publicJobsMap[companyId] || 0) + 1;
+                    }
+                }
             });
+            setTotalJobsCounts(totalJobsMap);
+            setPublicJobsCounts(publicJobsMap);
 
             const counts: Record<string, number> = {};
             try {
@@ -375,7 +390,9 @@ export default function EmpresaAdminDashboard() {
 
                 <View style={{ flex: 1.2 }}>
                     <Text style={styles.cellValue}>{item.subscription?.plan?.toUpperCase() || 'BETA'}</Text>
-                    <Text style={styles.cellSub}>IA: {candidatesCounts[item.uid] || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
+                    <Text style={styles.cellSub}>Créditos IA: {candidatesCounts[item.uid] || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
+                    <Text style={styles.cellSub}>Links de Pub: {publicJobsCounts[item.uid] || 0} / {item.subscription?.publicVacanciesLimit || 5}</Text>
+                    <Text style={styles.cellSub}>Postulantes: {candidatesCounts[item.uid] || 0}</Text>
                 </View>
                 
                 <View style={styles.actionsColumn}>
