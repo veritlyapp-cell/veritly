@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { ArrowRight, Building2, CheckSquare, Lock, Mail, Square, UserPlus } from 'lucide-react-native';
+import { ArrowRight, Building2, CheckSquare, Lock, Mail, Square, UserPlus, MessageSquare } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions, Linking } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
@@ -12,6 +12,34 @@ import { setUserId, trackLogin } from '../../utils/ga';
 
 const LocalLogo = require('../../assets/images/veritly3.png');
 const HeroImage = require('../../assets/images/friendly_hero.png');
+
+const FloatingWhatsAppButton = () => {
+    const handlePress = () => {
+        const url = 'https://wa.me/51956833456?text=Hola,%20necesito%20ayuda%20con%20mi%20registro%20en%20Veritly';
+        if (Platform.OS === 'web') {
+            window.open(url, '_blank');
+        } else {
+            Linking.openURL(url).catch(() => {
+                Alert.alert("Error", "No se pudo abrir WhatsApp.");
+            });
+        }
+    };
+
+    return (
+        <TouchableOpacity 
+            style={styles.whatsappFloat} 
+            onPress={handlePress}
+            activeOpacity={0.85}
+        >
+            <View style={styles.whatsappBadge}>
+                <Text style={styles.whatsappBadgeText}>¿Necesitas ayuda?</Text>
+            </View>
+            <View style={styles.whatsappIconCircle}>
+                <MessageSquare color="white" size={24} />
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 export default function CompanySignIn() {
     const router = useRouter();
@@ -457,6 +485,7 @@ export default function CompanySignIn() {
                 )}
 
             </View>
+            <FloatingWhatsAppButton />
         </SafeAreaView>
     );
 }
@@ -693,5 +722,45 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 14
+    },
+    whatsappFloat: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 9999,
+    },
+    whatsappBadge: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginRight: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    whatsappBadgeText: {
+        color: '#111827',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    whatsappIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#25D366',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 6,
     }
 });

@@ -1,12 +1,40 @@
 import { Drawer } from 'expo-router/drawer';
-import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3 } from 'lucide-react-native';
+import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3, MessageSquare } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Linking, Platform, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { auth } from '../../../config/firebase';
 import { useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRequireRole } from '../../../hooks/useRequireRole';
+
+const FloatingWhatsAppButton = () => {
+    const handlePress = () => {
+        const url = 'https://wa.me/51956833456?text=Hola,%20necesito%20ayuda%20con%20mi%20cuenta%20de%20empresa%20en%20Veritly';
+        if (Platform.OS === 'web') {
+            window.open(url, '_blank');
+        } else {
+            Linking.openURL(url).catch(() => {
+                Alert.alert("Error", "No se pudo abrir WhatsApp.");
+            });
+        }
+    };
+
+    return (
+        <TouchableOpacity 
+            style={styles.whatsappFloat} 
+            onPress={handlePress}
+            activeOpacity={0.85}
+        >
+            <View style={styles.whatsappBadge}>
+                <Text style={styles.whatsappBadgeText}>¿Necesitas ayuda?</Text>
+            </View>
+            <View style={styles.whatsappIconCircle}>
+                <MessageSquare color="white" size={24} />
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 export default function CompanyDrawerLayout() {
     const { loading, authorized } = useRequireRole('empresa');
@@ -171,6 +199,7 @@ export default function CompanyDrawerLayout() {
                     }}
                 />
             </Drawer>
+            <FloatingWhatsAppButton />
         </GestureHandlerRootView>
     );
 }
@@ -192,5 +221,45 @@ const styles = StyleSheet.create({
         color: '#ef4444',
         fontSize: 16,
         fontWeight: 'bold'
+    },
+    whatsappFloat: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 9999,
+    },
+    whatsappBadge: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginRight: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    whatsappBadgeText: {
+        color: '#111827',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    whatsappIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#25D366',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 6,
     }
 });
