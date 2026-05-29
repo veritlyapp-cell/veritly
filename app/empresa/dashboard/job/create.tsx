@@ -4,10 +4,40 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings, Plus, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../../config/firebase';
 import { extractTextFromDocument } from '../../../../utils/gemini';
 import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
+
+const Alert = {
+    alert: (title: string, message?: string, buttons?: any) => {
+        if (Platform.OS === 'web') {
+            if (buttons && buttons.length > 1) {
+                const confirmBtn = buttons.find((b: any) => b.style === 'destructive' || b.text === 'Eliminar' || b.text === 'Sincronizar');
+                const cancelBtn = buttons.find((b: any) => b.style === 'cancel' || b.text === 'Cancelar');
+                const confirmed = window.confirm(`${title}\n\n${message || ''}`);
+                if (confirmed) {
+                    if (confirmBtn && typeof confirmBtn.onPress === 'function') {
+                        confirmBtn.onPress();
+                    }
+                } else {
+                    if (cancelBtn && typeof cancelBtn.onPress === 'function') {
+                        cancelBtn.onPress();
+                    }
+                }
+            } else {
+                window.alert(`${title}${message ? '\n\n' + message : ''}`);
+                if (buttons && buttons.length === 1) {
+                    if (typeof buttons[0].onPress === 'function') {
+                        buttons[0].onPress();
+                    }
+                }
+            }
+        } else {
+            RNAlert.alert(title, message, buttons);
+        }
+    }
+};
 
 export default function CreateJob() {
     const router = useRouter();
@@ -42,6 +72,8 @@ export default function CreateJob() {
         beneficios: string;
     } | null>(null);
     const [userData, setUserData] = useState<any>(null);
+    const [isEmailVerified, setIsEmailVerified] = useState(true);
+    const [isProfileSkipped, setIsProfileSkipped] = useState(false);
 
     // Limpiar estado cuando vuelves a "Nuevo Perfil" (sin ID)
     useFocusEffect(
@@ -104,6 +136,17 @@ export default function CreateJob() {
                         rubro: data.aiContext?.rubro || '',
                         beneficios: data.aiContext?.beneficios || ''
                     });
+                    
+                    setIsProfileSkipped(!!data.profileSkipped);
+                    if (auth.currentUser) {
+                        try {
+                            await auth.currentUser.reload();
+                            setIsEmailVerified(auth.currentUser.emailVerified);
+                        } catch (reloadErr) {
+                            console.log("Error reloading user in job creation:", reloadErr);
+                            setIsEmailVerified(auth.currentUser.emailVerified);
+                        }
+                    }
                     console.log("📊 Contexto y Límites de Plan sincronizados");
                 }
             } catch (e) {
@@ -224,16 +267,15 @@ export default function CreateJob() {
             }
 
             // 2. PROCESAR CON IA
-            setLoadingMessage("Analizando perfil con IA...");
-            console.log("📡 Llamando a extractJobData, optimizeJobDescription y analyzeJobPosting...");
+            setLoadingMessage("Creando anuncio de trabajo con IA...");
+            console.log("📡 Llamando a extractJobData y optimizeJobDescription...");
 
-            const [extracted, optimized, suggestions] = await Promise.all([
+            const [extracted, optimized] = await Promise.all([
                 extractJobData(rawText),
-                optimizeJobDescription(rawText, companyContext || undefined),
-                analyzeJobPosting(rawText)
+                optimizeJobDescription(rawText, companyContext || undefined)
             ]);
 
-            console.log("✅ Análisis completado. Datos extraídos:", extracted);
+            console.log("✅ Procesamiento completado. Datos extraídos:", extracted);
 
             if (!extracted) {
                 throw new Error("La IA no devolvió datos estructurados.");
@@ -244,13 +286,11 @@ export default function CreateJob() {
                 ...extracted
             });
             setOptimizedDescription(optimized);
-            setPostingSuggestions(suggestions);
             setStep(2);
 
-            const scoreColor = suggestions.qualityScore >= 70 ? "✅" : suggestions.qualityScore >= 50 ? "⚠️" : "❌";
             Alert.alert(
-                "¡Análisis Completado!",
-                `${scoreColor} Score de Calidad: ${suggestions.qualityScore}/100\n\n💡 ${suggestions.mainAdvice}\n\nRevisa las sugerencias detalladas en pantalla.`
+                "¡Anuncio Creado!",
+                "La IA ha estructurado y formateado tu anuncio de trabajo con éxito. Confirma los datos a continuación."
             );
 
         } catch (e: any) {
@@ -403,65 +443,13 @@ export default function CreateJob() {
                                         <Text style={{ color: '#94a3b8', marginTop: 8, fontSize: 12 }}>{loadingMessage || 'Procesando...'}</Text>
                                     </View>
                                 ) : (
-                                    <><Text style={styles.buttonText}>ANALIZAR CON IA</Text><Sparkles color="white" size={20} style={{ marginLeft: 10 }} /></>
+                                    <><Text style={styles.buttonText}>CREAR ANUNCIO CON IA</Text><Sparkles color="white" size={20} style={{ marginLeft: 10 }} /></>
                                 )}
                             </TouchableOpacity>
                         </>
                     ) : (
                         <>
-                            {/* SUGERENCIAS DE LA IA */}
-                            {postingSuggestions && (
-                                <View style={styles.suggestionsCard}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                                        <Text style={styles.suggestionsTitle}>💡 Análisis de tu Publicación</Text>
-                                        <View style={styles.scoreBadge}>
-                                            <Text style={styles.scoreText}>{postingSuggestions.qualityScore}/100</Text>
-                                        </View>
-                                    </View>
-
-                                    <Text style={{ color: '#38bdf8', fontStyle: 'italic', marginBottom: 15 }}>"{postingSuggestions.mainAdvice}"</Text>
-
-                                    {postingSuggestions.strengths && postingSuggestions.strengths.length > 0 && (
-                                        <View style={{ marginBottom: 12 }}>
-                                            <Text style={styles.suggestionSubtitle}>✅ Puntos Fuertes:</Text>
-                                            {postingSuggestions.strengths.map((strength: string, i: number) => (
-                                                <Text key={i} style={styles.strengthText}>• {strength}</Text>
-                                            ))}
-                                        </View>
-                                    )}
-
-                                    {postingSuggestions.weaknesses && postingSuggestions.weaknesses.length > 0 && (
-                                        <View style={{ marginBottom: 12 }}>
-                                            <Text style={styles.suggestionSubtitle}>⚠️ Para Mejorar:</Text>
-                                            {postingSuggestions.weaknesses.map((weakness: string, i: number) => (
-                                                <Text key={i} style={styles.weaknessText}>• {weakness}</Text>
-                                            ))}
-                                        </View>
-                                    )}
-
-                                    {postingSuggestions.improvements && postingSuggestions.improvements.length > 0 && (
-                                        <View style={{ marginBottom: 12 }}>
-                                            <Text style={styles.suggestionSubtitle}>💡 Sugerencias:</Text>
-                                            {postingSuggestions.improvements.map((improvement: string, i: number) => (
-                                                <Text key={i} style={styles.improvementText}>• {improvement}</Text>
-                                            ))}
-                                        </View>
-                                    )}
-
-                                    {postingSuggestions.missingKeywords && postingSuggestions.missingKeywords.length > 0 && (
-                                        <View>
-                                            <Text style={styles.suggestionSubtitle}>🔑 Keywords Recomendadas:</Text>
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
-                                                {postingSuggestions.missingKeywords.map((keyword: string, i: number) => (
-                                                    <View key={i} style={styles.keywordTag}>
-                                                        <Text style={styles.keywordTagText}>{keyword}</Text>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
+                            {/* El análisis y feedback lento han sido removidos por solicitud del usuario */}
 
                             <View style={styles.resultCard}>
                                 <Text style={styles.label}>TÍTULO DETECTADO</Text>
@@ -514,7 +502,15 @@ export default function CreateJob() {
 
                                     <TouchableOpacity 
                                         style={[styles.switchContainer, jobData?.isExternal && styles.switchContainerActive]}
-                                        onPress={() => setJobData({ ...jobData, isExternal: !jobData?.isExternal })}
+                                        onPress={() => {
+                                            if ((!isEmailVerified && auth.currentUser?.email !== 'oscar@veritlyapp.com') || isProfileSkipped) {
+                                                return Alert.alert(
+                                                    "🔐 Acceso Protegido",
+                                                    "Para habilitar el enlace público de postulación, por seguridad debes verificar tu correo electrónico y completar tu perfil corporativo."
+                                                );
+                                            }
+                                            setJobData({ ...jobData, isExternal: !jobData?.isExternal });
+                                        }}
                                     >
                                         <View style={{ flex: 1 }}>
                                             <Text style={{ color: 'white', fontWeight: 'bold' }}>Habilitar Link de Postulación</Text>

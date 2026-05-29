@@ -142,29 +142,28 @@ export default function CompanySignIn() {
 
                 // Send Verification Email
                 if (auth.currentUser && cleanEmail !== 'oscar@veritlyapp.com') {
-                    await sendEmailVerification(auth.currentUser);
-                    await signOut(auth); // Force logout so they verify first
+                    sendEmailVerification(auth.currentUser).catch(err => {
+                        console.error('Error sending verification email:', err);
+                    });
                 }
 
                 if (cleanEmail === 'oscar@veritlyapp.com') {
-                    showAlert("¡Admin Creado!", "Cuenta admin creada. Puedes iniciar sesión inmediatamente.");
+                    showAlert("¡Admin Creado!", "Cuenta admin creada. Redirigiendo...");
                 } else {
-                    showAlert("¡Cuenta Creada!", "Hemos enviado un correo de verificación. Por favor actívalo para iniciar sesión.");
+                    showAlert("¡Cuenta Creada!", "Registro exitoso. Te hemos enviado un enlace de verificación, pero puedes comenzar a explorar la plataforma ya mismo.");
                 }
-                // Redirect to login view within the same screen
-                setIsRegistering(false);
+                
+                // Redirigir directamente al dashboard en lugar de cerrar sesión y pedir verificación
+                setTimeout(() => {
+                    router.replace('/empresa/dashboard');
+                }, 1000);
             } else {
                 // LOGIN EMPRESA
                 console.log('🔐 Login empresa:', cleanEmail);
                 const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
                 const user = userCredential.user;
 
-                if (!user.emailVerified && cleanEmail !== 'oscar@veritlyapp.com') {
-                    await signOut(auth);
-                    return showAlert("Verificación Pendiente", "Por favor verifica tu correo electrónico para acceder.");
-                }
-
-                console.log('✅ Login exitoso y verificado');
+                console.log('✅ Login exitoso');
 
                 // --- TRACKING METRICS ---
                 trackDailyLogin();

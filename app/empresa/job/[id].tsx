@@ -101,6 +101,8 @@ export default function JobDetailScreen() {
         companyId: ''
     });
     const [companyFeatures, setCompanyFeatures] = useState<string[]>([]);
+    const [isEmailVerified, setIsEmailVerified] = useState(true);
+    const [isProfileSkipped, setIsProfileSkipped] = useState(false);
 
     // Edit Candidate State
     const [isEditingCandidate, setIsEditingCandidate] = useState(false);
@@ -128,6 +130,14 @@ export default function JobDetailScreen() {
             if (!userDoc.exists()) return;
 
             const userData = userDoc.data();
+            setIsProfileSkipped(!!userData.profileSkipped);
+            try {
+                await currentUser.reload();
+                setIsEmailVerified(currentUser.emailVerified);
+            } catch (reloadErr) {
+                console.log("Error reloading user info in job details:", reloadErr);
+                setIsEmailVerified(currentUser.emailVerified);
+            }
             let planId = (userData.subscription?.plan || 'beta_free').toLowerCase().replace(/\s+/g, '_');
 
             // Aliases: normalizar IDs cortos a los IDs completos del plan
@@ -760,6 +770,15 @@ export default function JobDetailScreen() {
     };
 
     const openCandidateModal = async (candidate: CandidateAnalysis) => {
+        // SEGURIDAD PROGRESIVA: Si no está verificado o el perfil está omitido, bloqueamos el acceso a datos sensibles del candidato
+        if ((!isEmailVerified && auth.currentUser?.email !== 'oscar@veritlyapp.com') || isProfileSkipped) {
+            showAlert(
+                "🔐 Acceso Protegido", 
+                "Por motivos de seguridad y protección de datos, debes verificar tu correo electrónico y completar tu perfil de empresa para acceder a los detalles del candidato, descargar su CV y ver su análisis de IA."
+            );
+            return;
+        }
+
         setSelectedCandidate(candidate);
         setCandidateHistory([]);
         setIsEditingCandidate(false);

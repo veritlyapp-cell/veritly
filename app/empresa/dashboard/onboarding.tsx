@@ -2,10 +2,40 @@ import { useRouter } from 'expo-router';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Building2, ChevronDown, MapPin, User, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AppHeader from '../../../components/AppHeader';
 import { auth, db } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
+
+const Alert = {
+    alert: (title: string, message?: string, buttons?: any) => {
+        if (Platform.OS === 'web') {
+            if (buttons && buttons.length > 1) {
+                const confirmBtn = buttons.find((b: any) => b.style === 'destructive' || b.text === 'Eliminar' || b.text === 'Sincronizar');
+                const cancelBtn = buttons.find((b: any) => b.style === 'cancel' || b.text === 'Cancelar');
+                const confirmed = window.confirm(`${title}\n\n${message || ''}`);
+                if (confirmed) {
+                    if (confirmBtn && typeof confirmBtn.onPress === 'function') {
+                        confirmBtn.onPress();
+                    }
+                } else {
+                    if (cancelBtn && typeof cancelBtn.onPress === 'function') {
+                        cancelBtn.onPress();
+                    }
+                }
+            } else {
+                window.alert(`${title}${message ? '\n\n' + message : ''}`);
+                if (buttons && buttons.length === 1) {
+                    if (typeof buttons[0].onPress === 'function') {
+                        buttons[0].onPress();
+                    }
+                }
+            }
+        } else {
+            RNAlert.alert(title, message, buttons);
+        }
+    }
+};
 
 export default function CompanyOnboarding() {
     const router = useRouter();
@@ -80,6 +110,27 @@ export default function CompanyOnboarding() {
             setDistritosList([]);
         }
     }, [provincia]);
+
+    const handleSkip = async () => {
+        setLoading(true);
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            // Guardamos que el perfil fue omitido pero completado de forma mínima
+            await setDoc(doc(db, 'users_empresas', user.uid), {
+                profileCompleted: true,
+                profileSkipped: true, // Flag para saber que omitió y recordarle después
+                updatedAt: new Date()
+            }, { merge: true });
+
+            router.replace('/empresa/dashboard');
+        } catch (e: any) {
+            Alert.alert("Error al omitir", e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSave = async () => {
         const missing = [];
@@ -172,6 +223,15 @@ export default function CompanyOnboarding() {
             />
 
             <ScrollView contentContainerStyle={styles.form}>
+
+                {/* BOTÓN OMITIR POR AHORA */}
+                <TouchableOpacity 
+                    style={styles.skipButton} 
+                    onPress={handleSkip}
+                    disabled={loading}
+                >
+                    <Text style={styles.skipButtonText}>Omitir por ahora ➡️</Text>
+                </TouchableOpacity>
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
                 <View style={styles.sectionHeader}>
@@ -292,6 +352,21 @@ export default function CompanyOnboarding() {
 }
 
 const styles = StyleSheet.create({
+    skipButton: {
+        alignSelf: 'flex-end',
+        backgroundColor: '#E5E7EB',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+    },
+    skipButtonText: {
+        color: '#374151',
+        fontWeight: '700',
+        fontSize: 13,
+    },
     container: { flex: 1, backgroundColor: '#F9FAFB' },
     header: { padding: 20, paddingTop: 40, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', alignItems: 'center' },
     headerTitle: { color: '#111827', fontSize: 20, fontWeight: 'bold' },

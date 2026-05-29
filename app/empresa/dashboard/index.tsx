@@ -1,8 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendEmailVerification } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Sparkles, ChevronRight } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
 
@@ -22,14 +24,88 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
+const TooltipWrapper = Platform.OS === 'web' 
+  ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
+  : ({ children, style }: any) => <View style={style}>{children}</View>;
+
+const Alert = {
+    alert: (title: string, message?: string, buttons?: any) => {
+        if (Platform.OS === 'web') {
+            if (buttons && buttons.length > 1) {
+                const confirmBtn = buttons.find((b: any) => b.style === 'destructive' || b.text === 'Eliminar' || b.text === 'Sincronizar');
+                const cancelBtn = buttons.find((b: any) => b.style === 'cancel' || b.text === 'Cancelar');
+                const confirmed = window.confirm(`${title}\n\n${message || ''}`);
+                if (confirmed) {
+                    if (confirmBtn && typeof confirmBtn.onPress === 'function') {
+                        confirmBtn.onPress();
+                    }
+                } else {
+                    if (cancelBtn && typeof cancelBtn.onPress === 'function') {
+                        cancelBtn.onPress();
+                    }
+                }
+            } else {
+                window.alert(`${title}${message ? '\n\n' + message : ''}`);
+                if (buttons && buttons.length === 1) {
+                    if (typeof buttons[0].onPress === 'function') {
+                        buttons[0].onPress();
+                    }
+                }
+            }
+        } else {
+            RNAlert.alert(title, message, buttons);
+        }
+    }
+};
+
 export default function CompanyDashboard() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const showPublishText = width > 480;
     const [jobs, setJobs] = useState<any[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [checkingProfile, setCheckingProfile] = useState(true);
     const [userSubscription, setUserSubscription] = useState<any>(null);
     const [totalCandidates, setTotalCandidates] = useState(0);
+
+    // Nuevos estados para seguridad progresiva y guía interactiva
+    const [isEmailVerified, setIsEmailVerified] = useState(true);
+    const [isProfileSkipped, setIsProfileSkipped] = useState(false);
+    const [tourStep, setTourStep] = useState(0);
+
+    const startInteractiveTour = () => {
+        setTourStep(1);
+    };
+
+    const handleNextTour = () => {
+        if (tourStep < 5) {
+            setTourStep(tourStep + 1);
+        } else {
+            setTourStep(0);
+            if (auth.currentUser) {
+                AsyncStorage.setItem(`seen_tour_${auth.currentUser.uid}`, 'true').catch(e => console.log(e));
+            }
+        }
+    };
+
+    const handleSkipTour = () => {
+        setTourStep(0);
+        if (auth.currentUser) {
+            AsyncStorage.setItem(`seen_tour_${auth.currentUser.uid}`, 'true').catch(e => console.log(e));
+        }
+    };
+
+    const handleResendVerification = async () => {
+        try {
+            if (auth.currentUser) {
+                await sendEmailVerification(auth.currentUser);
+                Alert.alert("Correo Enviado", "Hemos reenviado el correo de verificación. Revisa tu bandeja de entrada.");
+            }
+        } catch (e: any) {
+            Alert.alert("Error", "No se pudo reenviar el correo: " + e.message);
+        }
+    };
 
     const loadData = async () => {
         if (!auth.currentUser) {
@@ -50,6 +126,17 @@ export default function CompanyDashboard() {
 
             const userData = userDoc.data();
             let subscription = userData.subscription || { plan: 'beta_free' };
+            
+            setIsProfileSkipped(!!userData.profileSkipped);
+
+            if (auth.currentUser) {
+                try {
+                    await auth.currentUser.reload();
+                    setIsEmailVerified(auth.currentUser.emailVerified);
+                } catch (reloadErr) {
+                    console.log("Error reloading user info:", reloadErr);
+                }
+            }
             
             // [FIX] Query by 'id' field instead of Doc ID
             try {
@@ -97,6 +184,18 @@ export default function CompanyDashboard() {
             setJobs(jobsWithCounts);
             const total = jobsWithCounts.reduce((acc, job) => acc + job.candidateCount, 0);
             setTotalCandidates(total);
+
+            // Disparar tour automáticamente si no tienen vacantes y es su primera vez
+            if (jobsWithCounts.length === 0 && auth.currentUser) {
+                try {
+                    const seen = await AsyncStorage.getItem(`seen_tour_${auth.currentUser.uid}`);
+                    if (!seen) {
+                        setTourStep(1);
+                    }
+                } catch (storeErr) {
+                    console.log("Error reading tour flag:", storeErr);
+                }
+            }
 
         } catch (e: any) {
             console.error("Error loading dashboard data", e);
@@ -149,6 +248,60 @@ export default function CompanyDashboard() {
         </View>
     );
 
+    const renderTourOverlay = () => {
+        if (tourStep === 0) return null;
+
+        const steps = [
+            {
+                title: "👋 ¡Bienvenido a Veritly!",
+                description: "Vamos a guiarte rápidamente por el panel en 5 pasos para que conozcas la herramienta y publiques tu primer puesto hoy.",
+                btnText: "Iniciar Guía"
+            },
+            {
+                title: "➕ Publicar Vacante",
+                description: "Haz clic en este botón en cualquier momento para redactar un puesto con IA o subir un PDF de perfil de cargo.",
+                btnText: "Siguiente"
+            },
+            {
+                title: "🎯 Auto-filtrado de Candidatos",
+                description: "Al crear el puesto, puedes configurar expectativas salariales y preguntas filtro (killer questions). Los candidatos que no cumplan se auto-descartarán sin que tengas que verlos ni consumir créditos.",
+                btnText: "Siguiente"
+            },
+            {
+                title: "📊 Créditos de IA",
+                description: "Tú eliges qué candidatos analizar a fondo con nuestra IA. Cada análisis de perfil detallado consume un crédito de tu plan.",
+                btnText: "Siguiente"
+            },
+            {
+                title: "⚙️ Gestión de Puestos",
+                description: "Controla tu capacidad de vacantes, copia el enlace de postulación y compártelo directamente en tus redes de LinkedIn.",
+                btnText: "Finalizar"
+            }
+        ];
+
+        const currentStep = steps[tourStep - 1];
+
+        return (
+            <View style={styles.tourBackdrop}>
+                <View style={styles.tourCard}>
+                    <View style={styles.tourProgressRow}>
+                        <Text style={styles.tourStepIndicator}>Paso {tourStep} de 5</Text>
+                        <TouchableOpacity onPress={handleSkipTour}>
+                            <Text style={styles.tourSkipText}>Omitir</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={styles.tourTitle}>{currentStep.title}</Text>
+                    <Text style={styles.tourDescription}>{currentStep.description}</Text>
+                    <View style={styles.tourFooter}>
+                        <TouchableOpacity style={styles.tourBtn} onPress={handleNextTour}>
+                            <Text style={styles.tourBtnText}>{currentStep.btnText}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     if (loading && !refreshing) {
         return (
             <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
@@ -164,13 +317,37 @@ export default function CompanyDashboard() {
             
             {/* Header */}
             <View style={styles.header}>
-                <View>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.welcomeTitle}>Dashboard</Text>
                     <Text style={styles.welcomeSub}>{jobs.length} Puestos en total</Text>
                 </View>
-                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                    <LogOut color={COLORS.error} size={20} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TooltipWrapper title="Ver Guía del Dashboard">
+                        <TouchableOpacity 
+                            style={styles.headerTourBtn} 
+                            onPress={startInteractiveTour}
+                        >
+                            <Text style={styles.headerTourBtnText}>?</Text>
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+                    <TooltipWrapper title="Publicar Nueva Vacante">
+                        <TouchableOpacity 
+                            style={styles.headerPublishBtn} 
+                            onPress={() => router.push('/empresa/dashboard/job/create')}
+                        >
+                            <Plus color="white" size={16} style={{ marginRight: showPublishText ? 4 : 0 }} />
+                            {showPublishText && <Text style={styles.headerPublishBtnText}>Publicar Vacante</Text>}
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+                    <TooltipWrapper title="Cerrar Sesión">
+                        <TouchableOpacity 
+                            style={styles.logoutBtn} 
+                            onPress={handleLogout}
+                        >
+                            <LogOut color={COLORS.error} size={20} />
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+                </View>
             </View>
 
             <ScrollView 
@@ -181,6 +358,45 @@ export default function CompanyDashboard() {
                 ]}
                 showsVerticalScrollIndicator={true}
             >
+                {/* Email Verification Banner */}
+                {!isEmailVerified && auth.currentUser?.email !== 'oscar@veritlyapp.com' && (
+                    <View style={styles.warningBanner}>
+                        <Text style={styles.warningBannerText}>
+                            ⚠️ Verifica tu correo para activar las vacantes públicas y poder ver postulantes.
+                        </Text>
+                        <TouchableOpacity onPress={handleResendVerification}>
+                            <Text style={styles.bannerActionText}>Reenviar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Profile Skipped Banner */}
+                {isProfileSkipped && (
+                    <View style={styles.infoBanner}>
+                        <Text style={styles.infoBannerText}>
+                            💡 Completa tu perfil corporativo para registrar datos de contacto oficiales.
+                        </Text>
+                        <TouchableOpacity onPress={() => router.push('/empresa/dashboard/onboarding')}>
+                            <Text style={[styles.bannerActionText, { color: COLORS.primary }]}>Completar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Empty State al Inicio */}
+                {jobs.length === 0 && (
+                    <View style={[styles.emptyContainer, { backgroundColor: COLORS.white, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border, padding: 24, marginBottom: 24, shadowColor: COLORS.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }]}>
+                        <Sparkles size={40} color={COLORS.primary} />
+                        <Text style={styles.emptyTitle}>Comienza tu selección</Text>
+                        <Text style={styles.emptyText}>Publica tu primer puesto para empezar a recibir candidatos filtrados por IA.</Text>
+                        <TouchableOpacity 
+                            style={styles.emptyBtn}
+                            onPress={() => router.push('/empresa/dashboard/job/create')}
+                        >
+                            <Text style={styles.emptyBtnText}>Publicar Vacante</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                
                 {renderBetaBanner()}
 
                 {/* Metrics */}
@@ -286,32 +502,28 @@ export default function CompanyDashboard() {
                     </TouchableOpacity>
                 ))}
 
-                {jobs.length === 0 && (
-                    <View style={styles.emptyContainer}>
-                        <Sparkles size={40} color={COLORS.textTertiary} />
-                        <Text style={styles.emptyTitle}>Comienza tu selección</Text>
-                        <Text style={styles.emptyText}>Publica tu primer puesto para empezar a recibir candidatos filtrados por IA.</Text>
-                        <TouchableOpacity 
-                            style={styles.emptyBtn}
-                            onPress={() => router.push('/empresa/dashboard/job/create')}
-                        >
-                            <Text style={styles.emptyBtnText}>Publicar Vacante</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {/* El empty state antiguo se ha removido de aquí */}
             </ScrollView>
 
-            <TouchableOpacity 
-                style={styles.fab} 
-                onPress={() => router.push('/empresa/dashboard/job/create')}
+            <TooltipWrapper 
+                title="Publicar Vacante" 
+                style={{ position: 'absolute', bottom: 30, right: 24, zIndex: 999 }}
             >
-                <Plus color="white" size={28} />
-            </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.fab, { position: 'relative', bottom: 0, right: 0 }]} 
+                    onPress={() => router.push('/empresa/dashboard/job/create')}
+                >
+                    <Plus color="white" size={28} />
+                </TouchableOpacity>
+            </TooltipWrapper>
 
             <FeedbackButton />
+            {renderTourOverlay()}
         </SafeAreaView>
     );
 }
+
+
 
 const styles = StyleSheet.create({
     container: { 
@@ -619,4 +831,144 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3, 
         shadowRadius: 12 
     },
+    warningBanner: {
+        backgroundColor: '#FEF3C7',
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        padding: 12,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16
+    },
+    warningBannerText: {
+        color: '#92400E',
+        fontSize: 13,
+        fontWeight: '600',
+        flex: 1
+    },
+    infoBanner: {
+        backgroundColor: '#E0F2FE',
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+        padding: 12,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16
+    },
+    infoBannerText: {
+        color: '#0369A1',
+        fontSize: 13,
+        fontWeight: '600',
+        flex: 1
+    },
+    bannerActionText: {
+        fontWeight: '700',
+        fontSize: 13,
+        color: '#B45309',
+        marginLeft: 10,
+        textDecorationLine: 'underline'
+    },
+    headerTourBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E5E7EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#D1D5DB'
+    },
+    headerTourBtnText: {
+        fontWeight: '800',
+        fontSize: 16,
+        color: '#4B5563'
+    },
+    headerPublishBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#4F46E5',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+    },
+    headerPublishBtnText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 12,
+        marginLeft: 4
+    },
+    tourBackdrop: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        padding: 24
+    },
+    tourCard: {
+        backgroundColor: 'white',
+        borderRadius: 24,
+        padding: 24,
+        maxWidth: 400,
+        width: '100%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10
+    },
+    tourProgressRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16
+    },
+    tourStepIndicator: {
+        color: '#9CA3AF',
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1
+    },
+    tourSkipText: {
+        color: '#9CA3AF',
+        fontWeight: '600',
+        fontSize: 12,
+        textDecorationLine: 'underline'
+    },
+    tourTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#111827',
+        marginBottom: 8
+    },
+    tourDescription: {
+        fontSize: 14,
+        color: '#4B5563',
+        lineHeight: 20,
+        marginBottom: 20
+    },
+    tourFooter: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end'
+    },
+    tourBtn: {
+        backgroundColor: '#4F46E5',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20
+    },
+    tourBtnText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 13
+    }
 });

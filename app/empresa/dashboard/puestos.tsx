@@ -1,11 +1,45 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
+
+const TooltipWrapper = Platform.OS === 'web' 
+  ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
+  : ({ children, style }: any) => <View style={style}>{children}</View>;
+
+const Alert = {
+    alert: (title: string, message?: string, buttons?: any) => {
+        if (Platform.OS === 'web') {
+            if (buttons && buttons.length > 1) {
+                const confirmBtn = buttons.find((b: any) => b.style === 'destructive' || b.text === 'Eliminar' || b.text === 'Sincronizar');
+                const cancelBtn = buttons.find((b: any) => b.style === 'cancel' || b.text === 'Cancelar');
+                const confirmed = window.confirm(`${title}\n\n${message || ''}`);
+                if (confirmed) {
+                    if (confirmBtn && typeof confirmBtn.onPress === 'function') {
+                        confirmBtn.onPress();
+                    }
+                } else {
+                    if (cancelBtn && typeof cancelBtn.onPress === 'function') {
+                        cancelBtn.onPress();
+                    }
+                }
+            } else {
+                window.alert(`${title}${message ? '\n\n' + message : ''}`);
+                if (buttons && buttons.length === 1) {
+                    if (typeof buttons[0].onPress === 'function') {
+                        buttons[0].onPress();
+                    }
+                }
+            }
+        } else {
+            RNAlert.alert(title, message, buttons);
+        }
+    }
+};
 
 export default function CompanyJobs() {
     // Note: Auth protection is already handled by the layout (_layout.tsx)
@@ -190,32 +224,73 @@ export default function CompanyJobs() {
                 </TouchableOpacity>
 
                 <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
-                    {item.isExternal && (
+                    <TooltipWrapper title={item.isExternal ? "Copiar enlace de postulación" : "Habilita el link de postulación en Editar para copiar"}>
                         <TouchableOpacity
-                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }, !item.isExternal && { opacity: 0.5 }]}
                             onPress={async () => {
+                                if (!item.isExternal) {
+                                    Alert.alert(
+                                        "Link no habilitado", 
+                                        "Esta vacante es de uso interno. Para poder copiar su enlace de postulación y compartirlo, primero edita el puesto y activa la opción 'Habilitar Link de Postulación'."
+                                    );
+                                    return;
+                                }
                                 await setStringAsync(`https://veritlyapp.com/vacante/${item.id}`);
-                                Alert.alert("URL copiado", "Comparte este enlace para recibir postulaciones.");
+                                Alert.alert("Copiado", "Enlace de vacante copiado al portapapeles.");
                             }}
                         >
-                            <LinkIcon color="#3b82f6" size={20} />
-                            <Text style={{ color: '#3b82f6', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>ENLACE</Text>
+                            <LinkIcon color={item.isExternal ? "#3b82f6" : "#64748b"} size={20} />
+                            <Text style={{ color: item.isExternal ? '#3b82f6' : '#64748b', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>COPIAR</Text>
                         </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                        style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
-                        onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
-                    >
-                        <Pencil color="#94a3b8" size={20} />
-                        <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
-                        onPress={() => handleDeleteJob(item.id, item.jobTitle)}
-                    >
-                        <Trash2 color="#ef4444" size={20} />
-                        <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>BORRAR</Text>
-                    </TouchableOpacity>
+                    </TooltipWrapper>
+
+                    <TooltipWrapper title={item.isExternal ? "Compartir en LinkedIn" : "Habilita el link de postulación en Editar para compartir"}>
+                        <TouchableOpacity
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50, backgroundColor: item.isExternal ? 'rgba(0, 119, 181, 0.1)' : '#F3F4F6', borderColor: item.isExternal ? 'rgba(0, 119, 181, 0.2)' : '#E5E7EB' }, !item.isExternal && { opacity: 0.5 }]}
+                            onPress={() => {
+                                if (!item.isExternal) {
+                                    Alert.alert(
+                                        "Link no habilitado", 
+                                        "Esta vacante es de uso interno. Para poder compartirla en LinkedIn y recibir postulantes, primero edita el puesto y activa la opción 'Habilitar Link de Postulación'."
+                                    );
+                                    return;
+                                }
+                                const shareUrl = `https://veritlyapp.com/vacante/${item.id}`;
+                                const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+                                if (Platform.OS === 'web') {
+                                    window.open(linkedinUrl, '_blank');
+                                } else {
+                                    Linking.openURL(linkedinUrl).catch(err => {
+                                        console.error("Error opening URL:", err);
+                                        Share.share({ message: `¡Estamos contratando! Postula aquí: ${shareUrl}` });
+                                    });
+                                }
+                            }}
+                        >
+                            <Linkedin color={item.isExternal ? "#0077B5" : "#64748b"} size={20} />
+                            <Text style={{ color: item.isExternal ? '#0077B5' : '#64748b', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>LINKEDIN</Text>
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+
+                    <TooltipWrapper title="Editar vacante">
+                        <TouchableOpacity
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                            onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
+                        >
+                            <Pencil color="#94a3b8" size={20} />
+                            <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+
+                    <TooltipWrapper title="Eliminar vacante">
+                        <TouchableOpacity
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                            onPress={() => handleDeleteJob(item.id, item.jobTitle)}
+                        >
+                            <Trash2 color="#ef4444" size={20} />
+                            <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>BORRAR</Text>
+                        </TouchableOpacity>
+                    </TooltipWrapper>
                 </View>
             </View>
         </View>
@@ -267,9 +342,11 @@ export default function CompanyJobs() {
                 )}
             </ScrollView>
 
-            <TouchableOpacity style={styles.fab} onPress={() => router.push('/empresa/dashboard/job/create')}>
-                <Plus color="white" size={30} />
-            </TouchableOpacity>
+            <TooltipWrapper title="Publicar Vacante" style={{ position: 'absolute', bottom: 30, right: 20, zIndex: 999 }}>
+                <TouchableOpacity style={[styles.fab, { position: 'relative', bottom: 0, right: 0 }]} onPress={() => router.push('/empresa/dashboard/job/create')}>
+                    <Plus color="white" size={30} />
+                </TouchableOpacity>
+            </TooltipWrapper>
 
             <FeedbackButton />
         </SafeAreaView>

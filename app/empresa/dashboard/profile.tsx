@@ -4,9 +4,39 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X, Camera, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import { auth, db, storage } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
+
+const Alert = {
+    alert: (title: string, message?: string, buttons?: any) => {
+        if (Platform.OS === 'web') {
+            if (buttons && buttons.length > 1) {
+                const confirmBtn = buttons.find((b: any) => b.style === 'destructive' || b.text === 'Eliminar' || b.text === 'Sincronizar');
+                const cancelBtn = buttons.find((b: any) => b.style === 'cancel' || b.text === 'Cancelar');
+                const confirmed = window.confirm(`${title}\n\n${message || ''}`);
+                if (confirmed) {
+                    if (confirmBtn && typeof confirmBtn.onPress === 'function') {
+                        confirmBtn.onPress();
+                    }
+                } else {
+                    if (cancelBtn && typeof cancelBtn.onPress === 'function') {
+                        cancelBtn.onPress();
+                    }
+                }
+            } else {
+                window.alert(`${title}${message ? '\n\n' + message : ''}`);
+                if (buttons && buttons.length === 1) {
+                    if (typeof buttons[0].onPress === 'function') {
+                        buttons[0].onPress();
+                    }
+                }
+            }
+        } else {
+            RNAlert.alert(title, message, buttons);
+        }
+    }
+};
 
 export default function CompanyProfile() {
     const router = useRouter();
