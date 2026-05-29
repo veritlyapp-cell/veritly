@@ -128,6 +128,13 @@ export default function EmpresaAdminDashboard() {
             }
 
             // Fetch B2C metrics
+            try {
+                const candsSnap = await getDocs(collection(db, 'users_candidatos'));
+                setTotalB2C(candsSnap.size);
+            } catch (b2cError) {
+                console.error("Error fetching total B2C candidates:", b2cError);
+            }
+
             // Fetch Feedback
             try {
                 const feedbackSnap = await getDocs(query(collection(db, 'feedback'), orderBy('createdAt', 'desc'), limit(50)));
@@ -218,6 +225,8 @@ export default function EmpresaAdminDashboard() {
             await setDoc(doc(db, 'config_plans', newPlan.id), {
                 ...newPlan,
                 isRecommended: newPlan.isRecommended || false,
+                isComingSoon: newPlan.isComingSoon || false,
+                isHidden: newPlan.isHidden || false,
                 updatedAt: new Date()
             });
             Alert.alert("Éxito", "Plan guardado.");
@@ -342,6 +351,40 @@ export default function EmpresaAdminDashboard() {
         }
     };
 
+    const handleDeletePlan = async (planId: string, planName: string) => {
+        const confirmDelete = () => {
+            return new Promise((resolve) => {
+                if (Platform.OS === 'web') {
+                    resolve(window.confirm(`¿Estás seguro de eliminar el plan "${planName}"?`));
+                } else {
+                    Alert.alert(
+                        "Eliminar Plan",
+                        `¿Estás seguro de eliminar el plan "${planName}"? Esta acción no se puede deshacer.`,
+                        [
+                            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+                            { text: "Eliminar", style: "destructive", onPress: () => resolve(true) }
+                        ]
+                    );
+                }
+            });
+        };
+
+        const confirmed = await confirmDelete();
+        if (!confirmed) return;
+
+        setLoading(true);
+        try {
+            await deleteDoc(doc(db, 'config_plans', planId));
+            Alert.alert("Éxito", `El plan "${planName}" ha sido eliminado.`);
+            fetchData();
+        } catch (error: any) {
+            console.error("Error deleting plan:", error);
+            Alert.alert("Error", "No se pudo eliminar el plan: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const openEditModal = (comp: CompanyProfile) => {
         setSelectedCompany(comp);
         setEditSub({
@@ -357,7 +400,20 @@ export default function EmpresaAdminDashboard() {
     const openPlanModal = (plan?: any) => {
         if (plan) {
             setSelectedPlan(plan);
-            setNewPlan(plan);
+            setNewPlan({
+                id: plan.id || '',
+                name: plan.name || '',
+                aiAnalysisLimit: plan.aiAnalysisLimit || 200,
+                internalVacanciesLimit: plan.internalVacanciesLimit || 10,
+                publicVacanciesLimit: plan.publicVacanciesLimit || 5,
+                killerQuestionsLimit: plan.killerQuestionsLimit || 2,
+                priceMonthly: plan.priceMonthly || 0,
+                priceAnnual: plan.priceAnnual || 0,
+                isComingSoon: plan.isComingSoon || false,
+                isRecommended: plan.isRecommended || false,
+                isHidden: plan.isHidden || false,
+                features: plan.features || [],
+            });
         } else {
             setSelectedPlan(null);
             setNewPlan({
@@ -371,6 +427,7 @@ export default function EmpresaAdminDashboard() {
                 priceAnnual: 0,
                 isComingSoon: false,
                 isRecommended: false,
+                isHidden: false,
                 features: [],
             });
         }
@@ -421,11 +478,17 @@ export default function EmpresaAdminDashboard() {
                 <Text style={styles.cellSub}>S/ {item.priceMonthly || 0} mes</Text>
                 <Text style={styles.cellSub}>Filtros: {item.killerQuestionsLimit || 0} preguntas</Text>
                 {item.isRecommended && <Text style={[styles.cellSub, { color: COLORS.success, fontWeight: 'bold' }]}>★ RECOMENDADO</Text>}
+                {item.isHidden && <Text style={[styles.cellSub, { color: '#EF4444', fontWeight: 'bold' }]}>Ø OCULTO</Text>}
                 <Text style={styles.cellSub}>{item.features?.length || 0} características</Text>
             </View>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => openPlanModal(item)}>
-                <Edit3 size={16} color="white" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => openPlanModal(item)}>
+                    <Edit3 size={16} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtnDelete} onPress={() => handleDeletePlan(item.id, item.name)}>
+                    <Trash2 size={16} color="white" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 
@@ -629,6 +692,15 @@ export default function EmpresaAdminDashboard() {
                                         keyboardType="numeric"
                                     />
                                 </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Vacantes Públicas</Text>
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={(newPlan.publicVacanciesLimit || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, publicVacanciesLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
                             </View>
 
                             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -642,39 +714,38 @@ export default function EmpresaAdminDashboard() {
                                     />
                                 </View>
                             </View>
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>Vacantes Públicas</Text>
-                                    <TextInput 
-                                        style={styles.input}
-                                        value={(newPlan.publicVacanciesLimit || 0).toString()}
-                                        onChangeText={t => setNewPlan({...newPlan, publicVacanciesLimit: parseInt(t) || 0})}
-                                        keyboardType="numeric"
-                                    />
-                                </View>
-                                <View style={{ flex: 1, justifyContent: 'center' }}>
-                                    <TouchableOpacity 
-                                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}
-                                        onPress={() => setNewPlan({...newPlan, isComingSoon: !newPlan.isComingSoon})}
-                                    >
-                                        <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.primary, backgroundColor: newPlan.isComingSoon ? COLORS.primary : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
-                                            {newPlan.isComingSoon && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-                                        </View>
-                                        <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Próximamente</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={{ flex: 1, justifyContent: 'center' }}>
-                                    <TouchableOpacity 
-                                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}
-                                        onPress={() => setNewPlan({...newPlan, isRecommended: !newPlan.isRecommended})}
-                                    >
-                                        <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.success, backgroundColor: newPlan.isRecommended ? COLORS.success : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
-                                            {newPlan.isRecommended && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
-                                        </View>
-                                        <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Recomendado</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                             
+                             <View style={{ flexDirection: 'row', gap: 15, marginTop: 15, flexWrap: 'wrap' }}>
+                                 <TouchableOpacity 
+                                     style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 110, marginVertical: 5 }}
+                                     onPress={() => setNewPlan({...newPlan, isComingSoon: !newPlan.isComingSoon})}
+                                 >
+                                     <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.primary, backgroundColor: newPlan.isComingSoon ? COLORS.primary : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                         {newPlan.isComingSoon && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                                     </View>
+                                     <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Próximamente</Text>
+                                 </TouchableOpacity>
+
+                                 <TouchableOpacity 
+                                     style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 110, marginVertical: 5 }}
+                                     onPress={() => setNewPlan({...newPlan, isRecommended: !newPlan.isRecommended})}
+                                 >
+                                     <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: COLORS.success, backgroundColor: newPlan.isRecommended ? COLORS.success : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                         {newPlan.isRecommended && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                                     </View>
+                                     <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Recomendado</Text>
+                                 </TouchableOpacity>
+
+                                 <TouchableOpacity 
+                                     style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 110, marginVertical: 5 }}
+                                     onPress={() => setNewPlan({...newPlan, isHidden: !newPlan.isHidden})}
+                                 >
+                                     <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: '#EF4444', backgroundColor: newPlan.isHidden ? '#EF4444' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                         {newPlan.isHidden && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                                     </View>
+                                     <Text style={{ marginLeft: 10, fontSize: 13, color: COLORS.textPrimary }}>Ocultar Plan</Text>
+                                 </TouchableOpacity>
+                             </View>
 
                             <Text style={[styles.label, { marginTop: 15 }]}>Características Extras (Checklist)</Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }}>

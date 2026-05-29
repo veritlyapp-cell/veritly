@@ -55,7 +55,9 @@ export default function PricingScreen() {
         const fetchPlans = async () => {
             try {
                 const querySnapshot = await getDocs(collection(db, 'config_plans'));
-                const plansData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const plansData = querySnapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter((plan: any) => !plan.isHidden);
                 // Sort by price or something? Let's sort by priceMonthly
                 plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
                 setSystemPlans(plansData);
