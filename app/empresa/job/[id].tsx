@@ -1,6 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import mammoth from 'mammoth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, serverTimestamp, increment, writeBatch, deleteDoc } from 'firebase/firestore';
 import { 
@@ -28,7 +27,6 @@ import {
     View,
     useWindowDimensions
 } from 'react-native';
-import * as XLSX from 'xlsx';
 
 import CircularProgress from '../../../components/CircularProgress';
 import { auth, db, storage } from '../../../config/firebase';
@@ -363,6 +361,7 @@ export default function JobDetailScreen() {
 
 
     const downloadTemplate = async () => {
+        const XLSX = await import('xlsx');
         const ws = XLSX.utils.json_to_sheet([
             { Nombre: 'Juan Pérez', Email: 'juan@email.com', Telefono: '987654321', Experiencia: '5 años como Analista de Datos, dominio de Python, SQL y Tableau.', Habilidades: 'Python, SQL, AWS, Liderazgo, Inglés Avanzado' }
         ]);
@@ -399,6 +398,7 @@ export default function JobDetailScreen() {
                 arrayBuffer = await response.arrayBuffer();
             }
 
+            const XLSX = await import('xlsx');
             const wb = XLSX.read(arrayBuffer, { type: 'buffer' });
             const wsName = wb.SheetNames[0];
             const ws = wb.Sheets[wsName];
@@ -700,7 +700,9 @@ export default function JobDetailScreen() {
                     }
                     const byteArray = new Uint8Array(byteNumbers);
                     
-                    const result = await mammoth.convertToHtml({ arrayBuffer: byteArray.buffer });
+                    const mammothModule = await import('mammoth');
+                    const mammothInstance = mammothModule.default || mammothModule;
+                    const result = await mammothInstance.convertToHtml({ arrayBuffer: byteArray.buffer });
                     setWordPreviewHtml(result.value);
                 } catch (e) {
                     console.error("Error previsualizando Word:", e);

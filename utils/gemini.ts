@@ -1,5 +1,4 @@
 
-import mammoth from 'mammoth';
 import { Platform } from 'react-native';
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -132,7 +131,9 @@ export const extractTextFromDocument = async (fileUri: string, mimeType: string 
                 arrayBuffer = await blob.arrayBuffer();
             }
 
-            const result = await mammoth.extractRawText({ arrayBuffer });
+            const mammothModule = await import('mammoth');
+            const mammothInstance = mammothModule.default || mammothModule;
+            const result = await mammothInstance.extractRawText({ arrayBuffer });
             const extractedText = result.value;
 
             if (!extractedText || extractedText.trim().length === 0) {
