@@ -6,6 +6,26 @@ import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
 import { auth, db } from '../../../config/firebase';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
+const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
+    PE: { currency: 'PEN', symbol: 'S/' },
+    CO: { currency: 'COP', symbol: '$' },
+    EC: { currency: 'USD', symbol: '$' },
+    BO: { currency: 'BOB', symbol: 'Bs' },
+    CL: { currency: 'CLP', symbol: '$' },
+    PY: { currency: 'PYG', symbol: '₲' },
+};
+
+const formatCurrencyValue = (val: number, currency: string) => {
+    if (currency === 'PEN') return val.toString();
+    if (currency === 'USD') return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
+    const rounded = Math.round(val);
+    try {
+        return rounded.toLocaleString('es-ES');
+    } catch (e) {
+        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+};
+
 export default function PricingScreen() {
     const router = useRouter();
 
@@ -14,6 +34,14 @@ export default function PricingScreen() {
     const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
     const [priceLoading, setPriceLoading] = useState(true);
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
+    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
+        USD: 0.27,
+        COP: 1100,
+        CLP: 250,
+        BOB: 1.85,
+        PYG: 2000,
+        PEN: 1.0,
+    });
 
     // Manejar cierre del modal de Culqi
     useEffect(() => {
@@ -36,20 +64,35 @@ export default function PricingScreen() {
             try {
                 const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
-                if (data.country_code === 'PE') {
-                    setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
-                } else {
-                    setLocationInfo({ country: data.country_code || 'US', currency: 'USD', symbol: '$' });
-                }
+                const country = data.country_code || 'PE';
+                const mapping = CURRENCY_MAP[country] || { currency: 'USD', symbol: '$' };
+                setLocationInfo({ country, currency: mapping.currency, symbol: mapping.symbol });
             } catch (error) {
                 console.error("Error detectando ubicación:", error);
-                // Default to Peru if fails, or could be USD global
+                // Default to Peru if fails
                 setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
             } finally {
                 setPriceLoading(false);
             }
         };
         detectLocation();
+
+        // Fetch Exchange Rates from PEN
+        const fetchExchangeRates = async () => {
+            try {
+                const response = await fetch('https://open.er-api.com/v6/latest/PEN');
+                const data = await response.json();
+                if (data && data.result === 'success' && data.rates) {
+                    setExchangeRates(prev => ({
+                        ...prev,
+                        ...data.rates
+                    }));
+                }
+            } catch (e) {
+                console.error("Error fetching exchange rates:", e);
+            }
+        };
+        fetchExchangeRates();
 
         // Fetch System Plans from config_plans
         const fetchPlans = async () => {
@@ -86,7 +129,7 @@ export default function PricingScreen() {
         }
     }, []);
 
-    const handleSubscribe = async (planName: string) => {
+    const handleSubscribe = async (planName: string, priceInSoles: number, planId: string) => {
         if (!auth.currentUser) {
             return Alert.alert("Inicia Sesión", "Debes estar logueado para contratar un plan.");
         }
@@ -95,7 +138,7 @@ export default function PricingScreen() {
             return Alert.alert("Próximamente", "Inicia sesión desde tu PC para contratar planes.");
         }
 
-        if (planName === 'Freemium') return;
+        if (planName === 'Freemium' || priceInSoles === 0) return;
 
         const CULQI_PK = process.env.EXPO_PUBLIC_CULQI_PUBLIC_KEY || 'pk_test_3066914563f68340'; // Reemplazar con real pk_test_...
 
@@ -110,22 +153,25 @@ export default function PricingScreen() {
 
         Culqi.publicKey = CULQI_PK;
         
-        const amount = planName === 'Pro' 
-            ? (billingPeriod === 'monthly' ? (locationInfo.currency === 'PEN' ? 180 : 49) : (locationInfo.currency === 'PEN' ? 1800 : 490)) 
-            : (billingPeriod === 'monthly' ? (locationInfo.currency === 'PEN' ? 400 : 109) : (locationInfo.currency === 'PEN' ? 4000 : 1090));
+        let chargeCurrency = 'PEN';
+        let chargeAmount = priceInSoles;
+
+        if (locationInfo.currency !== 'PEN') {
+            chargeCurrency = 'USD';
+            const usdRate = exchangeRates['USD'] || 0.27;
+            chargeAmount = Math.round(priceInSoles * usdRate * 100) / 100;
+        }
+
+        const culqiPlanId = planName.toLowerCase().includes('pro') ? 'plan_pro_5' : 'plan_gold_12';
 
         Culqi.settings({
             title: `Veritly - Plan ${planName}`,
-            currency: locationInfo.currency,
+            currency: chargeCurrency,
             description: `Suscripción ${billingPeriod === 'monthly' ? 'Mensual' : 'Anual'} ${planName}`,
-            amount: amount * 100 // Culqi usa céntimos
+            amount: Math.round(chargeAmount * 100) // Culqi usa céntimos
         });
 
         Culqi.options({
-            lang: 'auto',
-            modal: true,
-            installments: false,
-            customButton: '',
             style: {
                 logo: 'https://veritly.app/assets/images/veritly3.png',
                 maincolor: '#38bdf8',
@@ -149,7 +195,7 @@ export default function PricingScreen() {
                         body: JSON.stringify({
                             token: token,
                             email: auth.currentUser?.email,
-                            planId: planName === 'Pro' ? 'plan_pro_5' : 'plan_gold_12',
+                            planId: culqiPlanId,
                             userId: auth.currentUser?.uid
                         })
                     });
@@ -164,7 +210,7 @@ export default function PricingScreen() {
                         await updateDoc(userRef, {
                             'subscription.plan': planName,
                             'subscription.status': 'Active',
-                            'subscription.jobsLimit': planName === 'Pro' ? 50 : 200, // Limites según plan
+                            'subscription.jobsLimit': planName.toLowerCase().includes('pro') ? 50 : 200, // Limites según plan
                             'subscription.updatedAt': new Date()
                         });
                     }
@@ -228,7 +274,13 @@ export default function PricingScreen() {
                     const isRecommended = plan.isRecommended;
                     const isComingSoon = plan.isComingSoon;
                     
-                    const price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
+                    const priceInSoles = billingPeriod === 'monthly' ? (plan.priceMonthly || 0) : (plan.priceAnnual || 0);
+                    let displayPrice = priceInSoles;
+                    if (locationInfo.currency !== 'PEN') {
+                        const rate = exchangeRates[locationInfo.currency] || (locationInfo.currency === 'USD' ? 0.27 : 1.0);
+                        displayPrice = priceInSoles * rate;
+                    }
+                    const formattedPrice = formatCurrencyValue(displayPrice, locationInfo.currency);
                     const isCurrentPlan = auth.currentUser && (auth.currentUser as any).subscription?.plan === plan.name;
 
                     return (
@@ -247,7 +299,7 @@ export default function PricingScreen() {
                             <Text style={[styles.planName, isRecommended && { color: '#4F46E5' }]}>{plan.name}</Text>
                             <View style={styles.priceRow}>
                                 <Text style={styles.planPrice}>
-                                    {locationInfo.symbol} {price || 0}
+                                    {locationInfo.symbol} {formattedPrice}
                                 </Text>
                                 <Text style={styles.planPriceUnit}>{billingPeriod === 'monthly' ? '/ mes' : '/ año'}</Text>
                             </View>
@@ -276,7 +328,7 @@ export default function PricingScreen() {
                                 </View>
                             ) : (
                                 <TouchableOpacity 
-                                    onPress={() => handleSubscribe(plan.name)}
+                                    onPress={() => handleSubscribe(plan.name, priceInSoles, plan.id)}
                                     disabled={isComingSoon}
                                     style={{ opacity: isComingSoon ? 0.6 : 1 }}
                                 >
