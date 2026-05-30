@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { ArrowRight, CheckSquare, Lock, Mail, Square } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, ScrollView } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
@@ -239,7 +239,12 @@ export default function AuthScreen() {
     <SafeAreaView style={styles.container}>
       {/* Mobile-only Header */}
       {!isDesktop && (
-        <AppHeader showAuthButtons={false} showBackButton={true} title={isRegistering ? "REGISTRO" : "LOGIN"} />
+        <AppHeader 
+          showAuthButtons={false} 
+          showBackButton={true} 
+          minimal={true} 
+          lightTheme={true} 
+        />
       )}
 
       <View style={styles.mainContent}>
@@ -255,7 +260,11 @@ export default function AuthScreen() {
             </View>
           )}
 
-          <View style={styles.formContainer}>
+          <ScrollView 
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: isDesktop ? 60 : 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formContainer}>
             <Animated.View style={[styles.formWrapper, animatedStyle]}>
               <Text style={styles.title}>{isRegistering ? "Crear una Cuenta" : "Bienvenido de nuevo"}</Text>
               <Text style={styles.subtitle}>
@@ -390,7 +399,8 @@ export default function AuthScreen() {
               </TouchableOpacity>
 
             </Animated.View>
-          </View>
+            </View>
+          </ScrollView>
         </View>
 
         {/* RIGHT PANEL: BRANDING (Desktop Only) */}

@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ArrowRight, Building2, CheckSquare, Lock, Mail, Square, UserPlus, MessageSquare } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions, Linking } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions, Linking, ScrollView } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import AppHeader from '../../components/AppHeader';
 import { auth } from '../../config/firebase';
@@ -235,7 +235,12 @@ export default function CompanySignIn() {
         <SafeAreaView style={styles.container}>
             {/* Mobile-only Header */}
             {!isDesktop && (
-                <AppHeader showAuthButtons={false} showBackButton={true} title={isRegistering ? "NUEVA EMPRESA" : "ACCESO EMPRESA"} />
+                <AppHeader 
+                    showAuthButtons={false} 
+                    showBackButton={true} 
+                    minimal={true} 
+                    lightTheme={true} 
+                />
             )}
 
             <View style={styles.mainContent}>
@@ -251,7 +256,11 @@ export default function CompanySignIn() {
                         </View>
                     )}
 
-                    <View style={styles.formContainer}>
+                    <ScrollView 
+                        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: isDesktop ? 60 : 20 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.formContainer}>
                         <Animated.View style={[styles.formWrapper, animatedStyle]}>
                             <Text style={styles.title}>{isRegistering ? "Registro de Empresa" : "Portal Empresas"}</Text>
                             <Text style={styles.subtitle}>
@@ -446,6 +455,7 @@ export default function CompanySignIn() {
 
                         </Animated.View>
                     </View>
+                    </ScrollView>
                 </View>
 
                 {/* RIGHT PANEL: BRANDING (Desktop Only) */}

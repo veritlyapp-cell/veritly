@@ -25,7 +25,8 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    useWindowDimensions
 } from 'react-native';
 import * as XLSX from 'xlsx';
 
@@ -78,6 +79,7 @@ const getStatusColor = (status: RecruitmentStatus) => {
 export default function JobDetailScreen() {
     const { id, title, description } = useLocalSearchParams();
     const router = useRouter();
+    const { width } = useWindowDimensions();
 
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
     const [activeTab, setActiveTab] = useState<'ranking' | 'pipeline'>('ranking');
@@ -1032,14 +1034,14 @@ export default function JobDetailScreen() {
             </View>
 
             {/* Tabs & View Switching */}
-            <View style={styles.tabsContainer}>
-                <View style={styles.mainTabs}>
+            <View style={[styles.tabsContainer, width < 480 && { flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingBottom: 10 }]}>
+                <View style={[styles.mainTabs, width < 480 && { gap: 12, justifyContent: 'space-around' }]}>
                     <TouchableOpacity 
                         style={[styles.mainTab, activeTab === 'ranking' && styles.mainTabActive]} 
                         onPress={() => setActiveTab('ranking')}
                     >
                         <Sparkles size={20} color={activeTab === 'ranking' ? '#3b82f6' : '#64748b'} />
-                        <Text style={[styles.mainTabText, activeTab === 'ranking' && styles.mainTabTextActive]}>Ranking IA</Text>
+                        <Text style={[styles.mainTabText, activeTab === 'ranking' && styles.mainTabTextActive, width < 450 && { fontSize: 13 }]}>Ranking IA</Text>
                         <View style={[styles.countBadge, activeTab === 'ranking' && { backgroundColor: '#3b82f6' }]}>
                             <Text style={styles.countBadgeText}>{candidates.filter(c => ['new', 'sourcing_pending', 'pending_ai'].includes(c.recruitmentStatus)).length}</Text>
                         </View>
@@ -1052,7 +1054,7 @@ export default function JobDetailScreen() {
                         }}
                     >
                         <LayoutTemplate size={20} color={activeTab === 'pipeline' ? '#3b82f6' : '#64748b'} />
-                        <Text style={[styles.mainTabText, activeTab === 'pipeline' && styles.mainTabTextActive]}>Pipeline ATS</Text>
+                        <Text style={[styles.mainTabText, activeTab === 'pipeline' && styles.mainTabTextActive, width < 450 && { fontSize: 13 }]}>Pipeline ATS</Text>
                         <View style={[styles.countBadge, activeTab === 'pipeline' && { backgroundColor: '#10b981' }]}>
                             <Text style={styles.countBadgeText}>
                                 {candidates.filter(c => ['screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'].includes(c.recruitmentStatus)).length}
@@ -1062,16 +1064,16 @@ export default function JobDetailScreen() {
                 </View>
 
                 {activeTab === 'pipeline' && (
-                    <View style={styles.viewToggle}>
+                    <View style={[styles.viewToggle, width < 480 && { alignSelf: 'center', marginTop: 4, width: '100%', justifyContent: 'center' }]}>
                         <TouchableOpacity 
                             onPress={() => setViewMode('list')}
-                            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+                            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <List size={20} color={viewMode === 'list' ? 'white' : '#64748b'} />
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => setViewMode('kanban')}
-                            style={[styles.viewToggleBtn, viewMode === 'kanban' && styles.viewToggleBtnActive]}
+                            style={[styles.viewToggleBtn, viewMode === 'kanban' && styles.viewToggleBtnActive, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <LayoutTemplate size={20} color={viewMode === 'kanban' ? 'white' : '#64748b'} />
                         </TouchableOpacity>
@@ -1084,7 +1086,7 @@ export default function JobDetailScreen() {
                                     setIsSelectionMode(true);
                                 }
                             }}
-                            style={[styles.viewToggleBtn, isSelectionMode && { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6' }]}
+                            style={[styles.viewToggleBtn, isSelectionMode && { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6' }, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <CheckSquare size={20} color={isSelectionMode ? '#3b82f6' : '#64748b'} />
                         </TouchableOpacity>
@@ -1094,7 +1096,7 @@ export default function JobDetailScreen() {
 
             {/* Quick Actions Bar (Ranking Context) */}
             {activeTab === 'ranking' && (
-                <View style={styles.rankingActions}>
+                <View style={[styles.rankingActions, width < 480 && { flexDirection: 'column', alignItems: 'stretch', gap: 10, padding: 15 }]}>
                     {selectedCVs.length > 0 ? (
                         <View style={{flexDirection: 'row', gap: 10, flex: 1}}>
                             <TouchableOpacity 
@@ -1115,7 +1117,7 @@ export default function JobDetailScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <>
+                        <View style={{ flexDirection: width < 480 ? 'column' : 'row', gap: 10, flex: 1, width: '100%' }}>
                             {companyFeatures.includes("Subida CVs (PDF/Word)") && (
                                 <TouchableOpacity 
                                     onPress={handleSelectCVs} 
@@ -1140,10 +1142,13 @@ export default function JobDetailScreen() {
                                     <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
                                 </TouchableOpacity>
                             )}
-                        </>
+                        </View>
                     )}
                     <TouchableOpacity 
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginLeft: 10 }} 
+                        style={[
+                            { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+                            width >= 480 ? { marginLeft: 10 } : { marginTop: 5, justifyContent: 'center', paddingVertical: 12, width: '100%' }
+                        ]} 
                         onPress={handleCleanupPipeline}
                     >
                         <Trash2 size={14} color="#ef4444" />
@@ -1204,7 +1209,7 @@ export default function JobDetailScreen() {
                                                 {(item.matchScore === 0 || !item.matchScore) && (
                                                     <TooltipWrapper title="Analizar con IA (Consume créditos)">
                                                         <TouchableOpacity
-                                                            style={[styles.iconButton, { backgroundColor: 'rgba(139, 92, 246, 0.1)', width: 100 }]}
+                                                            style={[styles.iconButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(139, 92, 246, 0.1)', width: 100, borderRadius: 8 }]}
                                                             onPress={(e) => {
                                                                 e.stopPropagation();
                                                                 handleAnalyzeIndividualCandidate(item);
@@ -1217,7 +1222,7 @@ export default function JobDetailScreen() {
                                                 )}
                                                 <TooltipWrapper title="Mover al Pipeline ATS">
                                                     <TouchableOpacity
-                                                        style={[styles.iconButton, { backgroundColor: 'rgba(16, 185, 129, 0.1)', width: 80 }]}
+                                                        style={[styles.iconButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(16, 185, 129, 0.1)', width: 80, borderRadius: 8 }]}
                                                         onPress={(e) => {
                                                             e.stopPropagation();
                                                             handleBulkMove('screening', [item.id]);
@@ -1300,33 +1305,35 @@ export default function JobDetailScreen() {
                                 onLongPress={() => toggleSelection(item.id)}
                             >
                                 <View style={styles.cardContent}>
-                                    {isSelectionMode && (
-                                        <View style={{ marginRight: 12 }}>
-                                            {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                    <View style={styles.cardTopRow}>
+                                        {isSelectionMode && (
+                                            <View style={{ marginRight: 12 }}>
+                                                {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
+                                            </View>
+                                        )}
+                                        <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
+                                            <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
+                                            <View style={styles.validationSeal}>
+                                                <CheckCircle2 color="#2563EB" size={18} fill="white" />
+                                            </View>
                                         </View>
-                                    )}
-                                    <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
-                                        <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
-                                        <View style={styles.validationSeal}>
-                                            <CheckCircle2 color="#2563EB" size={18} fill="white" />
-                                        </View>
-                                    </View>
 
-                                    <View style={styles.cardInfo}>
-                                        <Text style={styles.candidateName}>{item.name}</Text>
-                                        <Text style={styles.candidateSalary}>
-                                            Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
-                                        </Text>
-                                        <Text style={styles.candidateDate}>
-                                            {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
-                                                day: 'numeric',
-                                                month: 'short'
-                                            })}
-                                        </Text>
-                                        <View style={[styles.statusPill, { backgroundColor: `${getStatusColor(item.recruitmentStatus)}20` }]}>
-                                            <Text style={[styles.statusPillText, { color: getStatusColor(item.recruitmentStatus) }]}>
-                                                {item.recruitmentStatus.toUpperCase()}
+                                        <View style={styles.cardInfo}>
+                                            <Text style={styles.candidateName}>{item.name}</Text>
+                                            <Text style={styles.candidateSalary}>
+                                                Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
                                             </Text>
+                                            <Text style={styles.candidateDate}>
+                                                {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
+                                                    day: 'numeric',
+                                                    month: 'short'
+                                                })}
+                                            </Text>
+                                            <View style={[styles.statusPill, { backgroundColor: `${getStatusColor(item.recruitmentStatus)}20` }]}>
+                                                <Text style={[styles.statusPillText, { color: getStatusColor(item.recruitmentStatus) }]}>
+                                                    {item.recruitmentStatus.toUpperCase()}
+                                                </Text>
+                                            </View>
                                         </View>
                                     </View>
 

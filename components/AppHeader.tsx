@@ -11,18 +11,21 @@ interface AppHeaderProps {
     title?: string;
     showBackButton?: boolean;
     homeRoute?: string;
+    minimal?: boolean;
+    lightTheme?: boolean;
 }
 
 export default function AppHeader({
     showAuthButtons = true,
     title,
     showBackButton = true,
-    homeRoute = '/'
+    homeRoute = '/',
+    minimal = false,
+    lightTheme = false
 }: AppHeaderProps) {
     const router = useRouter();
 
     const handleLogout = async () => {
-        // ... (keep same)
         const confirmLogout = () => {
             auth.signOut().then(() => {
                 router.replace('/');
@@ -45,7 +48,6 @@ export default function AppHeader({
     };
 
     const handleShare = async () => {
-        // ... (keep same share logic)
         const shareMessage = {
             title: 'Veritly - IA para tu carrera',
             message: '¡Descubre Veritly! 🚀 Usa IA para analizar vacantes y mejorar tu CV. Antes de postular, Veritly. https://veritly.netlify.app',
@@ -76,32 +78,44 @@ export default function AppHeader({
         }
     };
 
+    const activeHeaderStyle = [
+        styles.header,
+        lightTheme && { backgroundColor: '#F8FAFF', borderBottomColor: '#E5E7EB' }
+    ];
+
+    const activeBackBtnStyle = [
+        styles.backButton,
+        minimal && { borderRightWidth: 0, paddingRight: 0 }
+    ];
+
     return (
-        <View style={styles.header}>
+        <View style={activeHeaderStyle}>
             <View style={styles.leftSection}>
                 {showBackButton && (
                     <TouchableOpacity
-                        style={styles.backButton}
+                        style={activeBackBtnStyle}
                         onPress={() => router.back()}
                     >
-                        <ArrowLeft size={20} color="#94a3b8" />
-                        <Text style={styles.backButtonText}>Atrás</Text>
+                        <ArrowLeft size={20} color={lightTheme ? '#4B5563' : '#94a3b8'} />
+                        <Text style={[styles.backButtonText, lightTheme && { color: '#4B5563' }]}>Atrás</Text>
                     </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                    style={styles.logoSection}
-                    onPress={() => router.replace(homeRoute as any)}
-                >
-                    <Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" />
-                    <View>
-                        <Text style={styles.appName}>{title || 'VERITLY'}</Text>
-                        <Text style={styles.tagline}>Antes de postular, Veritly</Text>
-                    </View>
-                </TouchableOpacity>
+                {!minimal && (
+                    <TouchableOpacity
+                        style={styles.logoSection}
+                        onPress={() => router.replace(homeRoute as any)}
+                    >
+                        <Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" />
+                        <View>
+                            <Text style={styles.appName}>{title || 'VERITLY'}</Text>
+                            <Text style={styles.tagline}>Antes de postular, Veritly</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
             </View>
 
-            {showAuthButtons && (
+            {showAuthButtons && !minimal && (
                 <View style={styles.buttonSection}>
                     <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                         <Share2 size={18} color="#3b82f6" />
@@ -140,6 +154,7 @@ const styles = StyleSheet.create({
         paddingRight: 10,
         borderRightWidth: 1,
         borderRightColor: '#334155',
+        height: 30, // Asegurar alineación vertical
     },
     backButtonText: {
         color: '#94a3b8',

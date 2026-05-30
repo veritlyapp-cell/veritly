@@ -261,7 +261,6 @@ export default function ExternalApplication() {
             setCompanyType(data?.company?.type || 'empresa');
 
             // Load applicant count
-            const { getDocs, query, collection } = await import('firebase/firestore');
             const q = query(collection(db, 'jobs', jobId, 'candidates'));
             const countSnap = await getDocs(q);
             setApplicantCount(countSnap.size);
