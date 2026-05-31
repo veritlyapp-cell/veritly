@@ -131,8 +131,8 @@ export default function FeedbackButton() {
 const styles = StyleSheet.create({
     floatingButton: {
         position: 'absolute',
-        bottom: 90, // Above tab bar usually
-        right: 20,
+        bottom: 30,
+        left: 20,
         backgroundColor: '#3b82f6',
         width: 56,
         height: 56,

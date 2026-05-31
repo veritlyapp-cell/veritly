@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     },
     whatsappFloat: {
         position: 'absolute',
-        bottom: 24,
+        bottom: 104,
         right: 24,
         flexDirection: 'row',
         alignItems: 'center',
