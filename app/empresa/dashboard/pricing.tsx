@@ -354,7 +354,7 @@ export default function PricingScreen() {
                     </View>
                     <TouchableOpacity 
                         style={[styles.buttonOutline, { borderColor: '#4F46E5', backgroundColor: 'transparent' }]}
-                        onPress={() => window.open('https://wa.me/51987654321', '_blank')}
+                        onPress={() => window.open('https://wa.me/51986731032', '_blank')}
                     >
                         <Text style={[styles.buttonOutlineText, { color: '#FFFFFF' }]}>Contactar Vendedor</Text>
                     </TouchableOpacity>

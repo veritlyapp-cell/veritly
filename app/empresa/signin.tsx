@@ -15,7 +15,7 @@ const HeroImage = require('../../assets/images/friendly_hero.png');
 
 const FloatingWhatsAppButton = () => {
     const handlePress = () => {
-        const url = 'https://wa.me/51956833456?text=Hola,%20necesito%20ayuda%20con%20mi%20registro%20en%20Veritly';
+        const url = 'https://wa.me/51986731032?text=Hola,%20necesito%20ayuda%20con%20mi%20registro%20en%20Veritly';
         if (Platform.OS === 'web') {
             window.open(url, '_blank');
         } else {

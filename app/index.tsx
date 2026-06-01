@@ -269,7 +269,7 @@ export default function VeritlyLandingPage() {
                                 <FeatureItemLanding text="API Privada / SSO" />
                                 <FeatureItemLanding text="Account Manager" />
                             </View>
-                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('https://wa.me/51987654321')}>
+                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('https://wa.me/51986731032')}>
                                 <Text style={styles.planButtonSecondaryText}>Contactar</Text>
                             </TouchableOpacity>
                         </View>

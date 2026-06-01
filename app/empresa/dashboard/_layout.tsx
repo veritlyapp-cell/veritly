@@ -10,7 +10,7 @@ import { useRequireRole } from '../../../hooks/useRequireRole';
 
 const FloatingWhatsAppButton = () => {
     const handlePress = () => {
-        const url = 'https://wa.me/51956833456?text=Hola,%20necesito%20ayuda%20con%20mi%20cuenta%20de%20empresa%20en%20Veritly';
+        const url = 'https://wa.me/51986731032?text=Hola,%20necesito%20ayuda%20con%20mi%20cuenta%20de%20empresa%20en%20Veritly';
         if (Platform.OS === 'web') {
             window.open(url, '_blank');
         } else {
