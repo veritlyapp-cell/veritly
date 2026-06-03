@@ -45,6 +45,8 @@ export default function CompanyOnboarding() {
     const [ruc, setRuc] = useState('');
     const [razonSocial, setRazonSocial] = useState('');
     const [nombreComercial, setNombreComercial] = useState('');
+    const [userType, setUserType] = useState<'empresa' | 'independiente'>('empresa');
+    const [dni, setDni] = useState('');
 
     // UBICACIÓN (Perú)
     const [departamento, setDepartamento] = useState('Lima');
@@ -83,6 +85,14 @@ export default function CompanyOnboarding() {
                 if (data.profileCompleted) {
                     router.replace('/empresa/dashboard');
                     return;
+                }
+                const fetchedType = data.company?.type || 'empresa';
+                setUserType(fetchedType);
+                if (fetchedType === 'independiente') {
+                    if (data.company?.dni) setDni(data.company.dni);
+                    if (data.company?.name && !nombreResponsable) {
+                        setNombreResponsable(data.company.name);
+                    }
                 }
                 if (data.company?.ruc) setRuc(data.company.ruc);
                 if (data.company?.razonSocial) setRazonSocial(data.company.razonSocial);
@@ -134,9 +144,13 @@ export default function CompanyOnboarding() {
 
     const handleSave = async () => {
         const missing = [];
-        if (!ruc || ruc.length !== 11) missing.push("RUC (Correcto)");
-        if (!razonSocial) missing.push("Razón Social");
-        if (!nombreComercial) missing.push("Nombre Comercial");
+        if (userType === 'empresa') {
+            if (!ruc || ruc.length !== 11) missing.push("RUC (Correcto)");
+            if (!razonSocial) missing.push("Razón Social");
+            if (!nombreComercial) missing.push("Nombre Comercial");
+        } else {
+            if (!dni || dni.length !== 8) missing.push("DNI (Correcto)");
+        }
         if (!departamento || !provincia || !distrito) missing.push("Ubicación Completa (Dep/Prov/Dist)");
         if (!direccion) missing.push("Dirección Fiscal");
         if (!nombreResponsable) missing.push("Nombre Responsable");
@@ -161,9 +175,14 @@ export default function CompanyOnboarding() {
                 email: user.email,
                 role: 'empresa', // ← ROLE ASSIGNMENT FOR FIRESTORE
                 company: {
-                    name: nombreComercial,
-                    ruc,
-                    razonSocial,
+                    name: userType === 'empresa' ? nombreComercial : (nombreComercial || nombreResponsable),
+                    ...(userType === 'empresa' ? {
+                        ruc,
+                        razonSocial
+                    } : {
+                        dni
+                    }),
+                    type: userType,
                     location: { departamento, provincia, distrito, address: direccion }
                 },
                 responsible: {
@@ -236,23 +255,48 @@ export default function CompanyOnboarding() {
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
                 <View style={styles.sectionHeader}>
                     <Building2 color="#38bdf8" size={24} />
-                    <Text style={styles.sectionTitle}>Datos Corporativos</Text>
+                    <Text style={styles.sectionTitle}>
+                        {userType === 'empresa' ? "Datos Corporativos" : "Datos de Identificación"}
+                    </Text>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>RUC (11 Dígitos) *</Text>
-                    <TextInput style={styles.input} placeholder="20100..." placeholderTextColor="#64748b" value={ruc} onChangeText={setRuc} keyboardType="numeric" maxLength={11} />
-                </View>
+                {userType === 'empresa' ? (
+                    <>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>RUC (11 Dígitos) *</Text>
+                            <TextInput style={styles.input} placeholder="20100..." placeholderTextColor="#64748b" value={ruc} onChangeText={setRuc} keyboardType="numeric" maxLength={11} />
+                        </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Razón Social *</Text>
-                    <TextInput style={styles.input} placeholder="Mi Empresa S.A.C." placeholderTextColor="#64748b" value={razonSocial} onChangeText={setRazonSocial} />
-                </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Razón Social *</Text>
+                            <TextInput style={styles.input} placeholder="Mi Empresa S.A.C." placeholderTextColor="#64748b" value={razonSocial} onChangeText={setRazonSocial} />
+                        </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Nombre Comercial (Visible) *</Text>
-                    <TextInput style={styles.input} placeholder="Mi Marca" placeholderTextColor="#64748b" value={nombreComercial} onChangeText={setNombreComercial} />
-                </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Nombre Comercial (Visible) *</Text>
+                            <TextInput style={styles.input} placeholder="Mi Marca" placeholderTextColor="#64748b" value={nombreComercial} onChangeText={setNombreComercial} />
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>DNI *</Text>
+                            <TextInput 
+                                style={[styles.input, dni ? { backgroundColor: '#E5E7EB', color: '#374151' } : {}]} 
+                                value={dni} 
+                                onChangeText={setDni}
+                                editable={!dni} 
+                                keyboardType="numeric"
+                                maxLength={8}
+                            />
+                        </View>
+                        
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Nombre Comercial / Marca (Opcional)</Text>
+                            <TextInput style={styles.input} placeholder="Mi Marca Personal" placeholderTextColor="#64748b" value={nombreComercial} onChangeText={setNombreComercial} />
+                        </View>
+                    </>
+                )}
 
                 {/* SECCIÓN 2: UBICACIÓN */}
                 <View style={[styles.sectionHeader, { marginTop: 25 }]}>

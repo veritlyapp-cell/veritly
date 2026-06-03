@@ -62,7 +62,9 @@ export default function CompanyJobs() {
         console.log("  Email:", auth.currentUser.email);
         console.log("  UID:", auth.currentUser.uid);
 
-        setLoading(true);
+        if (jobs.length === 0) {
+            setLoading(true);
+        }
         try {
             // 1. Verificar Perfil (nueva colección con fallback)
             let userDoc = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));

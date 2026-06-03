@@ -50,6 +50,8 @@ export default function CompanyProfile() {
     const [logoUrl, setLogoUrl] = useState('');
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const [isRucFromDb, setIsRucFromDb] = useState(false);
+    const [userType, setUserType] = useState<'empresa' | 'independiente'>('empresa');
+    const [dni, setDni] = useState('');
 
     // UBICACIÓN (Perú)
     const [departamento, setDepartamento] = useState('Lima');
@@ -120,6 +122,12 @@ export default function CompanyProfile() {
 
                     // [FIX] Búsqueda exhaustiva de datos (Nueva estructura -> Antigua -> Raíz)
                     const companyData = data.company || {};
+                    const fetchedType = companyData.type || 'empresa';
+                    setUserType(fetchedType);
+                    
+                    if (fetchedType === 'independiente') {
+                        if (companyData.dni) setDni(companyData.dni);
+                    }
                     
                     // Prioridad de búsqueda de RUC
                     const rucValue = companyData.ruc || data.ruc || data.taxId || '';
@@ -190,8 +198,12 @@ export default function CompanyProfile() {
 
     const handleUpdate = async () => {
         const missing = [];
-        if (!ruc) missing.push("RUC");
-        if (!razonSocial) missing.push("Razón Social");
+        if (userType === 'empresa') {
+            if (!ruc) missing.push("RUC");
+            if (!razonSocial) missing.push("Razón Social");
+        } else {
+            if (!dni) missing.push("DNI");
+        }
         // Nombre Comercial can be optional if created empty
         // if (!nombreComercial) missing.push("Nombre Comercial");
         if (!departamento || !provincia || !distrito) missing.push("Ubicación Completa");
@@ -202,10 +214,18 @@ export default function CompanyProfile() {
             return Alert.alert("Faltan Datos", "Por favor completa: \n- " + missing.join("\n- "));
         }
 
-        // [SAFETY] Validación de formato RUC (Solo números y exactamente 11 dígitos)
-        const cleanRuc = ruc.trim();
-        if (cleanRuc.length !== 11 || !/^\d+$/.test(cleanRuc)) {
-            return Alert.alert("RUC Inválido", "El RUC debe tener exactamente 11 números. Verifica que no tenga espacios ni letras.");
+        if (userType === 'empresa') {
+            // [SAFETY] Validación de formato RUC (Solo números y exactamente 11 dígitos)
+            const cleanRuc = ruc.trim();
+            if (cleanRuc.length !== 11 || !/^\d+$/.test(cleanRuc)) {
+                return Alert.alert("RUC Inválido", "El RUC debe tener exactamente 11 números. Verifica que no tenga espacios ni letras.");
+            }
+        } else {
+            // [SAFETY] Validación de formato DNI (Solo números y exactamente 8 dígitos)
+            const cleanDni = dni.trim();
+            if (cleanDni.length !== 8 || !/^\d+$/.test(cleanDni)) {
+                return Alert.alert("DNI Inválido", "El DNI debe tener exactamente 8 números.");
+            }
         }
 
         setLoading(true);
@@ -217,9 +237,15 @@ export default function CompanyProfile() {
             // This preserves other fields in 'company', 'location', 'responsible', etc.
             // AND fixes the schema mismatch.
             const updateData = {
-                'company.ruc': ruc,
-                'company.razonSocial': razonSocial,
-                'company.name': nombreComercial,
+                ...(userType === 'empresa' ? {
+                    'company.ruc': ruc,
+                    'company.razonSocial': razonSocial,
+                    'company.name': nombreComercial,
+                } : {
+                    'company.dni': dni,
+                    'company.name': nombreComercial || nombreResponsable,
+                }),
+                'company.type': userType,
 
                 'location.departamento': departamento,
                 'location.provincia': provincia,
@@ -389,29 +415,48 @@ export default function CompanyProfile() {
                     </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>RUC</Text>
-                    <TextInput 
-                        style={[styles.input, !isRucFromDb && { backgroundColor: '#FFFFFF', borderColor: '#4F46E5' }, isRucFromDb && { backgroundColor: '#F1F5F9', color: '#475569' }]} 
-                        value={ruc} 
-                        onChangeText={(text) => setRuc(text.replace(/[^0-9]/g, ''))} // Solo números
-                        keyboardType="numeric" 
-                        maxLength={11} 
-                        editable={!isRucFromDb} 
-                        selectTextOnFocus={!isRucFromDb} 
-                    />
-                    <Text style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
-                        {isRucFromDb ? "El RUC no se puede editar una vez registrado." : "Ingresa los 11 dígitos de tu RUC."}
-                    </Text>
-                </View>
+                {userType === 'empresa' ? (
+                    <>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>RUC</Text>
+                            <TextInput 
+                                style={[styles.input, !isRucFromDb && { backgroundColor: '#FFFFFF', borderColor: '#4F46E5' }, isRucFromDb && { backgroundColor: '#F1F5F9', color: '#475569' }]} 
+                                value={ruc} 
+                                onChangeText={(text) => setRuc(text.replace(/[^0-9]/g, ''))} // Solo números
+                                keyboardType="numeric" 
+                                maxLength={11} 
+                                editable={!isRucFromDb} 
+                                selectTextOnFocus={!isRucFromDb} 
+                            />
+                            <Text style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
+                                {isRucFromDb ? "El RUC no se puede editar una vez registrado." : "Ingresa los 11 dígitos de tu RUC."}
+                            </Text>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Razón Social</Text>
+                            <TextInput style={styles.input} value={razonSocial} onChangeText={setRazonSocial} />
+                        </View>
+                    </>
+                ) : (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>DNI</Text>
+                        <TextInput 
+                            style={[styles.input, { backgroundColor: '#F1F5F9', color: '#475569' }]} 
+                            value={dni} 
+                            onChangeText={setDni}
+                            editable={!dni}
+                            keyboardType="numeric"
+                            maxLength={8}
+                        />
+                        <Text style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
+                            {dni ? "El DNI no se puede editar una vez registrado." : "Ingresa los 8 dígitos de tu DNI."}
+                        </Text>
+                    </View>
+                )}
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Razón Social</Text>
-                    <TextInput style={styles.input} value={razonSocial} onChangeText={setRazonSocial} />
-                </View>
-
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Nombre Comercial</Text>
+                    <Text style={styles.label}>{userType === 'empresa' ? "Nombre Comercial" : "Nombre Comercial / Marca"}</Text>
                     <TextInput style={styles.input} value={nombreComercial} onChangeText={setNombreComercial} />
                 </View>
 

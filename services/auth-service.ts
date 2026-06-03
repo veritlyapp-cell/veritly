@@ -5,6 +5,16 @@ import { sendAdminNotification } from './notification-service';
 
 export type UserRole = 'candidato' | 'empresa';
 
+// Cache to prevent redundant DB calls during session navigation
+const userRoleCache: Record<string, UserRole> = {};
+
+// Helper to clear cache (e.g. on logout if needed)
+export function clearUserRoleCache() {
+    for (const key in userRoleCache) {
+        delete userRoleCache[key];
+    }
+}
+
 export interface CandidateProfile {
     uid: string;
     email: string;
@@ -80,6 +90,7 @@ export async function createCandidateUser(
         };
 
         await setDoc(doc(db, 'users_candidatos', user.uid), candidateData);
+        userRoleCache[user.uid] = 'candidato';
 
         // Notify Admin (Async, don't block)
         sendAdminNotification('candidate', {
@@ -195,6 +206,7 @@ export async function createCompanyUser(
 
         console.log(`📡 [auth-service] Creando documento Firestore para empresa: ${user.uid}`);
         await setDoc(doc(db, 'users_empresas', user.uid), companyProfile);
+        userRoleCache[user.uid] = 'empresa';
         console.log('✅ [auth-service] Documento Firestore creado exitosamente.');
 
         // Notify Admin
@@ -218,12 +230,18 @@ export async function createCompanyUser(
 export async function getCurrentUserRole(uid: string): Promise<UserRole | null> {
     const startTime = Date.now();
     try {
+        if (userRoleCache[uid]) {
+            console.log(`⚡ [getCurrentUserRole] Cache hit for UID: ${uid.substring(0, 8)}... -> ${userRoleCache[uid]}`);
+            return userRoleCache[uid];
+        }
+
         console.log(`🔍 [getCurrentUserRole] Checking role for UID: ${uid.substring(0, 8)}...`);
 
         // Check user auth to find email
         const user = auth.currentUser;
         if (user && user.uid === uid && user.email === 'oscar@veritlyapp.com') {
             console.log(`👑 [getCurrentUserRole] Forcing 'empresa' role for SuperAdmin`);
+            userRoleCache[uid] = 'empresa';
             return 'empresa';
         }
 
@@ -249,16 +267,19 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
 
         if (companySnap.exists()) {
             console.log(`✅ [getCurrentUserRole] Found 'empresa' (new) in ${duration}ms`);
+            userRoleCache[uid] = 'empresa';
             return 'empresa';
         }
 
         if (legacySnap.exists()) {
             console.log(`⚠️ [getCurrentUserRole] Found 'empresa' (legacy) in ${duration}ms`);
+            userRoleCache[uid] = 'empresa';
             return 'empresa';
         }
 
         if (candidateSnap.exists()) {
             console.log(`✅ [getCurrentUserRole] Found 'candidato' in ${duration}ms`);
+            userRoleCache[uid] = 'candidato';
             return 'candidato';
         }
 

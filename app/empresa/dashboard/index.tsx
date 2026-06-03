@@ -113,7 +113,9 @@ export default function CompanyDashboard() {
             return;
         }
 
-        setLoading(true);
+        if (jobs.length === 0) {
+            setLoading(true);
+        }
         try {
             let userDoc = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
             if (!userDoc.exists()) {

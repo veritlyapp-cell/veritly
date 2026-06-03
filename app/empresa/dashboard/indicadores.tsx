@@ -126,7 +126,9 @@ export default function IndicadoresDashboard() {
     const fetchData = async () => {
         if (!auth.currentUser) return;
         try {
-            setLoading(true);
+            if (allJobs.length === 0) {
+                setLoading(true);
+            }
             const jobsQuery = query(collection(db, 'jobs'), where('companyId', '==', auth.currentUser.uid));
             const jobsSnapshot = await getDocs(jobsQuery);
             const jobs = jobsSnapshot.docs.map(d => {
