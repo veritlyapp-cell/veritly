@@ -94,7 +94,13 @@ export default function AppHeader({
                 {showBackButton && (
                     <TouchableOpacity
                         style={activeBackBtnStyle}
-                        onPress={() => router.back()}
+                        onPress={() => {
+                            if (router.canGoBack()) {
+                                router.back();
+                            } else {
+                                router.replace(homeRoute as any);
+                            }
+                        }}
                     >
                         <ArrowLeft size={20} color={lightTheme ? '#4B5563' : '#94a3b8'} />
                         <Text style={[styles.backButtonText, lightTheme && { color: '#4B5563' }]}>Atrás</Text>
