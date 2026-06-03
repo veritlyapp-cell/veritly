@@ -378,7 +378,7 @@ export default function CompanyDashboard() {
                         <Text style={styles.infoBannerText}>
                             💡 Completa tu perfil corporativo para registrar datos de contacto oficiales.
                         </Text>
-                        <TouchableOpacity onPress={() => router.push('/empresa/dashboard/onboarding')}>
+                        <TouchableOpacity onPress={() => router.push('/empresa/dashboard/profile')}>
                             <Text style={[styles.bannerActionText, { color: COLORS.primary }]}>Completar</Text>
                         </TouchableOpacity>
                     </View>

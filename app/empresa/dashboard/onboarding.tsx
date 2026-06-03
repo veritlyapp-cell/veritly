@@ -86,7 +86,7 @@ export default function CompanyOnboarding() {
                     router.replace('/empresa/dashboard');
                     return;
                 }
-                const fetchedType = data.company?.type || 'empresa';
+                const fetchedType = data.company?.type || (data.company?.dni ? 'independiente' : 'empresa');
                 setUserType(fetchedType);
                 if (fetchedType === 'independiente') {
                     if (data.company?.dni) setDni(data.company.dni);

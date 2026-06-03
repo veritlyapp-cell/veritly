@@ -122,7 +122,7 @@ export default function CompanyProfile() {
 
                     // [FIX] Búsqueda exhaustiva de datos (Nueva estructura -> Antigua -> Raíz)
                     const companyData = data.company || {};
-                    const fetchedType = companyData.type || 'empresa';
+                    const fetchedType = companyData.type || (companyData.dni ? 'independiente' : 'empresa');
                     setUserType(fetchedType);
                     
                     if (fetchedType === 'independiente') {
@@ -262,6 +262,7 @@ export default function CompanyProfile() {
 
                 'company.logoUrl': logoUrl,
                 logoUrl: logoUrl, // duplicamos para compatibilidad
+                profileSkipped: false,
 
                 updatedAt: new Date().toISOString()
             };
