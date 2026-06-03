@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, RotateCw } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -50,6 +50,70 @@ export default function CompanyJobs() {
     const [checkingProfile, setCheckingProfile] = useState(true);
     const [userPlan, setUserPlan] = useState('Freemium');
     const [totalCandidates, setTotalCandidates] = useState(0);
+
+    // Gesture state for Web pull-to-refresh
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isPulling, setIsPulling] = useState(false);
+    const [startY, setStartY] = useState(0);
+    const [isAtTop, setIsAtTop] = useState(true);
+
+    const handleTouchStart = (e: any) => {
+        if (Platform.OS !== 'web') return;
+        if (isAtTop) {
+            setStartY(e.touches[0].clientY);
+            setIsPulling(true);
+        }
+    };
+
+    const handleTouchMove = (e: any) => {
+        if (Platform.OS !== 'web' || !isPulling) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        if (diff > 0) {
+            const distance = Math.min(diff * 0.4, 100);
+            setPullDistance(distance);
+            if (e.cancelable) e.preventDefault();
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (Platform.OS !== 'web') return;
+        if (isPulling) {
+            if (pullDistance > 50 && !refreshing) {
+                onRefresh();
+            }
+            setPullDistance(0);
+            setIsPulling(false);
+            setStartY(0);
+        }
+    };
+
+    const handleScroll = (e: any) => {
+        const yOffset = e.nativeEvent.contentOffset.y;
+        setIsAtTop(yOffset <= 0);
+    };
+
+    const renderWebRefreshIndicator = () => {
+        if (Platform.OS !== 'web') return null;
+        if (pullDistance === 0 && !refreshing) return null;
+        
+        return (
+            <View style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: refreshing ? 60 : pullDistance,
+                overflow: 'hidden',
+                opacity: refreshing ? 1 : Math.min(pullDistance / 50, 1),
+                backgroundColor: 'transparent',
+                paddingVertical: 10
+            }}>
+                <ActivityIndicator size="small" color="#4F46E5" />
+                <Text style={{ fontSize: 10, color: '#4B5563', marginTop: 4 }}>
+                    {refreshing ? "Actualizando..." : (pullDistance > 45 ? "Suelta para actualizar" : "Desliza para actualizar")}
+                </Text>
+            </View>
+        );
+    };
 
     const loadData = async () => {
         if (!auth.currentUser) {
@@ -314,6 +378,21 @@ export default function CompanyJobs() {
             <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
             <View style={styles.header}>
                 <Text style={styles.title}>Mis Puestos</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TooltipWrapper title="Actualizar Datos">
+                        <TouchableOpacity 
+                            style={styles.headerRefreshBtn} 
+                            onPress={onRefresh}
+                            disabled={refreshing}
+                        >
+                            {refreshing ? (
+                                <ActivityIndicator size="small" color="#4F46E5" />
+                            ) : (
+                                <RotateCw color="#4F46E5" size={16} />
+                            )}
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+                </View>
             </View>
 
             <ScrollView 
@@ -322,7 +401,13 @@ export default function CompanyJobs() {
                     { paddingBottom: 100 },
                     Platform.OS === 'web' && { maxWidth: 1100, alignSelf: 'center', width: '100%' }
                 ]}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
             >
+                {renderWebRefreshIndicator()}
                 <Text style={styles.sectionSubtitle}>Gestiona tus vacantes activas y candidatos evaluados.</Text>
 
 
@@ -358,6 +443,16 @@ export default function CompanyJobs() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB', padding: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 10 },
+    headerRefreshBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E5E7EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#D1D5DB'
+    },
     title: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
     emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
     emptyText: { color: '#111827', fontSize: 18, fontWeight: '700', marginBottom: 8 },

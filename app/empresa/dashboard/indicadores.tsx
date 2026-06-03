@@ -30,11 +30,16 @@ import {
     Calendar,
     X,
     ChevronDown,
-    DollarSign
+    DollarSign,
+    RotateCw
 } from 'lucide-react-native';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../../config/firebase';
 import { useFocusEffect } from 'expo-router';
+
+const TooltipWrapper = Platform.OS === 'web' 
+  ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
+  : ({ children, style }: any) => <View style={style}>{children}</View>;
 
 // ============ TYPES ============
 interface RawCandidate {
@@ -110,6 +115,71 @@ export default function IndicadoresDashboard() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [updatingDates, setUpdatingDates] = useState(false);
+
+    // Gesture state for Web pull-to-refresh
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isPulling, setIsPulling] = useState(false);
+    const [startY, setStartY] = useState(0);
+    const [isAtTop, setIsAtTop] = useState(true);
+
+    const handleTouchStart = (e: any) => {
+        if (Platform.OS !== 'web') return;
+        if (isAtTop) {
+            setStartY(e.touches[0].clientY);
+            setIsPulling(true);
+        }
+    };
+
+    const handleTouchMove = (e: any) => {
+        if (Platform.OS !== 'web' || !isPulling) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        if (diff > 0) {
+            const distance = Math.min(diff * 0.4, 100);
+            setPullDistance(distance);
+            if (e.cancelable) e.preventDefault();
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (Platform.OS !== 'web') return;
+        if (isPulling) {
+            if (pullDistance > 50 && !refreshing) {
+                setRefreshing(true);
+                fetchData();
+            }
+            setPullDistance(0);
+            setIsPulling(false);
+            setStartY(0);
+        }
+    };
+
+    const handleScroll = (e: any) => {
+        const yOffset = e.nativeEvent.contentOffset.y;
+        setIsAtTop(yOffset <= 0);
+    };
+
+    const renderWebRefreshIndicator = () => {
+        if (Platform.OS !== 'web') return null;
+        if (pullDistance === 0 && !refreshing) return null;
+        
+        return (
+            <View style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: refreshing ? 60 : pullDistance,
+                overflow: 'hidden',
+                opacity: refreshing ? 1 : Math.min(pullDistance / 50, 1),
+                backgroundColor: 'transparent',
+                paddingVertical: 10
+            }}>
+                <ActivityIndicator size="small" color="#4F46E5" />
+                <Text style={{ fontSize: 10, color: '#4B5563', marginTop: 4 }}>
+                    {refreshing ? "Actualizando..." : (pullDistance > 45 ? "Suelta para actualizar" : "Desliza para actualizar")}
+                </Text>
+            </View>
+        );
+    };
 
     // Raw data
     const [allCandidates, setAllCandidates] = useState<RawCandidate[]>([]);
@@ -370,22 +440,43 @@ export default function IndicadoresDashboard() {
                     styles.scrollContent,
                     Platform.OS === 'web' && { maxWidth: 1100, alignSelf: 'center' as any, width: '100%' }
                 ]}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
             >
+                {renderWebRefreshIndicator()}
                 {/* Header */}
                 <View style={styles.header}>
-                    <View>
+                    <View style={{ flex: 1 }}>
                         <Text style={styles.title}>Indicadores</Text>
                         <Text style={styles.subtitle}>Métricas de tu proceso de reclutamiento</Text>
                     </View>
-                    <TouchableOpacity
-                        style={[styles.filterToggle, hasActiveFilters && styles.filterToggleActive]}
-                        onPress={() => setShowFilters(!showFilters)}
-                    >
-                        <Filter color={hasActiveFilters ? '#38bdf8' : '#94a3b8'} size={16} />
-                        <Text style={[styles.filterToggleText, hasActiveFilters && { color: '#38bdf8' }]}>
-                            Filtros{hasActiveFilters ? ' ●' : ''}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TooltipWrapper title="Actualizar Datos">
+                            <TouchableOpacity 
+                                style={styles.headerRefreshBtn} 
+                                onPress={() => { setRefreshing(true); fetchData(); }}
+                                disabled={refreshing}
+                            >
+                                {refreshing ? (
+                                    <ActivityIndicator size="small" color="#4F46E5" />
+                                ) : (
+                                    <RotateCw color="#4F46E5" size={16} />
+                                )}
+                            </TouchableOpacity>
+                        </TooltipWrapper>
+                        <TouchableOpacity
+                            style={[styles.filterToggle, hasActiveFilters && styles.filterToggleActive]}
+                            onPress={() => setShowFilters(!showFilters)}
+                        >
+                            <Filter color={hasActiveFilters ? '#38bdf8' : '#94a3b8'} size={16} />
+                            <Text style={[styles.filterToggleText, hasActiveFilters && { color: '#38bdf8' }]}>
+                                Filtros{hasActiveFilters ? ' ●' : ''}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* ===== FILTERS PANEL ===== */}
@@ -748,6 +839,16 @@ const styles = StyleSheet.create({
     scrollContent: { padding: 20, paddingBottom: 50 },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 10 },
+    headerRefreshBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E5E7EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#D1D5DB'
+    },
     title: { color: '#111827', fontSize: 26, fontWeight: '900' },
     subtitle: { color: '#6B7280', fontSize: 13, marginTop: 2 },
 

@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendEmailVerification } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Sparkles, ChevronRight } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Sparkles, ChevronRight, RotateCw } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -73,6 +73,70 @@ export default function CompanyDashboard() {
     const [isEmailVerified, setIsEmailVerified] = useState(true);
     const [isProfileSkipped, setIsProfileSkipped] = useState(false);
     const [tourStep, setTourStep] = useState(0);
+
+    // Gesture state for Web pull-to-refresh
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isPulling, setIsPulling] = useState(false);
+    const [startY, setStartY] = useState(0);
+    const [isAtTop, setIsAtTop] = useState(true);
+
+    const handleTouchStart = (e: any) => {
+        if (Platform.OS !== 'web') return;
+        if (isAtTop) {
+            setStartY(e.touches[0].clientY);
+            setIsPulling(true);
+        }
+    };
+
+    const handleTouchMove = (e: any) => {
+        if (Platform.OS !== 'web' || !isPulling) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        if (diff > 0) {
+            const distance = Math.min(diff * 0.4, 100);
+            setPullDistance(distance);
+            if (e.cancelable) e.preventDefault();
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (Platform.OS !== 'web') return;
+        if (isPulling) {
+            if (pullDistance > 50 && !refreshing) {
+                onRefresh();
+            }
+            setPullDistance(0);
+            setIsPulling(false);
+            setStartY(0);
+        }
+    };
+
+    const handleScroll = (e: any) => {
+        const yOffset = e.nativeEvent.contentOffset.y;
+        setIsAtTop(yOffset <= 0);
+    };
+
+    const renderWebRefreshIndicator = () => {
+        if (Platform.OS !== 'web') return null;
+        if (pullDistance === 0 && !refreshing) return null;
+        
+        return (
+            <View style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: refreshing ? 60 : pullDistance,
+                overflow: 'hidden',
+                opacity: refreshing ? 1 : Math.min(pullDistance / 50, 1),
+                backgroundColor: 'transparent',
+                paddingVertical: 10
+            }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 4 }}>
+                    {refreshing ? "Actualizando..." : (pullDistance > 45 ? "Suelta para actualizar" : "Desliza para actualizar")}
+                </Text>
+            </View>
+        );
+    };
 
     const startInteractiveTour = () => {
         setTourStep(1);
@@ -324,6 +388,20 @@ export default function CompanyDashboard() {
                     <Text style={styles.welcomeSub}>{jobs.length} Puestos en total</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TooltipWrapper title="Actualizar Datos">
+                        <TouchableOpacity 
+                            style={styles.headerTourBtn} 
+                            onPress={onRefresh}
+                            disabled={refreshing}
+                        >
+                            {refreshing ? (
+                                <ActivityIndicator size="small" color={COLORS.primary} />
+                            ) : (
+                                <RotateCw color={COLORS.primary} size={16} />
+                            )}
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+
                     <TooltipWrapper title="Ver Guía del Dashboard">
                         <TouchableOpacity 
                             style={styles.headerTourBtn} 
@@ -359,7 +437,13 @@ export default function CompanyDashboard() {
                     Platform.OS === 'web' && { maxWidth: 1000, alignSelf: 'center', width: '100%', paddingHorizontal: 20 }
                 ]}
                 showsVerticalScrollIndicator={true}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
             >
+                {renderWebRefreshIndicator()}
                 {/* Email Verification Banner */}
                 {!isEmailVerified && auth.currentUser?.email !== 'oscar@veritlyapp.com' && (
                     <View style={styles.warningBanner}>

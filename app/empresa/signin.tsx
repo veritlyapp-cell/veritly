@@ -437,7 +437,7 @@ export default function CompanySignIn() {
                             {/* Mode Toggle */}
                             <View style={styles.footer}>
                                 <Text style={styles.footerText}>
-                                    {isRegistering ? "¿Ya tienes cuenta?" : "¿Nueva empresa?"}
+                                    {isRegistering ? "¿Ya tienes cuenta?" : "¿Nueva empresa o reclutador?"}
                                 </Text>
                                 <TouchableOpacity onPress={() => setIsRegistering(!isRegistering)}>
                                     <Text style={styles.footerLink}>
