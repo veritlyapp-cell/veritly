@@ -174,7 +174,7 @@ export default function VeritlyCompanyLandingPage() {
                     <Text style={styles.ctaSubtitle}>Únete a las empresas que ya contratan más rápido y mejor con IA</Text>
                     <TouchableOpacity
                         style={styles.ctaButton}
-                        onPress={() => router.push('/empresa/dashboard/onboarding')}
+                        onPress={() => router.push('/empresa/dashboard/profile')}
                     >
                         <Text style={styles.ctaButtonText}>Empezar ahora - Gratis</Text>
                         <TrendingUp color="white" size={20} />

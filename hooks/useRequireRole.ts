@@ -63,8 +63,8 @@ export function useRequireRole(requiredRole: UserRole) {
                 if (!userRole) {
                     // If we are ON the onboarding page, we might not have the role set yet in Firestore 
                     // (e.g., right after signup). We allow this as a special case for companies.
-                    if (pathname && pathname.includes('onboarding') && requiredRole === 'empresa') {
-                        console.warn('⚠️ [useRequireRole] Role missing but on onboarding page. Granting temporary access.');
+                    if (pathname && (pathname.includes('onboarding') || pathname.includes('profile')) && requiredRole === 'empresa') {
+                        console.warn('⚠️ [useRequireRole] Role missing but on onboarding/profile page. Granting temporary access.');
                         if (isEffectMounted) {
                             setAuthorized(true);
                             setLoading(false);

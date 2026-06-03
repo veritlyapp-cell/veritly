@@ -123,7 +123,7 @@ export default function CompanyDashboard() {
             }
 
             if (!userDoc.exists() || !userDoc.data().profileCompleted) {
-                return router.replace('/empresa/dashboard/onboarding');
+                return router.replace('/empresa/dashboard/profile');
             }
 
             const userData = userDoc.data();

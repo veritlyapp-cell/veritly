@@ -52,6 +52,8 @@ export default function CompanyProfile() {
     const [isRucFromDb, setIsRucFromDb] = useState(false);
     const [userType, setUserType] = useState<'empresa' | 'independiente'>('empresa');
     const [dni, setDni] = useState('');
+    const [profileCompleted, setProfileCompleted] = useState(true);
+    const [isProfileSkipped, setIsProfileSkipped] = useState(false);
 
     // UBICACIÓN (Perú)
     const [departamento, setDepartamento] = useState('Lima');
@@ -104,6 +106,12 @@ export default function CompanyProfile() {
     useEffect(() => {
         const loadProfile = async () => {
             if (!auth.currentUser) return;
+            
+            // Pre-fill email with authenticated user's email if not already set
+            if (auth.currentUser.email) {
+                setEmailResponsable(auth.currentUser.email);
+            }
+
             try {
                 // Intentar primero con la colección nueva
                 let docRef = doc(db, 'users_empresas', auth.currentUser.uid);
@@ -119,6 +127,9 @@ export default function CompanyProfile() {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     console.log("✅ Perfil cargado:", data);
+
+                    setProfileCompleted(data.profileCompleted ?? false);
+                    setIsProfileSkipped(!!data.profileSkipped);
 
                     // [FIX] Búsqueda exhaustiva de datos (Nueva estructura -> Antigua -> Raíz)
                     const companyData = data.company || {};
@@ -262,6 +273,7 @@ export default function CompanyProfile() {
 
                 'company.logoUrl': logoUrl,
                 logoUrl: logoUrl, // duplicamos para compatibilidad
+                profileCompleted: true,
                 profileSkipped: false,
 
                 updatedAt: new Date().toISOString()
@@ -274,14 +286,39 @@ export default function CompanyProfile() {
             console.log("✅ Perfil guardado en users_empresas");
             Alert.alert("¡Éxito!", "Tus datos han sido guardados correctamente.");
             
+            // Update local state to hide Skip button
+            setProfileCompleted(true);
+            setIsProfileSkipped(false);
+            
             // Redirección automática después de 1.5 segundos
             setTimeout(() => {
-                router.push('/empresa/dashboard/puestos');
+                router.replace('/empresa/dashboard');
             }, 1500);
 
+        } catch (error: any) {
+            console.error("Error updating profile:", error);
+            Alert.alert("Error", "No se pudo actualizar el perfil: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSkip = async () => {
+        setLoading(true);
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            // Guardamos que el perfil fue omitido pero completado de forma mínima
+            await updateDoc(doc(db, 'users_empresas', user.uid), {
+                profileCompleted: true,
+                profileSkipped: true,
+                updatedAt: new Date().toISOString()
+            });
+
+            router.replace('/empresa/dashboard');
         } catch (e: any) {
-            console.error("❌ Error al guardar perfil:", e);
-            Alert.alert("Error al Guardar", "No se pudo guardar la información. Puede ser un problema de permisos en Firestore. \n\nDetalle: " + e.message);
+            Alert.alert("Error al omitir", e.message);
         } finally {
             setLoading(false);
         }
@@ -379,6 +416,17 @@ export default function CompanyProfile() {
                     Platform.OS === 'web' && { maxWidth: 900, alignSelf: 'center', width: '100%' }
                 ]}
             >
+
+                {/* BOTÓN OMITIR POR AHORA (Solo si el perfil no ha sido completado aún, es decir, en fase de onboarding) */}
+                {(!profileCompleted || isProfileSkipped) && (
+                    <TouchableOpacity 
+                        style={styles.skipButton} 
+                        onPress={handleSkip}
+                        disabled={loading}
+                    >
+                        <Text style={styles.skipButtonText}>Omitir por ahora ➡️</Text>
+                    </TouchableOpacity>
+                )}
 
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
@@ -681,5 +729,20 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#6B7280',
         marginTop: 4
-    }
+    },
+    skipButton: {
+        alignSelf: 'flex-end',
+        backgroundColor: '#E5E7EB',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+    },
+    skipButtonText: {
+        color: '#374151',
+        fontWeight: '700',
+        fontSize: 13,
+    },
 });

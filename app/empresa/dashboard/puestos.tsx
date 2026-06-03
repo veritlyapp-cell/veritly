@@ -78,8 +78,8 @@ export default function CompanyJobs() {
             }
 
             if (!userDoc.exists() || !userDoc.data().profileCompleted) {
-                console.log("  ⚠️ Perfil no completado, redirigiendo a onboarding");
-                return router.replace('/empresa/dashboard/onboarding');
+                console.log("  ⚠️ Perfil no completado, redirigiendo a profile");
+                return router.replace('/empresa/dashboard/profile');
             }
 
             console.log("  ✅ Perfil encontrado:", userDoc.data());
