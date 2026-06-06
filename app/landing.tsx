@@ -141,10 +141,10 @@ export default function LandingPage() {
                         <Text style={styles.companySectionSubtitle}>
                             Encuentra a los candidatos perfectos con IA. Análisis automático de CVs, scoring inteligente y recomendaciones instantáneas.
                         </Text>
-                        <Text style={styles.companySectionTagline}>✨ Antes de contratar, Veritly</Text>
+                        <Text style={styles.companySectionTagline}>✨ Veritly: Tu reclutamiento centralizado</Text>
 
                         <View style={styles.companyButton}>
-                            <Text style={styles.companyButtonText}>Muy pronto: Antes de contratar, Veritly</Text>
+                            <Text style={styles.companyButtonText}>Muy pronto: Veritly: Tu reclutamiento centralizado</Text>
                             <Sparkles size={20} color="white" />
                         </View>
                     </View>

@@ -470,7 +470,7 @@ export default function CompanySignIn() {
                         <View style={styles.brandOverlay}>
                             <View style={styles.brandContent}>
                                 <Image source={LocalLogo} style={styles.brandLogoBig} resizeMode="contain" />
-                                <Text style={[styles.brandDesc, { fontSize: 14, color: 'white', fontWeight: 'bold', marginBottom: 20 }]}>✨ Antes de contratar, Veritly</Text>
+                                <Text style={[styles.brandDesc, { fontSize: 14, color: 'white', fontWeight: 'bold', marginBottom: 20 }]}>✨ Veritly: Tu reclutamiento centralizado</Text>
                                 <Text style={styles.brandTitle}>Contratación Inteligente</Text>
                                 <Text style={styles.brandDesc}>
                                     Deja que la IA filtre, analice y clasifique el mejor talento para ti en tiempo real.

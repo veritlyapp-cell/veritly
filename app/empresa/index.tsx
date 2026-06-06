@@ -66,7 +66,7 @@ export default function VeritlyCompanyLandingPage() {
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
                                 <Text style={{ fontSize: 16, color: '#10b981', fontWeight: '700', fontStyle: 'italic' }}>
-                                    ✨ Antes de contratar, Veritly
+                                    ✨ Veritly: Tu reclutamiento centralizado
                                 </Text>
                             </View>
                             <Text style={styles.heroSubtitle}>
