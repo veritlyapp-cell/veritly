@@ -122,7 +122,7 @@ export default function VeritlyLandingPage() {
                                 styles.heroTitle,
                                 { fontSize: isDesktop ? 48 : 32, lineHeight: isDesktop ? 58 : 40 }
                             ]}>
-                                Publica, comparte y recibe candidatos pre-filtrados automáticamente. Re-valida con IA.
+                                Publica, comparte y recibe candidatos pre-filtrados automáticamente.
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
                                 Crea tu convocatoria en 1 minuto. Comparte un link único, filtra candidatos con preguntas clave y analiza sus CVs con IA para obtener un Match Score instantáneo.
@@ -229,24 +229,23 @@ export default function VeritlyLandingPage() {
                     <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
 
                     <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
-                        {/* Plan Beta de Lanzamiento */}
+                        {/* Plan Base */}
                         <View style={[styles.pricingCard, styles.pricingCardActive]}>
                             <View style={styles.bestValueBadge}>
                                 <Text style={styles.bestValueText}>PLAN FUNDADORES</Text>
                             </View>
-                            <Text style={[styles.planName, { color: COLORS.primary }]}>Plan Beta de Lanzamiento</Text>
+                            <Text style={[styles.planName, { color: COLORS.primary }]}>Plan Base</Text>
                             <View style={styles.priceRow}>
                                 <Text style={styles.planPrice}>S/ 0</Text>
                                 <Text style={styles.planPriceUnit}>/ permanente</Text>
                             </View>
                             <Text style={styles.planDesc}>
-                                Ideal para reclutadores independientes y PYMEs que quieren dejar el Excel atrás.
+                                Ideal para reclutadores independientes, consultoras y PYMEs que quieren centralizar su reclutamiento.
                             </Text>
                             
                             <View style={styles.planFeatures}>
                                 <FeatureItemLanding text="200 Análisis de perfiles por IA" />
                                 <FeatureItemLanding text="Publicar 5 anuncios en simultáneo" />
-                                <FeatureItemLanding text="Tener en total 10 perfiles en simultáneo" />
                                 <FeatureItemLanding text="Subir CVs por PDF, Word y Excel" />
                             </View>
                             <TouchableOpacity 
