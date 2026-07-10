@@ -54,7 +54,7 @@ export default function CompanySignIn() {
     const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     // New State for Enhanced Registration
-    const [userType, setUserType] = useState<'empresa' | 'independiente'>('empresa');
+    const [userType, setUserType] = useState<'empresa' | 'independiente'>('independiente');
     const [ruc, setRuc] = useState('');
     const [dni, setDni] = useState('');
     const [razonSocial, setRazonSocial] = useState(''); // Para RUC y Nombre Comercial
@@ -273,16 +273,16 @@ export default function CompanySignIn() {
                             {isRegistering && (
                                 <View style={styles.toggleContainer}>
                                     <TouchableOpacity
+                                        style={[styles.toggleBtn, userType === 'independiente' && styles.toggleBtnActive]}
+                                        onPress={() => { setUserType('independiente'); setIdVerified(false); setFullName(''); }}
+                                    >
+                                        <Text style={[styles.toggleText, userType === 'independiente' && styles.toggleTextActive]}>Reclutador</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
                                         style={[styles.toggleBtn, userType === 'empresa' && styles.toggleBtnActive]}
                                         onPress={() => { setUserType('empresa'); setIdVerified(false); setRazonSocial(''); }}
                                     >
                                         <Text style={[styles.toggleText, userType === 'empresa' && styles.toggleTextActive]}>Empresa</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, userType === 'independiente' && styles.toggleBtnActive]}
-                                        onPress={() => { setUserType('independiente'); setIdVerified(false); setFullName(''); }}
-                                    >
-                                        <Text style={[styles.toggleText, userType === 'independiente' && styles.toggleTextActive]}>Independiente</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -357,12 +357,14 @@ export default function CompanySignIn() {
                                 )}
 
                                 <View>
-                                    <Text style={styles.label}>Correo Corporativo</Text>
+                                    <Text style={styles.label}>
+                                        {userType === 'empresa' ? 'Correo Corporativo' : 'Correo Electrónico'}
+                                    </Text>
                                     <View style={[styles.inputGroup, emailError && styles.inputError]}>
                                         <Mail color={emailError ? "#ef4444" : "#94a3b8"} size={20} />
                                         <TextInput
                                             style={styles.input}
-                                            placeholder="rrhh@empresa.com"
+                                            placeholder={userType === 'empresa' ? 'rrhh@empresa.com' : 'correo@ejemplo.com'}
                                             placeholderTextColor="#64748b"
                                             value={email}
                                             onChangeText={validateEmail}

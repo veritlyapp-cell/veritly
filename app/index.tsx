@@ -120,9 +120,9 @@ export default function VeritlyLandingPage() {
 
                             <Text style={[
                                 styles.heroTitle,
-                                { fontSize: isDesktop ? 52 : 36, lineHeight: isDesktop ? 62 : 44 }
+                                { fontSize: isDesktop ? 48 : 32, lineHeight: isDesktop ? 58 : 40 }
                             ]}>
-                                El filtro de candidatos inteligente que reemplaza al Excel y al correo
+                                Publica, comparte y recibe candidatos pre-filtrados automáticamente. Re-valida con IA.
                             </Text>
                             <Text style={[styles.heroSubtitle, { fontSize: isDesktop ? 18 : 16 }]}>
                                 Crea tu convocatoria en 1 minuto. Comparte un link único, filtra candidatos con preguntas clave y analiza sus CVs con IA para obtener un Match Score instantáneo.
@@ -136,7 +136,7 @@ export default function VeritlyLandingPage() {
                                     style={[styles.heroPrimaryButton, !isDesktop && { width: '100%', justifyContent: 'center' }]}
                                     onPress={() => router.push('/empresa/signin?register=true')}
                                 >
-                                    <Text style={styles.heroPrimaryButtonText}>Crear mi primer filtro GRATIS</Text>
+                                    <Text style={styles.heroPrimaryButtonText}>Publicar mi primer puesto GRATIS</Text>
                                     <ChevronRight size={18} color={COLORS.white} />
                                 </TouchableOpacity>
 
@@ -279,12 +279,12 @@ export default function VeritlyLandingPage() {
                 {/* ========== BOTTOM CTA ========== */}
                 <View style={styles.bottomCTASection}>
                     <Text style={styles.bottomCTATitle}>Dale a tu consultoría el flujo que merece</Text>
-                    <Text style={styles.bottomCTASubtitle}>Abandona los Forms y empieza a reclutar como una consultoría de élite con Veritly.</Text>
+                    <Text style={styles.bottomCTASubtitle}>Empieza a reclutar de forma centralizada y profesional con Veritly.</Text>
                     <TouchableOpacity
                         style={styles.heroPrimaryButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <Text style={styles.heroPrimaryButtonText}>Crear mi primer filtro GRATIS</Text>
+                        <Text style={styles.heroPrimaryButtonText}>Publicar mi primer puesto GRATIS</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -308,7 +308,7 @@ export default function VeritlyLandingPage() {
                         style={styles.floatingButton}
                         onPress={() => router.push('/empresa/signin?register=true')}
                     >
-                        <Text style={styles.floatingButtonText}>Crear filtro GRATIS</Text>
+                        <Text style={styles.floatingButtonText}>Publicar puesto GRATIS</Text>
                     </TouchableOpacity>
                 </View>
             )}

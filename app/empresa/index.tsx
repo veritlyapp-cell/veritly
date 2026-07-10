@@ -13,23 +13,23 @@ export default function VeritlyCompanyLandingPage() {
     const features = [
         {
             icon: Brain,
-            title: "IA que Selecciona por Ti",
-            description: "Deja que la inteligencia artificial analice CVs y encuentre los candidatos perfectos automáticamente"
+            title: "Bandeja Unificada",
+            description: "Junta todas tus postulaciones (WhatsApp, correo, portales) en un solo panel ordenado y visual."
         },
         {
-            icon: Clock,
-            title: "Ahorra 80% del Tiempo",
-            description: "Screening automático de candidatos en segundos en lugar de horas de revisión manual"
+            icon: Zap,
+            title: "Matching por IA",
+            description: "Calificación automática e instantánea que evalúa habilidades y experiencia contra tus requerimientos."
         },
         {
             icon: BarChart3,
-            title: "Matching Preciso",
-            description: "Algoritmos avanzados que evalúan habilidades, experiencia y compatibilidad cultural"
+            title: "Fichas de Candidatos",
+            description: "Reportes automáticos con fortalezas, áreas de mejora y preguntas sugeridas para la entrevista."
         },
         {
-            icon: TrendingUp,
-            title: "Mejores Contrataciones",
-            description: "Datos objetivos y análisis profundo para tomar decisiones informadas y acertadas"
+            icon: Users,
+            title: "Menos Abandono",
+            description: "Los candidatos postulan en segundos subiendo su CV sin tener que llenar formularios repetitivos."
         }
     ];
 
@@ -58,11 +58,11 @@ export default function VeritlyCompanyLandingPage() {
                         <View style={styles.heroLeft}>
                             <View style={styles.badge}>
                                 <Brain color="#10b981" size={14} />
-                                <Text style={styles.badgeText}>AI-Powered Recruitment</Text>
+                                <Text style={styles.badgeText}>Reclutamiento Inteligente</Text>
                             </View>
                             <Text style={styles.heroTitle}>
-                                Contrata talento{'\n'}
-                                <Text style={styles.heroTitleHighlight}>80% más rápido</Text>
+                                Centraliza tu{'\n'}
+                                <Text style={styles.heroTitleHighlight}>Reclutamiento</Text>
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
                                 <Text style={{ fontSize: 16, color: '#10b981', fontWeight: '700', fontStyle: 'italic' }}>
@@ -70,7 +70,7 @@ export default function VeritlyCompanyLandingPage() {
                                 </Text>
                             </View>
                             <Text style={styles.heroSubtitle}>
-                                Deja que la IA analice CVs, evalúe candidatos y te muestre solo los perfiles que realmente encajan. Veritly convierte semanas de reclutamiento en horas.
+                                Recibe y ordena tus candidatos en un solo lugar. Nuestra IA analiza los CVs, calcula el Score de Match y te prepara el reporte de entrevista al instante.
                             </Text>
 
                             {/* CTA BUTTONS */}

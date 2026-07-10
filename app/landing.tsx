@@ -69,10 +69,13 @@ export default function LandingPage() {
                                 </LinearGradient>
                             </TouchableOpacity>
 
-                            <View style={[styles.secondaryButton, { opacity: 0.7 }]}>
-                                <Text style={styles.secondaryButtonText}>Soy Empresa (Pronto)</Text>
+                            <TouchableOpacity
+                                style={styles.secondaryButton}
+                                onPress={() => router.push('/empresa')}
+                            >
+                                <Text style={styles.secondaryButtonText}>Soy Reclutador</Text>
                                 <Briefcase size={18} color="#38bdf8" />
-                            </View>
+                            </TouchableOpacity>
                         </View>
                     </Animated.View>
 
@@ -137,16 +140,19 @@ export default function LandingPage() {
                 <View style={styles.companySection}>
                     <View style={styles.companySectionInner}>
                         <Briefcase size={40} color="#38bdf8" />
-                        <Text style={styles.companySectionTitle}>¿Eres Reclutador?</Text>
+                        <Text style={styles.companySectionTitle}>¿Eres Reclutador o Empresa?</Text>
                         <Text style={styles.companySectionSubtitle}>
-                            Encuentra a los candidatos perfectos con IA. Análisis automático de CVs, scoring inteligente y recomendaciones instantáneas.
+                            Encuentra a los candidatos perfectos con IA. Centraliza tus postulaciones, obtén un scoring inteligente automático y analiza CVs en segundos.
                         </Text>
                         <Text style={styles.companySectionTagline}>✨ Veritly: Tu reclutamiento centralizado</Text>
 
-                        <View style={styles.companyButton}>
-                            <Text style={styles.companyButtonText}>Muy pronto: Veritly: Tu reclutamiento centralizado</Text>
+                        <TouchableOpacity
+                            style={styles.companyButton}
+                            onPress={() => router.push('/empresa')}
+                        >
+                            <Text style={styles.companyButtonText}>Ir al Portal de Reclutadores</Text>
                             <Sparkles size={20} color="white" />
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 </View>
 
