@@ -241,7 +241,7 @@ export default function ExternalApplication() {
     const loadJobDetails = async (jobId: string) => {
         try {
             const jobDoc = await getDoc(doc(db, 'jobs', jobId));
-            if (!jobDoc.exists() || !jobDoc.data().isExternal) {
+            if (!jobDoc.exists() || !jobDoc.data().isExternal || jobDoc.data().status === 'Closed') {
                 showAlert('Vacante no disponible', 'Este enlace de postulación ya no está activo.');
                 return;
             }

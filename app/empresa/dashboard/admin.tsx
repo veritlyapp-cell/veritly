@@ -1,6 +1,6 @@
 import { collection, getDocs, orderBy, query, updateDoc, doc, setDoc, where, limit, collectionGroup, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus, MessageSquare, Trash2 } from 'lucide-react-native';
+import { Building2, CreditCard, DollarSign, Edit3, ShieldCheck, TrendingUp, Users, RefreshCw, Key, Plus, MessageSquare, Trash2, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, TextInput, Modal, Platform } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -44,6 +44,7 @@ export default function EmpresaAdminDashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [totalB2C, setTotalB2C] = useState(0);
+    const [totalB2CWithMatch, setTotalB2CWithMatch] = useState(0);
     const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback'>('cuentas');
     const [feedback, setFeedback] = useState<any[]>([]);
     
@@ -131,6 +132,12 @@ export default function EmpresaAdminDashboard() {
             try {
                 const candsSnap = await getDocs(collection(db, 'users_candidatos'));
                 setTotalB2C(candsSnap.size);
+                
+                const candsWithMatch = candsSnap.docs.filter(docSnap => {
+                    const data = docSnap.data();
+                    return data.lastMatches && Object.keys(data.lastMatches).length > 0;
+                });
+                setTotalB2CWithMatch(candsWithMatch.length);
             } catch (b2cError) {
                 console.error("Error fetching total B2C candidates:", b2cError);
             }
@@ -158,7 +165,12 @@ export default function EmpresaAdminDashboard() {
                     <View style={[styles.metricCard, { backgroundColor: COLORS.primary }]}>
                         <Users color="white" size={20} />
                         <Text style={[styles.metricValue, { color: 'white' }]}>{totalB2C}</Text>
-                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Candidatos B2C</Text>
+                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Inscritos B2C</Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: '#10b981' }]}>
+                        <Sparkles color="white" size={20} />
+                        <Text style={[styles.metricValue, { color: 'white' }]}>{totalB2CWithMatch}</Text>
+                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Revelaron Match</Text>
                     </View>
                     <View style={styles.metricCard}>
                         <Building2 color={COLORS.primary} size={20} />
@@ -801,8 +813,8 @@ const styles = StyleSheet.create({
     title: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
     sectionTitle: { fontSize: 18, color: COLORS.textPrimary, fontWeight: '800' },
     
-    metricsWrapper: { flexDirection: 'row', gap: 15, marginBottom: 15 },
-    metricCard: { flex: 1, backgroundColor: COLORS.surface, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+    metricsWrapper: { flexDirection: 'row', gap: 15, marginBottom: 15, flexWrap: 'wrap' },
+    metricCard: { flex: 1, minWidth: 140, backgroundColor: COLORS.surface, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
     metricValue: { color: COLORS.textPrimary, fontSize: 24, fontWeight: '800', marginVertical: 4 },
     metricLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
 

@@ -68,6 +68,7 @@ export default function CompanyDashboard() {
     const [checkingProfile, setCheckingProfile] = useState(true);
     const [userSubscription, setUserSubscription] = useState<any>(null);
     const [totalCandidates, setTotalCandidates] = useState(0);
+    const [totalAnalyzedCandidates, setTotalAnalyzedCandidates] = useState(0);
 
     // Nuevos estados para seguridad progresiva y guía interactiva
     const [isEmailVerified, setIsEmailVerified] = useState(true);
@@ -240,16 +241,24 @@ export default function CompanyDashboard() {
                 jobsList.map(async (job) => {
                     try {
                         const candidatesSnapshot = await getDocs(collection(db, 'jobs', job.id, 'candidates'));
-                        return { ...job, candidateCount: candidatesSnapshot.size };
+                        const candidates = candidatesSnapshot.docs.map(doc => doc.data());
+                        const analyzedCount = candidates.filter((c: any) => c.matchScore && c.matchScore > 0).length;
+                        return { 
+                            ...job, 
+                            candidateCount: candidatesSnapshot.size,
+                            analyzedCount: analyzedCount
+                        };
                     } catch (e) {
-                        return { ...job, candidateCount: 0 };
+                        return { ...job, candidateCount: 0, analyzedCount: 0 };
                     }
                 })
             );
 
             setJobs(jobsWithCounts);
             const total = jobsWithCounts.reduce((acc, job) => acc + job.candidateCount, 0);
+            const totalAnalyzed = jobsWithCounts.reduce((acc, job) => acc + (job.analyzedCount || 0), 0);
             setTotalCandidates(total);
+            setTotalAnalyzedCandidates(totalAnalyzed);
 
             // Disparar tour automáticamente si no tienen vacantes y es su primera vez
             if (jobsWithCounts.length === 0 && auth.currentUser) {
@@ -304,7 +313,7 @@ export default function CompanyDashboard() {
                         Plan Actual: <Text style={{fontWeight: '700'}}>{userSubscription?.plan?.toUpperCase() || 'BETA'}</Text>
                     </Text>
                     <Text style={styles.betaSubText}>
-                        Tienes {Math.max((userSubscription?.aiAnalysisLimit || 200) - totalCandidates, 0)} créditos de análisis disponibles.
+                        Tienes {Math.max((userSubscription?.aiAnalysisLimit || 200) - totalAnalyzedCandidates, 0)} créditos de análisis disponibles.
                     </Text>
                 </View>
                 <TouchableOpacity onPress={() => router.push('/empresa/dashboard/pricing')}>
@@ -491,15 +500,15 @@ export default function CompanyDashboard() {
                         <View style={styles.planHeader}>
                             <View style={styles.planInfo}>
                                 <Text style={styles.planLabel}>USO DE CRÉDITOS IA</Text>
-                                <Text style={styles.planTitle}>{totalCandidates} / {userSubscription?.aiAnalysisLimit || 200}</Text>
+                                <Text style={styles.planTitle}>{totalAnalyzedCandidates} / {userSubscription?.aiAnalysisLimit || 200}</Text>
                             </View>
                             <TrendingUp color={COLORS.primary} size={24} />
                         </View>
                         <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: `${Math.min((totalCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100, 100)}%` }]} />
+                            <View style={[styles.progressBarFill, { width: `${Math.min((totalAnalyzedCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100, 100)}%` }]} />
                         </View>
                         <Text style={styles.planUsageText}>
-                            Has analizado al {Math.round((totalCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100)}% de tu capacidad de IA.
+                            Has analizado al {Math.round((totalAnalyzedCandidates / (userSubscription?.aiAnalysisLimit || 200)) * 100)}% de tu capacidad de IA.
                         </Text>
                     </View>
 
