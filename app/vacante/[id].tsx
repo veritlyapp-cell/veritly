@@ -657,7 +657,7 @@ export default function ExternalApplication() {
 
     if (!job) {
         const handleOpenRacso = () => {
-            Linking.openURL('https://racso.la'); // Reemplazar con el enlace real de la app Racso si es necesario
+            Linking.openURL('https://racso.app'); // Redirección directa a la app/web de Racso
         };
 
         const handleGoHome = () => {
@@ -683,41 +683,26 @@ export default function ExternalApplication() {
                             El reclutador ha finalizado el proceso de postulación para este puesto. ¡Pero no te preocupes, tu búsqueda de empleo recién comienza!
                         </Text>
 
-                        {/* CTA 1: Veritly B2C */}
-                        <View style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 16 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(79, 70, 229, 0.08)', justifyContent: 'center', alignItems: 'center' }}>
-                                    <Sparkles size={18} color="#4F46E5" />
+                        {/* CTA: Racso (App de empleabilidad del usuario con su respectivo Logo) */}
+                        <View style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3, marginBottom: 32 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                                <Image 
+                                    source={require('../../assets/images/racso-logo.png')} 
+                                    style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#E0E7FF' }}
+                                />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', letterSpacing: -0.3 }}>Potencia tu CV con Racso</Text>
+                                    <Text style={{ fontSize: 11, color: '#4F46E5', fontWeight: '800', letterSpacing: 0.5 }}>APP DE EMPLEABILIDAD</Text>
                                 </View>
-                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Únete a Veritly</Text>
                             </View>
-                            <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 18, marginBottom: 16 }}>
-                                Sube tu CV, descubre tu Match % con Inteligencia Artificial y haz que decenas de empresas aliadas te encuentren automáticamente.
+                            <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20, marginBottom: 20 }}>
+                                Racso es tu copiloto de carrera: te ayuda a estructurar un CV de alto impacto, prepararte para entrevistas reales y acelerar tu contratación.
                             </Text>
                             <TouchableOpacity 
-                                style={{ backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
-                                onPress={handleGoHome}
-                            >
-                                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Explorar Veritly gratis</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* CTA 2: Racso (App de empleabilidad del usuario) */}
-                        <View style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 32 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16, 185, 129, 0.08)', justifyContent: 'center', alignItems: 'center' }}>
-                                    <Zap size={18} color="#10B981" />
-                                </View>
-                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Potencia tu CV con Racso</Text>
-                            </View>
-                            <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 18, marginBottom: 16 }}>
-                                Racso es la app de empleabilidad aliada que te prepara para entrevistas, optimiza tu CV y te conecta con mejores oportunidades laborales.
-                            </Text>
-                            <TouchableOpacity 
-                                style={{ backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
+                                style={{ backgroundColor: '#4F46E5', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 }}
                                 onPress={handleOpenRacso}
                             >
-                                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
+                                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
                             </TouchableOpacity>
                         </View>
 
