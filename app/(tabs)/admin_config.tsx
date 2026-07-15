@@ -3,18 +3,29 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AdminUsersTable from '../../components/AdminUsersTable';
 import { auth } from '../../config/firebase';
+import { useRouter } from 'expo-router';
 import { AppConfig, getAppConfig, updateAppConfig } from '../../services/credits-service';
 
 const ADMIN_EMAILS = ['oscar@veritlyapp.com'];
 
 export default function AdminConfigScreen() {
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [currentTab, setCurrentTab] = useState<'config' | 'users' | 'analytics'>('config');
     const [totalB2B, setTotalB2B] = useState(0);
-    const [b2cStats, setB2cStats] = useState({ revenue: 0, newThisMonth: 0, avgLogins: 0, total: 0 });
+    const [b2cStats, setB2cStats] = useState({ 
+        revenue: 0, 
+        newThisMonth: 0, 
+        avgLogins: 0, 
+        total: 0,
+        registeredWithMatch: 0,
+        anonymousWithMatch: 0,
+        totalCodes: 0,
+        usedCodes: 0
+    });
 
     useEffect(() => {
         checkAdminAccess();
@@ -36,7 +47,9 @@ export default function AdminConfigScreen() {
 
                 // Fetch B2C insights
                 const candsSnap = await getDocs(query(collection(db, 'users_candidatos')));
-                let totalCands = candsSnap.size;
+                let totalCands = 0;
+                let registeredWithMatch = 0;
+                let anonymousWithMatch = 0;
                 let newThisMonth = 0;
                 let totalLogins = 0;
                 let totalCodes = 0;
@@ -45,14 +58,23 @@ export default function AdminConfigScreen() {
 
                 candsSnap.forEach((doc: any) => {
                     const data = doc.data();
-                    if(data.createdAt) {
-                        const d = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-                        if(d.getMonth() === currentMonthNum) newThisMonth++;
+                    const email = data.email;
+                    const hasEmail = email && email.includes('@');
+                    const hasMatches = data.lastMatches && Object.keys(data.lastMatches).length > 0;
+
+                    if (hasEmail) {
+                        totalCands++;
+                        if (hasMatches) registeredWithMatch++;
+                        if (data.createdAt) {
+                            const d = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                            if (d.getMonth() === currentMonthNum) newThisMonth++;
+                        }
+                        if (data.referralId) totalCodes++;
+                        if (data.referredBy || data.referralUsages > 0) usedCodes += (data.referralUsages || 0);
+                        totalLogins += (data.loginCount || 0);
+                    } else if (hasMatches) {
+                        anonymousWithMatch++;
                     }
-                    if (data.referralId) totalCodes++;
-                    if (data.referredBy || data.referralUsages > 0) usedCodes += (data.referralUsages || 0);
-                    
-                    totalLogins += (data.loginCount || 0);
                 });
 
                 // Fetch Revenue from credits
@@ -73,7 +95,9 @@ export default function AdminConfigScreen() {
                     total: totalCands,
                     avgLogins: totalCands > 0 ? (totalLogins / totalCands) : 0,
                     totalCodes,
-                    usedCodes
+                    usedCodes,
+                    registeredWithMatch,
+                    anonymousWithMatch
                 });
             } catch (e) {
                 console.error(e);
@@ -180,6 +204,25 @@ export default function AdminConfigScreen() {
                             </View>
                         </View>
 
+                        <Text style={[styles.sectionTitle, { marginTop: 25 }]}>👥 Embudo B2C & Uso de IA</Text>
+                        <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginBottom: 10 }}>
+                            <View style={[styles.metricCard, { backgroundColor: '#3b82f6', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Inscritos B2C</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.total}</Text>
+                                <Text style={{ color: '#dbeafe', fontSize: 10 }}>Cuentas reales registradas</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#10b981', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Match con Registro</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.registeredWithMatch}</Text>
+                                <Text style={{ color: '#d1fae5', fontSize: 10 }}>Usuarios con cuenta + IA</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#f59e0b', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Match sin Registro</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.anonymousWithMatch}</Text>
+                                <Text style={{ color: '#fef3c7', fontSize: 10 }}>Postulantes invitados + IA</Text>
+                            </View>
+                        </View>
+
                         <Text style={[styles.sectionTitle, { marginTop: 25 }]}>📈 Viralidad y Referidos</Text>
                         <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap' }}>
                             <View style={[styles.metricCard, { backgroundColor: '#8b5cf6' }]}>
@@ -199,14 +242,19 @@ export default function AdminConfigScreen() {
                 ) : (
                     <>
                         {/* CROSS SUMMARY */}
-                        <View style={[styles.section, { backgroundColor: '#3b82f6' }]}>
+                        <TouchableOpacity 
+                            style={[styles.section, { backgroundColor: '#3b82f6' }]}
+                            onPress={() => router.push('/empresa/dashboard/admin')}
+                        >
                             <Text style={styles.sectionTitle}>Resumen B2B 🚀</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={{ color: 'white', fontSize: 16 }}>Empresas Registradas:</Text>
                                 <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{totalB2B}</Text>
                             </View>
-                            <Text style={{ color: '#dbeafe', fontSize: 12, marginTop: 5 }}>Ir al portal de Empresas para gestionar clientes.</Text>
-                        </View>
+                            <Text style={{ color: '#dbeafe', fontSize: 12, marginTop: 10, fontWeight: 'bold', textDecorationLine: 'underline' }}>
+                                👉 Ver Dashboard de Empresas Completo (Admin B2B)
+                            </Text>
+                        </TouchableOpacity>
 
                         {/* GLOBAL SWITCHES */}
                         <View style={styles.section}>
