@@ -45,6 +45,7 @@ export default function EmpresaAdminDashboard() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [totalB2C, setTotalB2C] = useState(0);
     const [totalB2CWithMatch, setTotalB2CWithMatch] = useState(0);
+    const [totalB2CAnonWithMatch, setTotalB2CAnonWithMatch] = useState(0);
     const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback'>('cuentas');
     const [feedback, setFeedback] = useState<any[]>([]);
     
@@ -131,13 +132,26 @@ export default function EmpresaAdminDashboard() {
             // Fetch B2C metrics
             try {
                 const candsSnap = await getDocs(collection(db, 'users_candidatos'));
-                setTotalB2C(candsSnap.size);
                 
-                const candsWithMatch = candsSnap.docs.filter(docSnap => {
+                const registeredCands = candsSnap.docs.filter(docSnap => {
+                    const email = docSnap.data().email;
+                    return email && email.includes('@');
+                });
+                setTotalB2C(registeredCands.length);
+                
+                const registeredWithMatch = registeredCands.filter(docSnap => {
                     const data = docSnap.data();
                     return data.lastMatches && Object.keys(data.lastMatches).length > 0;
                 });
-                setTotalB2CWithMatch(candsWithMatch.length);
+                setTotalB2CWithMatch(registeredWithMatch.length);
+
+                const anonymousWithMatch = candsSnap.docs.filter(docSnap => {
+                    const data = docSnap.data();
+                    const email = data.email;
+                    const hasEmail = email && email.includes('@');
+                    return !hasEmail && data.lastMatches && Object.keys(data.lastMatches).length > 0;
+                });
+                setTotalB2CAnonWithMatch(anonymousWithMatch.length);
             } catch (b2cError) {
                 console.error("Error fetching total B2C candidates:", b2cError);
             }
@@ -170,7 +184,12 @@ export default function EmpresaAdminDashboard() {
                     <View style={[styles.metricCard, { backgroundColor: '#10b981' }]}>
                         <Sparkles color="white" size={20} />
                         <Text style={[styles.metricValue, { color: 'white' }]}>{totalB2CWithMatch}</Text>
-                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Revelaron Match</Text>
+                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Match con Registro</Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: '#f59e0b' }]}>
+                        <Sparkles color="white" size={20} />
+                        <Text style={[styles.metricValue, { color: 'white' }]}>{totalB2CAnonWithMatch}</Text>
+                        <Text style={[styles.metricLabel, { color: 'rgba(255,255,255,0.7)' }]}>Match sin Registro</Text>
                     </View>
                     <View style={styles.metricCard}>
                         <Building2 color={COLORS.primary} size={20} />
