@@ -47,6 +47,7 @@ export default function EmpresaAdminDashboard() {
     const [totalB2CRegistered, setTotalB2CRegistered] = useState(0);
     const [totalB2CRegisteredWithMatch, setTotalB2CRegisteredWithMatch] = useState(0);
     const [totalB2CAnonWithMatch, setTotalB2CAnonWithMatch] = useState(0);
+    const [totalRacsoClicks, setTotalRacsoClicks] = useState(0);
     const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback' | 'b2c'>('cuentas');
     const [feedback, setFeedback] = useState<any[]>([]);
     
@@ -163,6 +164,14 @@ export default function EmpresaAdminDashboard() {
                 const feedbackSnap = await getDocs(query(collection(db, 'feedback'), orderBy('createdAt', 'desc'), limit(50)));
                 setFeedback(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             } catch(e) {}
+
+            // Fetch Racso clicks
+            try {
+                const clicksSnap = await getDocs(collection(db, 'racso_clicks'));
+                setTotalRacsoClicks(clicksSnap.size);
+            } catch (clicksError) {
+                console.error("Error fetching Racso clicks count:", clicksError);
+            }
         } catch (error) {
             console.error("Error cargando data admin:", error);
         } finally {
@@ -571,6 +580,11 @@ export default function EmpresaAdminDashboard() {
                                     <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Match sin Registro</Text>
                                     <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalB2CAnonWithMatch}</Text>
                                     <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Postulantes invitados + IA</Text>
+                                </View>
+                                <View style={[styles.metricCard, { backgroundColor: '#8b5cf6', flex: 1, minWidth: 140, padding: 20 }]}>
+                                    <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Clics a Racso 🚀</Text>
+                                    <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalRacsoClicks}</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Redirecciones totales a la app</Text>
                                 </View>
                             </View>
                         </View>

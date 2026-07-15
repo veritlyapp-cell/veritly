@@ -656,8 +656,21 @@ export default function ExternalApplication() {
     }
 
     if (!job) {
-        const handleOpenRacso = () => {
-            Linking.openURL('https://racso.app'); // Redirección directa a la app/web de Racso
+        const handleOpenRacso = async () => {
+            try {
+                // Log event to Firestore asynchronously
+                await addDoc(collection(db, 'racso_clicks'), {
+                    jobId: id as string,
+                    jobTitle: job?.jobTitle || 'Desconocido',
+                    companyName: companyName || 'Desconocido',
+                    platform: Platform.OS,
+                    createdAt: new Date()
+                });
+            } catch (err) {
+                console.error("Error logging click to Racso:", err);
+            } finally {
+                Linking.openURL('https://racso.app'); // Redirección directa a la app/web de Racso
+            }
         };
 
         const handleGoHome = () => {

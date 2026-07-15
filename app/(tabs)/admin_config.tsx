@@ -24,7 +24,8 @@ export default function AdminConfigScreen() {
         registeredWithMatch: 0,
         anonymousWithMatch: 0,
         totalCodes: 0,
-        usedCodes: 0
+        usedCodes: 0,
+        racsoClicks: 0
     });
 
     useEffect(() => {
@@ -89,6 +90,15 @@ export default function AdminConfigScreen() {
                     }
                 });
 
+                // Fetch Racso clicks
+                let totalClicks = 0;
+                try {
+                    const clicksSnap = await getDocs(collection(db, 'racso_clicks'));
+                    totalClicks = clicksSnap.size;
+                } catch (clicksErr) {
+                    console.error("Error fetching Racso clicks count:", clicksErr);
+                }
+
                 setB2cStats({
                     revenue: totalRevenue,
                     newThisMonth,
@@ -97,7 +107,8 @@ export default function AdminConfigScreen() {
                     totalCodes,
                     usedCodes,
                     registeredWithMatch,
-                    anonymousWithMatch
+                    anonymousWithMatch,
+                    racsoClicks: totalClicks
                 });
             } catch (e) {
                 console.error(e);
@@ -208,6 +219,11 @@ export default function AdminConfigScreen() {
                                 <Text style={{ color: 'white', fontSize: 13 }}>Match sin Registro</Text>
                                 <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.anonymousWithMatch}</Text>
                                 <Text style={{ color: '#fef3c7', fontSize: 10 }}>Postulantes invitados + IA</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#8b5cf6', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Clics a Racso 🚀</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.racsoClicks}</Text>
+                                <Text style={{ color: '#ddd6fe', fontSize: 10 }}>Redirecciones totales a la app</Text>
                             </View>
                         </View>
                     </View>
