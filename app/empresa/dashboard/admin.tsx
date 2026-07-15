@@ -44,7 +44,10 @@ export default function EmpresaAdminDashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [totalB2C, setTotalB2C] = useState(0);
-    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback'>('cuentas');
+    const [totalB2CRegistered, setTotalB2CRegistered] = useState(0);
+    const [totalB2CRegisteredWithMatch, setTotalB2CRegisteredWithMatch] = useState(0);
+    const [totalB2CAnonWithMatch, setTotalB2CAnonWithMatch] = useState(0);
+    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback' | 'b2c'>('cuentas');
     const [feedback, setFeedback] = useState<any[]>([]);
     
     // Edit Modal State (Cuentas)
@@ -131,6 +134,26 @@ export default function EmpresaAdminDashboard() {
             try {
                 const candsSnap = await getDocs(collection(db, 'users_candidatos'));
                 setTotalB2C(candsSnap.size);
+
+                const registeredCands = candsSnap.docs.filter(docSnap => {
+                    const email = docSnap.data().email;
+                    return email && email.includes('@');
+                });
+                setTotalB2CRegistered(registeredCands.length);
+                
+                const registeredWithMatch = registeredCands.filter(docSnap => {
+                    const data = docSnap.data();
+                    return data.lastMatches && Object.keys(data.lastMatches).length > 0;
+                });
+                setTotalB2CRegisteredWithMatch(registeredWithMatch.length);
+
+                const anonymousWithMatch = candsSnap.docs.filter(docSnap => {
+                    const data = docSnap.data();
+                    const email = data.email;
+                    const hasEmail = email && email.includes('@');
+                    return !hasEmail && data.lastMatches && Object.keys(data.lastMatches).length > 0;
+                });
+                setTotalB2CAnonWithMatch(anonymousWithMatch.length);
             } catch (b2cError) {
                 console.error("Error fetching total B2C candidates:", b2cError);
             }
@@ -191,6 +214,12 @@ export default function EmpresaAdminDashboard() {
                         onPress={() => setActiveTab('feedback')}
                     >
                         <Text style={[styles.tabBtnText, activeTab === 'feedback' && styles.tabBtnTextActive]}>Sugerencias</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'b2c' && styles.tabBtnActive]}
+                        onPress={() => setActiveTab('b2c')}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'b2c' && styles.tabBtnTextActive]}>B2C IA</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -524,46 +553,69 @@ export default function EmpresaAdminDashboard() {
                 <View style={{ flex: 1 }}>
                     <MetricsTabs />
                     
-                    <View style={styles.tableContainer}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                            <Text style={styles.sectionTitle}>
-                                {activeTab === 'cuentas' ? 'Cuentas B2B' : (activeTab === 'planes' ? 'Planes del Sistema' : 'Sugerencias / Feedback')}
-                            </Text>
-                            {activeTab === 'planes' && (
-                                <View style={{ flexDirection: 'row', gap: 10 }}>
-                                    <TouchableOpacity style={[styles.addBtn, { backgroundColor: COLORS.primary }]} onPress={handleRestoreDefaults}>
-                                        <RefreshCw size={16} color="white" />
-                                        <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Restaurar Iniciales</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.addBtn} onPress={() => openPlanModal()}>
-                                        <Plus size={16} color="white" />
-                                        <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Nuevo Plan</Text>
-                                    </TouchableOpacity>
+                    {activeTab === 'b2c' ? (
+                        <View style={styles.tableContainer}>
+                            <Text style={styles.sectionTitle}>Embudo B2C & Uso de IA</Text>
+                            <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginTop: 15 }}>
+                                <View style={[styles.metricCard, { backgroundColor: COLORS.primary, flex: 1, minWidth: 140, padding: 20 }]}>
+                                    <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Inscritos B2C</Text>
+                                    <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalB2CRegistered}</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Cuentas reales registradas</Text>
                                 </View>
-                            )}
+                                <View style={[styles.metricCard, { backgroundColor: COLORS.success, flex: 1, minWidth: 140, padding: 20 }]}>
+                                    <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Match con Registro</Text>
+                                    <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalB2CRegisteredWithMatch}</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Usuarios con cuenta + IA</Text>
+                                </View>
+                                <View style={[styles.metricCard, { backgroundColor: COLORS.accent, flex: 1, minWidth: 140, padding: 20 }]}>
+                                    <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Match sin Registro</Text>
+                                    <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalB2CAnonWithMatch}</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Postulantes invitados + IA</Text>
+                                </View>
+                            </View>
                         </View>
-                        
-                        <FlatList
-                            data={activeTab === 'cuentas' ? companies : (activeTab === 'planes' ? plans : feedback)}
-                            keyExtractor={i => i.uid || i.id}
-                            renderItem={({ item }) => {
-                                if (activeTab === 'cuentas') return renderRow({ item });
-                                if (activeTab === 'planes') return renderPlanRow({ item });
-                                return (
-                                    <View style={styles.feedbackCard}>
-                                        <View style={styles.feedbackHeader}>
-                                            <Text style={styles.feedbackEmail}>{item.email}</Text>
-                                            <Text style={styles.feedbackDate}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'}</Text>
-                                        </View>
-                                        <Text style={styles.feedbackMessage}>{item.message}</Text>
+                    ) : (
+                        <View style={styles.tableContainer}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                                <Text style={styles.sectionTitle}>
+                                    {activeTab === 'cuentas' ? 'Cuentas B2B' : (activeTab === 'planes' ? 'Planes del Sistema' : 'Sugerencias / Feedback')}
+                                </Text>
+                                {activeTab === 'planes' && (
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: COLORS.primary }]} onPress={handleRestoreDefaults}>
+                                            <RefreshCw size={16} color="white" />
+                                            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Restaurar Iniciales</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.addBtn} onPress={() => openPlanModal()}>
+                                            <Plus size={16} color="white" />
+                                            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Nuevo Plan</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                );
-                            }}
-                            contentContainerStyle={{ paddingBottom: 50 }}
-                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={COLORS.primary} />}
-                            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30, color: COLORS.textTertiary }}>No hay datos para mostrar.</Text>}
-                        />
-                    </View>
+                                )}
+                            </View>
+                            
+                            <FlatList
+                                data={activeTab === 'cuentas' ? companies : (activeTab === 'planes' ? plans : feedback)}
+                                keyExtractor={i => i.uid || i.id}
+                                renderItem={({ item }) => {
+                                    if (activeTab === 'cuentas') return renderRow({ item });
+                                    if (activeTab === 'planes') return renderPlanRow({ item });
+                                    return (
+                                        <View style={styles.feedbackCard}>
+                                            <View style={styles.feedbackHeader}>
+                                                <Text style={styles.feedbackEmail}>{item.email}</Text>
+                                                <Text style={styles.feedbackDate}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'}</Text>
+                                            </View>
+                                            <Text style={styles.feedbackMessage}>{item.message}</Text>
+                                        </View>
+                                    );
+                                }}
+                                contentContainerStyle={{ paddingBottom: 50 }}
+                                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={COLORS.primary} />}
+                                ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30, color: COLORS.textTertiary }}>No hay datos para mostrar.</Text>}
+                            />
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -806,7 +858,7 @@ const styles = StyleSheet.create({
     metricValue: { color: COLORS.textPrimary, fontSize: 24, fontWeight: '800', marginVertical: 4 },
     metricLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
 
-    tabSelector: { flexDirection: 'row', gap: 10, marginBottom: 5 },
+    tabSelector: { flexDirection: 'row', gap: 10, marginBottom: 5, flexWrap: 'wrap' },
     tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)' },
     tabBtnActive: { backgroundColor: COLORS.primary },
     tabBtnText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 14 },
