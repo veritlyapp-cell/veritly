@@ -69,6 +69,7 @@ export default function CreateJob() {
     // INPUTS
     const [rawText, setRawText] = useState('');
     const [fileName, setFileName] = useState('');
+    const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
     // DATA PROCESADA
     const [jobData, setJobData] = useState<any>({
@@ -557,36 +558,123 @@ export default function CreateJob() {
                                                     Selecciona uno o más países de residencia válidos para la postulación. Si el candidato vive en otro país, será descartado automáticamente.
                                                 </Text>
 
-                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                                    {LATAM_COUNTRIES.map((c) => {
-                                                        const isSelected = jobData.allowedCountries?.includes(c.name);
-                                                        return (
+                                                {/* Selector de Países Desplegable */}
+                                                <TouchableOpacity 
+                                                    style={{ 
+                                                        flexDirection: 'row', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between', 
+                                                        backgroundColor: '#0f172a', 
+                                                        borderWidth: 1, 
+                                                        borderColor: '#334155', 
+                                                        padding: 12, 
+                                                        borderRadius: 8,
+                                                        marginBottom: 10
+                                                    }}
+                                                    onPress={() => setShowCountryDropdown(!showCountryDropdown)}
+                                                >
+                                                    <Text style={{ color: '#94a3b8', fontSize: 14 }}>
+                                                        {jobData.allowedCountries?.length > 0 
+                                                            ? `${jobData.allowedCountries.length} país(es) seleccionado(s)` 
+                                                            : 'Seleccionar países...'}
+                                                    </Text>
+                                                    <Text style={{ color: '#38bdf8', fontSize: 13, fontWeight: 'bold' }}>
+                                                        {showCountryDropdown ? '▲ Cerrar' : '▼ Seleccionar'}
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                {/* Desplegable */}
+                                                {showCountryDropdown && (
+                                                    <View style={{ 
+                                                        maxHeight: 200, 
+                                                        backgroundColor: '#0f172a', 
+                                                        borderWidth: 1, 
+                                                        borderColor: '#334155', 
+                                                        borderRadius: 8, 
+                                                        padding: 8,
+                                                        marginBottom: 15
+                                                    }}>
+                                                        <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
+                                                            {LATAM_COUNTRIES.map((c) => {
+                                                                const isSelected = jobData.allowedCountries?.includes(c.name);
+                                                                return (
+                                                                    <TouchableOpacity
+                                                                        key={c.name}
+                                                                        style={{
+                                                                            flexDirection: 'row',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            paddingVertical: 10,
+                                                                            paddingHorizontal: 12,
+                                                                            borderRadius: 6,
+                                                                            backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'transparent'
+                                                                        }}
+                                                                        onPress={() => {
+                                                                            let countries = [...(jobData.allowedCountries || [])];
+                                                                            if (countries.includes(c.name)) {
+                                                                                if (countries.length === 1) {
+                                                                                    Alert.alert("Requisito", "Debes seleccionar al menos un país.");
+                                                                                    return;
+                                                                                }
+                                                                                countries = countries.filter(name => name !== c.name);
+                                                                            } else {
+                                                                                countries.push(c.name);
+                                                                            }
+                                                                            
+                                                                            // Calcular moneda
+                                                                            let newCurrency = 'S/';
+                                                                            if (countries.length === 1) {
+                                                                                const found = LATAM_COUNTRIES.find(x => x.name === countries[0]);
+                                                                                newCurrency = found ? found.currency : 'S/';
+                                                                            } else if (countries.length > 1) {
+                                                                                newCurrency = 'USD$';
+                                                                            }
+
+                                                                            setJobData({
+                                                                                ...jobData,
+                                                                                allowedCountries: countries,
+                                                                                currency: newCurrency
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Text style={{ color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: 13 }}>
+                                                                            {c.name}
+                                                                        </Text>
+                                                                        {isSelected && <Check size={14} color="#38bdf8" />}
+                                                                    </TouchableOpacity>
+                                                                );
+                                                            })}
+                                                        </ScrollView>
+                                                    </View>
+                                                )}
+
+                                                {/* Chips de Países Seleccionados */}
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                                    {jobData.allowedCountries?.map((countryName: string) => (
+                                                        <View 
+                                                            key={countryName}
+                                                            style={{ 
+                                                                flexDirection: 'row', 
+                                                                alignItems: 'center', 
+                                                                backgroundColor: 'rgba(56, 189, 248, 0.1)', 
+                                                                borderWidth: 1, 
+                                                                borderColor: '#38bdf8', 
+                                                                paddingVertical: 4, 
+                                                                paddingHorizontal: 10, 
+                                                                borderRadius: 16,
+                                                                gap: 6
+                                                            }}
+                                                        >
+                                                            <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>{countryName}</Text>
                                                             <TouchableOpacity 
-                                                                key={c.name}
-                                                                style={{ 
-                                                                    flexDirection: 'row', 
-                                                                    alignItems: 'center', 
-                                                                    backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.1)' : '#0f172a',
-                                                                    borderWidth: 1,
-                                                                    borderColor: isSelected ? '#38bdf8' : '#334155',
-                                                                    paddingVertical: 6,
-                                                                    paddingHorizontal: 12,
-                                                                    borderRadius: 20,
-                                                                    gap: 6
-                                                                }}
                                                                 onPress={() => {
                                                                     let countries = [...(jobData.allowedCountries || [])];
-                                                                    if (countries.includes(c.name)) {
-                                                                        if (countries.length === 1) {
-                                                                            Alert.alert("Requisito", "Debes seleccionar al menos un país.");
-                                                                            return;
-                                                                        }
-                                                                        countries = countries.filter(name => name !== c.name);
-                                                                    } else {
-                                                                        countries.push(c.name);
+                                                                    if (countries.length === 1) {
+                                                                        Alert.alert("Requisito", "Debes seleccionar al menos un país.");
+                                                                        return;
                                                                     }
-                                                                    
-                                                                    // Calcular moneda
+                                                                    countries = countries.filter(name => name !== countryName);
+
                                                                     let newCurrency = 'S/';
                                                                     if (countries.length === 1) {
                                                                         const found = LATAM_COUNTRIES.find(x => x.name === countries[0]);
@@ -602,15 +690,10 @@ export default function CreateJob() {
                                                                     });
                                                                 }}
                                                             >
-                                                                <View style={{ width: 14, height: 14, borderRadius: 3, borderWidth: 1.5, borderColor: isSelected ? '#38bdf8' : '#94a3b8', backgroundColor: isSelected ? '#38bdf8' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
-                                                                    {isSelected && <Check size={10} color="#0f172a" />}
-                                                                </View>
-                                                                <Text style={{ color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
-                                                                    {c.name}
-                                                                </Text>
+                                                                <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: 'bold', paddingHorizontal: 2 }}>×</Text>
                                                             </TouchableOpacity>
-                                                        );
-                                                    })}
+                                                        </View>
+                                                    ))}
                                                 </View>
                                             </View>
 

@@ -17,6 +17,7 @@ import {
     ArrowLeft,
     ArrowRight,
     Briefcase,
+    Check,
     CheckCircle2,
     ChevronRight,
     Clock,
@@ -122,6 +123,7 @@ export default function ExternalApplication() {
     const [useSavedCv, setUseSavedCv] = useState(false);
     const [saveToProfile, setSaveToProfile] = useState(true);
     const [selectedCountry, setSelectedCountry] = useState<string>('');
+    const [showCandidateCountryDropdown, setShowCandidateCountryDropdown] = useState(false);
 
     // Sincronizar país inicial por defecto basado en los permitidos de la oferta
     useEffect(() => {
@@ -1159,29 +1161,79 @@ export default function ExternalApplication() {
                             </Text>
                         </View>
                     )}
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }}>
-                        {LATAM_COUNTRIES.map((c) => {
-                            const isSelected = selectedCountry === c.name;
-                            return (
-                                <TouchableOpacity
-                                    key={c.name}
-                                    style={{
-                                        paddingVertical: 8,
-                                        paddingHorizontal: 12,
-                                        borderRadius: 20,
-                                        borderWidth: 1.5,
-                                        borderColor: isSelected ? '#3b82f6' : '#E2E8F0',
-                                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : '#FFFFFF',
-                                    }}
-                                    onPress={() => setSelectedCountry(c.name)}
-                                >
-                                    <Text style={{ color: isSelected ? '#3b82f6' : '#64748b', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
-                                        {c.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+                    
+                    {/* Selector Desplegable de Residencia */}
+                    <TouchableOpacity 
+                        style={{ 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            backgroundColor: '#FFFFFF', 
+                            borderWidth: 1.5, 
+                            borderColor: '#E2E8F0', 
+                            padding: 12, 
+                            borderRadius: 12,
+                            marginTop: 5
+                        }}
+                        onPress={() => setShowCandidateCountryDropdown(!showCandidateCountryDropdown)}
+                    >
+                        <Text style={{ color: selectedCountry ? '#1E293B' : '#94A3B8', fontSize: 14, fontWeight: '500' }}>
+                            {selectedCountry || 'Selecciona tu país...'}
+                        </Text>
+                        <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: 'bold' }}>
+                            {showCandidateCountryDropdown ? '▲ Cerrar' : '▼ Seleccionar'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Menú Desplegable */}
+                    {showCandidateCountryDropdown && (
+                        <View style={{ 
+                            maxHeight: 200, 
+                            backgroundColor: '#FFFFFF', 
+                            borderWidth: 1.5, 
+                            borderColor: '#E2E8F0', 
+                            borderRadius: 12, 
+                            padding: 8,
+                            marginTop: 5,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.05,
+                            shadowRadius: 8,
+                            elevation: 3,
+                            zIndex: 10
+                        }}>
+                            <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
+                                {LATAM_COUNTRIES.map((c) => {
+                                    const isSelected = selectedCountry === c.name;
+                                    const isAllowed = !job.allowedCountries || job.allowedCountries.length === 0 || job.allowedCountries.includes(c.name);
+                                    return (
+                                        <TouchableOpacity
+                                            key={c.name}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                paddingVertical: 10,
+                                                paddingHorizontal: 12,
+                                                borderRadius: 8,
+                                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                                                opacity: isAllowed ? 1 : 0.6
+                                            }}
+                                            onPress={() => {
+                                                setSelectedCountry(c.name);
+                                                setShowCandidateCountryDropdown(false);
+                                            }}
+                                        >
+                                            <Text style={{ color: isSelected ? '#3b82f6' : '#475569', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                                {c.name} {!isAllowed && '(No elegible)'}
+                                            </Text>
+                                            {isSelected && <Check size={14} color="#3b82f6" />}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    )}
                 </View>
 
                 {/* Salary */}
