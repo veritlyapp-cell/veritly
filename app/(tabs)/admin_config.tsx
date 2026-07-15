@@ -1,4 +1,4 @@
-import { Bell, CreditCard, Lock, Save, Settings, ShieldCheck, ToggleLeft, ToggleRight, Users } from 'lucide-react-native';
+import { Bell, CreditCard, Lock, Save, Settings, ShieldCheck, ToggleLeft, ToggleRight, Users, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AdminUsersTable from '../../components/AdminUsersTable';
@@ -14,7 +14,7 @@ export default function AdminConfigScreen() {
     const [saving, setSaving] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [config, setConfig] = useState<AppConfig | null>(null);
-    const [currentTab, setCurrentTab] = useState<'config' | 'users' | 'analytics'>('config');
+    const [currentTab, setCurrentTab] = useState<'config' | 'users' | 'analytics' | 'b2c'>('config');
     const [totalB2B, setTotalB2B] = useState(0);
     const [b2cStats, setB2cStats] = useState({ 
         revenue: 0, 
@@ -164,26 +164,54 @@ export default function AdminConfigScreen() {
                         style={[styles.mainTab, currentTab === 'config' && styles.mainTabActive]}
                         onPress={() => setCurrentTab('config')}
                     >
-                        <Settings size={20} color={currentTab === 'config' ? 'white' : '#94a3b8'} />
-                        <Text style={[styles.mainTabText, currentTab === 'config' && styles.mainTabTextActive]}>Configuración</Text>
+                        <Settings size={18} color={currentTab === 'config' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'config' && styles.mainTabTextActive, { fontSize: 11 }]}>Config</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.mainTab, currentTab === 'users' && styles.mainTabActive]}
                         onPress={() => setCurrentTab('users')}
                     >
-                        <Users size={20} color={currentTab === 'users' ? 'white' : '#94a3b8'} />
-                        <Text style={[styles.mainTabText, currentTab === 'users' && styles.mainTabTextActive]}>Usuarios ({b2cStats.total})</Text>
+                        <Users size={18} color={currentTab === 'users' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'users' && styles.mainTabTextActive, { fontSize: 11 }]}>Usuarios</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.mainTab, currentTab === 'b2c' && styles.mainTabActive]}
+                        onPress={() => setCurrentTab('b2c')}
+                    >
+                        <Sparkles size={18} color={currentTab === 'b2c' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'b2c' && styles.mainTabTextActive, { fontSize: 11 }]}>B2C IA</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.mainTab, currentTab === 'analytics' && styles.mainTabActive]}
                         onPress={() => setCurrentTab('analytics')}
                     >
-                        <CreditCard size={20} color={currentTab === 'analytics' ? 'white' : '#94a3b8'} />
-                        <Text style={[styles.mainTabText, currentTab === 'analytics' && styles.mainTabTextActive]}>Métricas</Text>
+                        <CreditCard size={18} color={currentTab === 'analytics' ? 'white' : '#94a3b8'} />
+                        <Text style={[styles.mainTabText, currentTab === 'analytics' && styles.mainTabTextActive, { fontSize: 11 }]}>Métricas</Text>
                     </TouchableOpacity>
                 </View>
 
-                {currentTab === 'analytics' ? (
+                {currentTab === 'b2c' ? (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>👥 Embudo B2C & Uso de IA</Text>
+                        <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginBottom: 10 }}>
+                            <View style={[styles.metricCard, { backgroundColor: '#3b82f6', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Inscritos B2C</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.total}</Text>
+                                <Text style={{ color: '#dbeafe', fontSize: 10 }}>Cuentas reales registradas</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#10b981', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Match con Registro</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.registeredWithMatch}</Text>
+                                <Text style={{ color: '#d1fae5', fontSize: 10 }}>Usuarios con cuenta + IA</Text>
+                            </View>
+                            <View style={[styles.metricCard, { backgroundColor: '#f59e0b', flex: 1, minWidth: 140 }]}>
+                                <Text style={{ color: 'white', fontSize: 13 }}>Match sin Registro</Text>
+                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.anonymousWithMatch}</Text>
+                                <Text style={{ color: '#fef3c7', fontSize: 10 }}>Postulantes invitados + IA</Text>
+                            </View>
+                        </View>
+                    </View>
+                ) : currentTab === 'analytics' ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>💰 Ingresos y Uso B2C</Text>
                         <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap' }}>
@@ -201,25 +229,6 @@ export default function AdminConfigScreen() {
                                 <Text style={{ color: '#94a3b8', fontSize: 14 }}>Uso de Plataforma</Text>
                                 <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>{Math.round(b2cStats.avgLogins)}</Text>
                                 <Text style={{ color: '#94a3b8', fontSize: 10 }}>Logins promedio por usuario</Text>
-                            </View>
-                        </View>
-
-                        <Text style={[styles.sectionTitle, { marginTop: 25 }]}>👥 Embudo B2C & Uso de IA</Text>
-                        <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginBottom: 10 }}>
-                            <View style={[styles.metricCard, { backgroundColor: '#3b82f6', flex: 1, minWidth: 140 }]}>
-                                <Text style={{ color: 'white', fontSize: 13 }}>Inscritos B2C</Text>
-                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.total}</Text>
-                                <Text style={{ color: '#dbeafe', fontSize: 10 }}>Cuentas reales registradas</Text>
-                            </View>
-                            <View style={[styles.metricCard, { backgroundColor: '#10b981', flex: 1, minWidth: 140 }]}>
-                                <Text style={{ color: 'white', fontSize: 13 }}>Match con Registro</Text>
-                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.registeredWithMatch}</Text>
-                                <Text style={{ color: '#d1fae5', fontSize: 10 }}>Usuarios con cuenta + IA</Text>
-                            </View>
-                            <View style={[styles.metricCard, { backgroundColor: '#f59e0b', flex: 1, minWidth: 140 }]}>
-                                <Text style={{ color: 'white', fontSize: 13 }}>Match sin Registro</Text>
-                                <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold', marginVertical: 4 }}>{b2cStats.anonymousWithMatch}</Text>
-                                <Text style={{ color: '#fef3c7', fontSize: 10 }}>Postulantes invitados + IA</Text>
                             </View>
                         </View>
 
@@ -242,19 +251,14 @@ export default function AdminConfigScreen() {
                 ) : (
                     <>
                         {/* CROSS SUMMARY */}
-                        <TouchableOpacity 
-                            style={[styles.section, { backgroundColor: '#3b82f6' }]}
-                            onPress={() => router.push('/empresa/dashboard/admin')}
-                        >
+                        <View style={[styles.section, { backgroundColor: '#3b82f6' }]}>
                             <Text style={styles.sectionTitle}>Resumen B2B 🚀</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={{ color: 'white', fontSize: 16 }}>Empresas Registradas:</Text>
                                 <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>{totalB2B}</Text>
                             </View>
-                            <Text style={{ color: '#dbeafe', fontSize: 12, marginTop: 10, fontWeight: 'bold', textDecorationLine: 'underline' }}>
-                                👉 Ver Dashboard de Empresas Completo (Admin B2B)
-                            </Text>
-                        </TouchableOpacity>
+                            <Text style={{ color: '#dbeafe', fontSize: 12, marginTop: 5 }}>Ir al portal de Empresas para gestionar clientes.</Text>
+                        </View>
 
                         {/* GLOBAL SWITCHES */}
                         <View style={styles.section}>
