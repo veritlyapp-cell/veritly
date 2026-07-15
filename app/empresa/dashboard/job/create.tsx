@@ -39,6 +39,25 @@ const Alert = {
     }
 };
 
+const LATAM_COUNTRIES = [
+    { name: 'Perú', currency: 'S/' },
+    { name: 'Colombia', currency: 'COP$' },
+    { name: 'México', currency: 'MXN$' },
+    { name: 'Chile', currency: 'CLP$' },
+    { name: 'Argentina', currency: 'ARS$' },
+    { name: 'Ecuador', currency: 'USD$' },
+    { name: 'Bolivia', currency: 'Bs' },
+    { name: 'Uruguay', currency: 'UYU$' },
+    { name: 'Paraguay', currency: 'Gs' },
+    { name: 'Panamá', currency: 'USD$' },
+    { name: 'Costa Rica', currency: '₡' },
+    { name: 'República Dominicana', currency: 'DOP$' },
+    { name: 'El Salvador', currency: 'USD$' },
+    { name: 'Guatemala', currency: 'Q' },
+    { name: 'Honduras', currency: 'L' },
+    { name: 'Nicaragua', currency: 'C$' }
+];
+
 export default function CreateJob() {
     const router = useRouter();
     const { id } = useLocalSearchParams(); // Si hay ID, es edición
@@ -58,7 +77,9 @@ export default function CreateJob() {
         salaryToleranceDown: '10', // Default 10%
         isSalaryPublic: false,
         isExternal: false,
-        killerQuestions: []
+        killerQuestions: [],
+        allowedCountries: ['Perú'],
+        currency: 'S/'
     });
     const [optimizedDescription, setOptimizedDescription] = useState('');
 
@@ -181,7 +202,9 @@ export default function CreateJob() {
                     salaryToleranceDown: data.salaryToleranceDown?.toString() || '10',
                     isSalaryPublic: data.isSalaryPublic || false,
                     isExternal: data.isExternal || false,
-                    killerQuestions: data.killerQuestions || []
+                    killerQuestions: data.killerQuestions || [],
+                    allowedCountries: data.allowedCountries || ['Perú'],
+                    currency: data.currency || 'S/'
                 });
                 setOptimizedDescription(data.optimizedText || '');
                 setRawText(data.originalText || '');
@@ -523,6 +546,74 @@ export default function CreateJob() {
 
                                     {jobData?.isExternal && (
                                         <View style={{ marginTop: 20, backgroundColor: '#1e293b', padding: 15, borderRadius: 8 }}>
+                                            
+                                            {/* --- FILTRO POR PAÍSES --- */}
+                                            <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                                    <LinkIcon color="#38bdf8" size={18} />
+                                                    <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Países de Selección</Text>
+                                                </View>
+                                                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 15 }}>
+                                                    Selecciona uno o más países de residencia válidos para la postulación. Si el candidato vive en otro país, será descartado automáticamente.
+                                                </Text>
+
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                    {LATAM_COUNTRIES.map((c) => {
+                                                        const isSelected = jobData.allowedCountries?.includes(c.name);
+                                                        return (
+                                                            <TouchableOpacity 
+                                                                key={c.name}
+                                                                style={{ 
+                                                                    flexDirection: 'row', 
+                                                                    alignItems: 'center', 
+                                                                    backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.1)' : '#0f172a',
+                                                                    borderWidth: 1,
+                                                                    borderColor: isSelected ? '#38bdf8' : '#334155',
+                                                                    paddingVertical: 6,
+                                                                    paddingHorizontal: 12,
+                                                                    borderRadius: 20,
+                                                                    gap: 6
+                                                                }}
+                                                                onPress={() => {
+                                                                    let countries = [...(jobData.allowedCountries || [])];
+                                                                    if (countries.includes(c.name)) {
+                                                                        if (countries.length === 1) {
+                                                                            Alert.alert("Requisito", "Debes seleccionar al menos un país.");
+                                                                            return;
+                                                                        }
+                                                                        countries = countries.filter(name => name !== c.name);
+                                                                    } else {
+                                                                        countries.push(c.name);
+                                                                    }
+                                                                    
+                                                                    // Calcular moneda
+                                                                    let newCurrency = 'S/';
+                                                                    if (countries.length === 1) {
+                                                                        const found = LATAM_COUNTRIES.find(x => x.name === countries[0]);
+                                                                        newCurrency = found ? found.currency : 'S/';
+                                                                    } else if (countries.length > 1) {
+                                                                        newCurrency = 'USD$';
+                                                                    }
+
+                                                                    setJobData({
+                                                                        ...jobData,
+                                                                        allowedCountries: countries,
+                                                                        currency: newCurrency
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <View style={{ width: 14, height: 14, borderRadius: 3, borderWidth: 1.5, borderColor: isSelected ? '#38bdf8' : '#94a3b8', backgroundColor: isSelected ? '#38bdf8' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                                                                    {isSelected && <Check size={10} color="#0f172a" />}
+                                                                </View>
+                                                                <Text style={{ color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                                                    {c.name}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            </View>
+
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                                                 <DollarSign color="#10b981" size={18} />
                                                 <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Filtro Salarial Automático</Text>
@@ -543,7 +634,7 @@ export default function CreateJob() {
 
                                             <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
                                                 <View style={{ flex: 2 }}>
-                                                    <Text style={styles.label}>PRESUPUESTO (S/)</Text>
+                                                    <Text style={styles.label}>PRESUPUESTO ({jobData.currency || 'S/'})</Text>
                                                     <TextInput
                                                         style={styles.input}
                                                         placeholder="Ej. 3500"
@@ -580,7 +671,7 @@ export default function CreateJob() {
                                              {Number(jobData?.salaryBudget) > 0 && (
                                                 <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 8 }}>
                                                     <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>
-                                                        Rango aceptado: S/ {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - S/ {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
+                                                        Rango aceptado: {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
                                                     </Text>
                                                     <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
                                                         Candidatos fuera de este rango serán descartados automáticamente.

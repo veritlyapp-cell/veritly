@@ -56,6 +56,25 @@ import { auth, db, storage } from '../../config/firebase';
 type PageStep = 'offer' | 'auth' | 'apply' | 'success';
 type AuthMode = 'login' | 'register';
 
+const LATAM_COUNTRIES = [
+    { name: 'Perú', currency: 'S/' },
+    { name: 'Colombia', currency: 'COP$' },
+    { name: 'México', currency: 'MXN$' },
+    { name: 'Chile', currency: 'CLP$' },
+    { name: 'Argentina', currency: 'ARS$' },
+    { name: 'Ecuador', currency: 'USD$' },
+    { name: 'Bolivia', currency: 'Bs' },
+    { name: 'Uruguay', currency: 'UYU$' },
+    { name: 'Paraguay', currency: 'Gs' },
+    { name: 'Panamá', currency: 'USD$' },
+    { name: 'Costa Rica', currency: '₡' },
+    { name: 'República Dominicana', currency: 'DOP$' },
+    { name: 'El Salvador', currency: 'USD$' },
+    { name: 'Guatemala', currency: 'Q' },
+    { name: 'Honduras', currency: 'L' },
+    { name: 'Nicaragua', currency: 'C$' }
+];
+
 export default function ExternalApplication() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
@@ -102,6 +121,18 @@ export default function ExternalApplication() {
     const [savedCv, setSavedCv] = useState<{ url: string; name: string } | null>(null);
     const [useSavedCv, setUseSavedCv] = useState(false);
     const [saveToProfile, setSaveToProfile] = useState(true);
+    const [selectedCountry, setSelectedCountry] = useState<string>('');
+
+    // Sincronizar país inicial por defecto basado en los permitidos de la oferta
+    useEffect(() => {
+        if (job) {
+            if (job.allowedCountries && job.allowedCountries.length > 0) {
+                setSelectedCountry(job.allowedCountries[0]);
+            } else {
+                setSelectedCountry('Perú');
+            }
+        }
+    }, [job]);
 
     // Listen to auth state
     useEffect(() => {
@@ -362,11 +393,14 @@ export default function ExternalApplication() {
         if (!phone.trim()) { errors.phone = 'Tu teléfono es obligatorio.'; hasErrors = true; }
         
         const expectationNumber = Number(salaryExpectation);
+        const dynamicCurrency = job?.currency || 'S/';
         if (!salaryExpectation.trim()) { 
             errors.salary = 'La expectativa salarial es obligatoria.'; 
             hasErrors = true; 
-        } else if (isNaN(expectationNumber) || expectationNumber < 1130) {
-            errors.salary = 'La expectativa mínima es S/ 1,130 (Sueldo Mínimo Vital).';
+        } else if (isNaN(expectationNumber) || (dynamicCurrency === 'S/' && expectationNumber < 1130) || (dynamicCurrency !== 'S/' && expectationNumber <= 0)) {
+            errors.salary = dynamicCurrency === 'S/' 
+                ? 'La expectativa mínima es S/ 1,130 (Sueldo Mínimo Vital).' 
+                : `La expectativa salarial debe ser mayor a 0 ${dynamicCurrency}.`;
             hasErrors = true;
         }
 
@@ -408,14 +442,21 @@ export default function ExternalApplication() {
 
             // Salary filter
             const budget = Number(job.salaryBudget) || 0;
-            // ... (rest of filtering logic)
-            // ... (I'll keep the actual logic from before)
             const maxBudget = budget > 0 ? budget * (1 + (Number(job.salaryTolerance) || 10) / 100) : Infinity;
             const minBudget = budget > 0 ? budget * (1 - (Number(job.salaryToleranceDown) || 10) / 100) : 0;
             const isSalaryRejected = budget > 0 && (expectationNumber > maxBudget || expectationNumber < minBudget);
 
-            let isKillerRejected = false;
+            // Country filter
+            let isCountryRejected = false;
             let failureReason = '';
+            if (job.allowedCountries && job.allowedCountries.length > 0) {
+                if (!job.allowedCountries.includes(selectedCountry)) {
+                    isCountryRejected = true;
+                    failureReason = 'No reside en los países permitidos para esta oferta.';
+                }
+            }
+
+            let isKillerRejected = false;
             const questions = job.killerQuestions || [];
             if (questions.length > 0) {
                 questions.forEach((q: any, idx: number) => {
@@ -428,7 +469,7 @@ export default function ExternalApplication() {
                 });
             }
 
-            const isRejected = isSalaryRejected || isKillerRejected;
+            const isRejected = isSalaryRejected || isKillerRejected || isCountryRejected;
 
             let cvUrl = useSavedCv ? savedCv?.url : null;
             let cvBase64 = null;
@@ -507,6 +548,7 @@ export default function ExternalApplication() {
                     fullName: fullName.trim(),
                     email: (user?.email || authEmail).toLowerCase().trim(),
                     phone: phone.trim(),
+                    country: selectedCountry,
                     salaryExpectation: expectationNumber,
                     cvUrl: cvUrl,
                     cvBase64: cvBase64,
@@ -515,7 +557,7 @@ export default function ExternalApplication() {
                     appliedAt: serverTimestamp(),
                     status: isRejected ? (isSalaryRejected ? 'rejected_salary' : 'rejected') : 'pending_ai',
                     recruitmentStatus: isRejected ? (isSalaryRejected ? 'rejected_salary' : 'rejected') : 'screening',
-                    failureReason: isSalaryRejected ? 'Presupuesto fuera de rango' : failureReason,
+                    failureReason: isSalaryRejected ? 'Presupuesto fuera de rango' : (isCountryRejected ? 'No reside en el país solicitado' : failureReason),
                     killerAnswers,
                     source: 'external_link',
                     userId: auth.currentUser?.uid || user?.uid || null,
@@ -776,7 +818,7 @@ export default function ExternalApplication() {
                             <View style={styles.infoRow}>
                                 <DollarSign size={16} color="#10b981" />
                                 <Text style={[styles.infoText, { color: '#10b981' }]}>
-                                    Rango salarial: S/ {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – S/ {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
+                                    Rango salarial: {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
                                 </Text>
                             </View>
                         )}
@@ -1108,6 +1150,38 @@ export default function ExternalApplication() {
                         onChangeText={(txt) => { setPhone(txt); if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' }); }}
                     />
                     {formErrors.phone && <Text style={styles.errorText}>{formErrors.phone}</Text>}
+
+                    <Text style={[styles.label, { marginTop: 15 }]}>País de Residencia actual *</Text>
+                    {job.allowedCountries && job.allowedCountries.length > 0 && (
+                        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#f59e0b', marginVertical: 8 }}>
+                            <Text style={{ color: '#d97706', fontSize: 12, fontWeight: 'bold' }}>
+                                ⚠ Esta vacante es solo válida para residentes de: {job.allowedCountries.join(', ')}
+                            </Text>
+                        </View>
+                    )}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }}>
+                        {LATAM_COUNTRIES.map((c) => {
+                            const isSelected = selectedCountry === c.name;
+                            return (
+                                <TouchableOpacity
+                                    key={c.name}
+                                    style={{
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 12,
+                                        borderRadius: 20,
+                                        borderWidth: 1.5,
+                                        borderColor: isSelected ? '#3b82f6' : '#E2E8F0',
+                                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : '#FFFFFF',
+                                    }}
+                                    onPress={() => setSelectedCountry(c.name)}
+                                >
+                                    <Text style={{ color: isSelected ? '#3b82f6' : '#64748b', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                        {c.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                 </View>
 
                 {/* Salary */}
@@ -1118,14 +1192,14 @@ export default function ExternalApplication() {
                         <View style={styles.salaryRangeHint}>
                             <DollarSign size={14} color="#38bdf8" />
                             <Text style={styles.salaryRangeText}>
-                                Rango esperado: S/ {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – S/ {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
+                                Rango esperado: {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
                             </Text>
                         </View>
                     )}
 
-                    <Text style={styles.label}>Expectativa mensual bruta (PEN) *</Text>
+                    <Text style={styles.label}>Expectativa mensual bruta ({job.currency || 'PEN'}) *</Text>
                     <View style={styles.salaryRow}>
-                        <View style={styles.currencyBadge}><Text style={styles.currencyText}>S/</Text></View>
+                        <View style={styles.currencyBadge}><Text style={styles.currencyText}>{job.currency || 'S/'}</Text></View>
                         <TextInput
                             style={[styles.salaryInput, formErrors.salary && styles.inputError]}
                             placeholder="Ej. 3000"
@@ -1138,7 +1212,11 @@ export default function ExternalApplication() {
                     {formErrors.salary ? (
                         <Text style={styles.errorText}>{formErrors.salary}</Text>
                     ) : (
-                        <Text style={styles.helperText}>Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).</Text>
+                        <Text style={styles.helperText}>
+                            {job.currency === 'S/' 
+                                ? 'Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).' 
+                                : `Expectativa en la moneda local (${job.currency || 'USD$'}) de la vacante.`}
+                        </Text>
                     )}
                 </View>
 
