@@ -754,7 +754,7 @@ export default function ExternalApplication() {
             } catch (err) {
                 console.error("Error logging click to Racso:", err);
             } finally {
-                Linking.openURL('https://racso.app'); // Redirección directa a la app/web de Racso
+                Linking.openURL('https://racso.app/ingreso'); // Redirección directa al ingreso de Racso
             }
         };
 
@@ -1087,10 +1087,13 @@ export default function ExternalApplication() {
                                 <View style={{ alignItems: 'center' }}>
                                     <CircularProgress percentage={matchResult.match} size={100} strokeWidth={8} />
                                     <Text style={{ color: 'white', fontSize: 28, fontWeight: '900', marginTop: 16 }}>{matchResult.match}% Match</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0f', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12, marginTop: 8 }}>
-                                        <Sparkles size={11} color="#ffffff" style={{ marginRight: 5 }} />
+                                    <TouchableOpacity
+                                        onPress={() => Linking.openURL('https://racso.app/ingreso')}
+                                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0f', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12, marginTop: 8 }}
+                                    >
+                                        <Image source={require('../../assets/images/racso-logo.png')} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 6 }} />
                                         <Text style={{ fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.4 }}>EVALUADO POR RACSO</Text>
-                                    </View>
+                                    </TouchableOpacity>
                                     <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20, marginTop: 8 }}>
                                         <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>{matchResult.reason || 'Excelente Potencial'}</Text>
                                     </View>
