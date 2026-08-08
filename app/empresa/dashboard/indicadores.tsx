@@ -197,6 +197,9 @@ export default function IndicadoresDashboard() {
     const [selectedJobId, setSelectedJobId] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [showFilters, setShowFilters] = useState(true);
+    const [jobDetailSearch, setJobDetailSearch] = useState('');
+    const [showAllJobDetails, setShowAllJobDetails] = useState(false);
+    const JOB_DETAIL_PREVIEW_COUNT = 5;
 
     // ===== FETCH RAW DATA =====
     const fetchData = async () => {
@@ -341,7 +344,9 @@ export default function IndicadoresDashboard() {
             if (c.matchScore > 0) { jm.scoreSum += c.matchScore; jm.scoredCount++; if (c.matchScore > jm.top) jm.top = c.matchScore; }
             if (st === 'hired') jm.hired++;
             if (st === 'rejected' || st === 'rejected_salary') jm.rejected++;
-            if (c.salaryExpectation > 0) {
+            // Ignoramos valores fuera de rango razonable (datos mal ingresados) para
+            // que un outlier no distorsione el promedio mostrado.
+            if (c.salaryExpectation > 0 && c.salaryExpectation <= 500000) {
                 jm.salaryExpSum += c.salaryExpectation;
                 jm.salaryExpCount++;
                 if (c.salaryExpectation < jm.salaryExpMin) jm.salaryExpMin = c.salaryExpectation;
@@ -388,6 +393,15 @@ export default function IndicadoresDashboard() {
             globalAvgSalaryExpectation: scoredCount > 0 ? Math.round(totalMatchScore / scoredCount) : 0, // Placeholder for actual calc below
         };
     }, [filteredCandidates]);
+
+    // ===== JOB DETAIL LIST: buscador + "ver todas" para no listar cientos de vacantes de golpe =====
+    const visibleJobDetails = useMemo(() => {
+        const term = jobDetailSearch.trim().toLowerCase();
+        const filtered = term
+            ? metrics.jobMetrics.filter(j => j.jobTitle.toLowerCase().includes(term))
+            : metrics.jobMetrics;
+        return showAllJobDetails || term ? filtered : filtered.slice(0, JOB_DETAIL_PREVIEW_COUNT);
+    }, [metrics.jobMetrics, jobDetailSearch, showAllJobDetails]);
 
     const globalMetrics = useMemo(() => {
         const candidatesWithSalary = filteredCandidates.filter(c => c.salaryExpectation > 0);
@@ -800,9 +814,18 @@ export default function IndicadoresDashboard() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Briefcase color="#38bdf8" size={20} />
-                        <Text style={styles.sectionTitle}>Detalle por Vacante</Text>
+                        <Text style={styles.sectionTitle}>Detalle por Vacante ({metrics.jobMetrics.length})</Text>
                     </View>
-                    {metrics.jobMetrics.map(job => (
+                    {metrics.jobMetrics.length > JOB_DETAIL_PREVIEW_COUNT && (
+                        <TextInput
+                            style={styles.jobDetailSearchInput}
+                            placeholder="Buscar posición por nombre..."
+                            placeholderTextColor="#9CA3AF"
+                            value={jobDetailSearch}
+                            onChangeText={setJobDetailSearch}
+                        />
+                    )}
+                    {visibleJobDetails.map(job => (
                         <View key={job.jobId} style={[styles.jobBreakdownCard, job.jobStatus === 'Closed' && { opacity: 0.6, borderLeftWidth: 3, borderLeftColor: '#64748b' }]}>
                             <View style={styles.jobBreakdownHeader}>
                                 <Text style={styles.jobBreakdownTitle} numberOfLines={1}>{job.jobTitle}</Text>
@@ -864,6 +887,16 @@ export default function IndicadoresDashboard() {
                     {metrics.jobMetrics.length === 0 && (
                         <Text style={{ color: '#64748b', textAlign: 'center', padding: 20 }}>
                             {hasActiveFilters ? 'No hay resultados con los filtros seleccionados.' : 'No hay vacantes activas.'}
+                        </Text>
+                    )}
+                    {!jobDetailSearch && !showAllJobDetails && metrics.jobMetrics.length > JOB_DETAIL_PREVIEW_COUNT && (
+                        <TouchableOpacity style={styles.showMoreBtn} onPress={() => setShowAllJobDetails(true)}>
+                            <Text style={styles.showMoreBtnText}>Ver todas las vacantes ({metrics.jobMetrics.length})</Text>
+                        </TouchableOpacity>
+                    )}
+                    {jobDetailSearch && visibleJobDetails.length === 0 && (
+                        <Text style={{ color: '#64748b', textAlign: 'center', padding: 20 }}>
+                            Ninguna posición coincide con "{jobDetailSearch}".
                         </Text>
                     )}
                 </View>
@@ -975,6 +1008,9 @@ const styles = StyleSheet.create({
     topCandidateScore: { color: '#D97706', fontSize: 14, fontWeight: '700', marginTop: 4 },
 
     // Job Breakdown
+    jobDetailSearchInput: { backgroundColor: '#F9FAFB', color: '#111827', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 13, marginBottom: 12 },
+    showMoreBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
+    showMoreBtnText: { color: '#4F46E5', fontSize: 13, fontWeight: '700' },
     jobBreakdownCard: { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
     jobBreakdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     jobBreakdownTitle: { color: '#111827', fontSize: 14, fontWeight: '700', flex: 1, marginRight: 10 },
