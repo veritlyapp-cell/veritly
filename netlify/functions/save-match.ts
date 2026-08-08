@@ -19,6 +19,25 @@ const db = getFirestore(app);
 
 // ⚠️ Sin EXPO_PUBLIC_ — esta key NUNCA sale al cliente
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
+
+// Confirma que el idToken recibido pertenece realmente al uid indicado,
+// para que nadie pueda gastar créditos o escribir en el historial de otro usuario.
+async function verifyUidFromToken(idToken: string): Promise<string | null> {
+    if (!FIREBASE_API_KEY) return null;
+    try {
+        const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.users || !data.users[0]) return null;
+        return data.users[0].localId;
+    } catch {
+        return null;
+    }
+}
 
 export const handler: Handler = async (event) => {
     const origin = event.headers.origin || event.headers.Origin || '';
@@ -43,7 +62,7 @@ export const handler: Handler = async (event) => {
     }
 
     try {
-        const { jobData, uid, cvText: providedCvText } = JSON.parse(event.body || '{}');
+        const { jobData, uid, idToken, cvText: providedCvText } = JSON.parse(event.body || '{}');
 
         if (!jobData || (!uid && !providedCvText)) {
             return {
@@ -51,6 +70,26 @@ export const handler: Handler = async (event) => {
                 headers,
                 body: JSON.stringify({ error: 'Missing required fields: jobData and (uid or cvText)' })
             };
+        }
+
+        // Si viene un uid, exigimos probar que el llamante ES ese usuario antes de
+        // leer su CV o tocar su historial/créditos.
+        if (uid) {
+            if (!idToken) {
+                return {
+                    statusCode: 401,
+                    headers,
+                    body: JSON.stringify({ error: 'Falta idToken para autenticar al usuario' })
+                };
+            }
+            const verifiedUid = await verifyUidFromToken(idToken);
+            if (!verifiedUid || verifiedUid !== uid) {
+                return {
+                    statusCode: 403,
+                    headers,
+                    body: JSON.stringify({ error: 'El idToken no corresponde al uid indicado' })
+                };
+            }
         }
 
         let cvText = providedCvText;

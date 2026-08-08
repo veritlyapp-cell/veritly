@@ -1,7 +1,9 @@
 
 import { Platform } from 'react-native';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+// La clave de Gemini vive solo en el servidor (Netlify Function); el cliente
+// nunca la ve. Todas las llamadas pasan por este proxy.
+const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
 
 // 🔄 LISTA DE MODELOS OFICIALES (Actualizada mayo 2026)
 // La app probará en este orden hasta que uno funcione.
@@ -18,14 +20,10 @@ const fetchWithFallback = async (body: any) => {
 
     for (const model of MODELS_TO_TRY) {
         try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
-
-            // console.log(`📡 Llamando a ${model} vía ${apiVersion}...`);
-
-            const response = await fetch(url, {
+            const response = await fetch(PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...body, generationConfig: { temperature: 0 } })
+                body: JSON.stringify({ model, ...body, generationConfig: { temperature: 0 } })
             });
 
             const data = await response.json();

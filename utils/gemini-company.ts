@@ -1,12 +1,9 @@
 
 
 
-
-const API_KEY = process.env.EXPO_PUBLIC_COMPANY_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.warn("⚠️ No hay API KEY configurada para empresa. Configura EXPO_PUBLIC_COMPANY_API_KEY o EXPO_PUBLIC_GEMINI_API_KEY en .env");
-}
+// La clave de Gemini vive solo en el servidor (Netlify Function); el cliente
+// nunca la ve. Todas las llamadas pasan por este proxy.
+const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
 
 // 🔄 Modelos para EMPRESA — Priorizamos capacidad para análisis precisos
 const MODELS_TO_TRY = [
@@ -17,17 +14,14 @@ const MODELS_TO_TRY = [
 ];
 
 const fetchWithFallback = async (body: any) => {
-    if (!API_KEY) throw new Error("Falta configurar la API KEY de Empresa (EXPO_PUBLIC_COMPANY_API_KEY).");
-
     let lastError = null;
 
     for (const model of MODELS_TO_TRY) {
         try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
-            const response = await fetch(url, {
+            const response = await fetch(PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...body, generationConfig: { temperature: 0.2 } }) // Un poco más de creatividad para Job Descriptions
+                body: JSON.stringify({ model, ...body, generationConfig: { temperature: 0.2 } }) // Un poco más de creatividad para Job Descriptions
             });
 
             const data = await response.json();

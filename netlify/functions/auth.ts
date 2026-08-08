@@ -1,14 +1,12 @@
 
 import { Handler } from '@netlify/functions';
+import { getCorsHeaders, checkRateLimit } from './_security';
 
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
 
 export const handler: Handler = async (event) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    };
+    const origin = event.headers.origin || event.headers.Origin || '';
+    const headers = getCorsHeaders(origin);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -16,6 +14,16 @@ export const handler: Handler = async (event) => {
 
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, headers, body: 'Method Not Allowed' };
+    }
+
+    // ── Rate Limiting: evita usar este endpoint como oráculo de credential stuffing ──
+    const clientIp = event.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+        return {
+            statusCode: 429,
+            headers,
+            body: JSON.stringify({ error: 'Demasiados intentos. Intenta en 1 minuto.' })
+        };
     }
 
     try {
