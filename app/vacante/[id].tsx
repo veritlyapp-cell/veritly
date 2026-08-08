@@ -531,16 +531,23 @@ export default function ExternalApplication() {
             }
 
             // STEP 2: Duplicate Check (Safety Layer)
+            // Nota: por privacidad, las reglas de Firestore no dejan a un candidato
+            // listar la subcolección de candidatos de otros (solo la empresa dueña puede).
+            // Si el chequeo falla por permisos, no bloqueamos la postulación.
             setSubmitStatus('Verificando postulación previa...');
-            const existingQuery = query(
-                collection(db, 'jobs', id as string, 'candidates'),
-                where('email', '==', (user?.email || authEmail).toLowerCase().trim())
-            );
-            const existingSnap = await getDocs(existingQuery);
-            if (!existingSnap.empty) {
-                setSubmitError('Ya te has postulado a esta vacante anteriormente.');
-                setSubmitting(false);
-                return;
+            try {
+                const existingQuery = query(
+                    collection(db, 'jobs', id as string, 'candidates'),
+                    where('email', '==', (user?.email || authEmail).toLowerCase().trim())
+                );
+                const existingSnap = await getDocs(existingQuery);
+                if (!existingSnap.empty) {
+                    setSubmitError('Ya te has postulado a esta vacante anteriormente.');
+                    setSubmitting(false);
+                    return;
+                }
+            } catch (dupCheckErr: any) {
+                console.warn('No se pudo verificar postulación previa, continuando:', dupCheckErr.message);
             }
 
             // STEP 3: Save to Firestore
