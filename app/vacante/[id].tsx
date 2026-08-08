@@ -282,22 +282,32 @@ export default function ExternalApplication() {
             const jobData = jobDoc.data();
             setJob(jobData);
 
-            // Load company info for branding
-            const empSnap = await getDoc(doc(db, 'users_empresas', jobData.companyId));
-            const data = empSnap.exists() ? empSnap.data() : null;
-            setCompanyName(
-                data?.company?.name ||
-                data?.nombreComercial ||
-                data?.aiContext?.nombre ||
-                'Empresa'
-            );
-            setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
-            setCompanyType(data?.company?.type || 'empresa');
+            // Load company info for branding (no debe bloquear el resto si falla)
+            try {
+                const empSnap = await getDoc(doc(db, 'users_empresas', jobData.companyId));
+                const data = empSnap.exists() ? empSnap.data() : null;
+                setCompanyName(
+                    data?.company?.name ||
+                    data?.nombreComercial ||
+                    data?.aiContext?.nombre ||
+                    'Empresa'
+                );
+                setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
+                setCompanyType(data?.company?.type || 'empresa');
+            } catch (e) {
+                console.warn('No se pudo cargar el branding de la empresa:', e);
+            }
 
-            // Load applicant count
-            const q = query(collection(db, 'jobs', jobId, 'candidates'));
-            const countSnap = await getDocs(q);
-            setApplicantCount(countSnap.size);
+            // Load applicant count (privado: solo la empresa dueña puede listar
+            // la subcolección de candidatos, así que para un visitante público
+            // esto siempre fallará por permisos; lo omitimos en silencio).
+            try {
+                const q = query(collection(db, 'jobs', jobId, 'candidates'));
+                const countSnap = await getDocs(q);
+                setApplicantCount(countSnap.size);
+            } catch (e) {
+                console.warn('No se pudo cargar el conteo de postulantes:', e);
+            }
         } catch (e) {
             console.error('Error loading job:', e);
         } finally {
