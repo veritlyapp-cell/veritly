@@ -6,8 +6,16 @@ import { Platform } from 'react-native';
 
 const SENTRY_DSN = 'https://89fdfb10689a57bb7497db7cd5a244ce@o4510660612784128.ingest.us.sentry.io/4510660634542080';
 
+let sentryInitialized = false;
+
 // Inicializar Sentry (llamar una vez al cargar la app)
 export const initSentry = () => {
+    // Evitar doble inicialización (ej. si el efecto que la llama se dispara
+    // más de una vez): Sentry.init() crea un cliente nuevo cada vez que se
+    // llama, duplicando el tracking de sesión si no se protege.
+    if (sentryInitialized) return;
+    sentryInitialized = true;
+
     // Solo inicializar en producción o si estamos en web
     if (__DEV__ && Platform.OS !== 'web') {
         console.log('🔧 Sentry: Modo desarrollo, no inicializado');

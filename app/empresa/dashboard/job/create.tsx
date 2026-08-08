@@ -58,6 +58,26 @@ const LATAM_COUNTRIES = [
     { name: 'Nicaragua', currency: 'C$' }
 ];
 
+// Moneda en la que la empresa paga la vacante. Es una elección explícita
+// e independiente de qué países pueden postular (una consultora puede pagar
+// en USD a candidatos de varios países, por ejemplo).
+const CURRENCY_OPTIONS = [
+    { code: 'S/', label: 'Soles peruanos (S/)' },
+    { code: 'USD$', label: 'Dólares (USD$)' },
+    { code: 'COP$', label: 'Pesos colombianos (COP$)' },
+    { code: 'MXN$', label: 'Pesos mexicanos (MXN$)' },
+    { code: 'CLP$', label: 'Pesos chilenos (CLP$)' },
+    { code: 'ARS$', label: 'Pesos argentinos (ARS$)' },
+    { code: 'Bs', label: 'Bolivianos (Bs)' },
+    { code: 'UYU$', label: 'Pesos uruguayos (UYU$)' },
+    { code: 'Gs', label: 'Guaraníes (Gs)' },
+    { code: '₡', label: 'Colones costarricenses (₡)' },
+    { code: 'DOP$', label: 'Pesos dominicanos (DOP$)' },
+    { code: 'Q', label: 'Quetzales (Q)' },
+    { code: 'L', label: 'Lempiras (L)' },
+    { code: 'C$', label: 'Córdobas (C$)' },
+];
+
 export default function CreateJob() {
     const router = useRouter();
     const { id } = useLocalSearchParams(); // Si hay ID, es edición
@@ -70,6 +90,7 @@ export default function CreateJob() {
     const [rawText, setRawText] = useState('');
     const [fileName, setFileName] = useState('');
     const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+    const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
 
     // DATA PROCESADA
     const [jobData, setJobData] = useState<any>({
@@ -621,19 +642,11 @@ export default function CreateJob() {
                                                                                 countries.push(c.name);
                                                                             }
                                                                             
-                                                                            // Calcular moneda
-                                                                            let newCurrency = 'S/';
-                                                                            if (countries.length === 1) {
-                                                                                const found = LATAM_COUNTRIES.find(x => x.name === countries[0]);
-                                                                                newCurrency = found ? found.currency : 'S/';
-                                                                            } else if (countries.length > 1) {
-                                                                                newCurrency = 'USD$';
-                                                                            }
-
+                                                                            // La moneda de pago es una elección explícita de la empresa
+                                                                            // (más abajo), no se deriva de qué países se permiten.
                                                                             setJobData({
                                                                                 ...jobData,
                                                                                 allowedCountries: countries,
-                                                                                currency: newCurrency
                                                                             });
                                                                         }}
                                                                     >
@@ -675,18 +688,9 @@ export default function CreateJob() {
                                                                     }
                                                                     countries = countries.filter(name => name !== countryName);
 
-                                                                    let newCurrency = 'S/';
-                                                                    if (countries.length === 1) {
-                                                                        const found = LATAM_COUNTRIES.find(x => x.name === countries[0]);
-                                                                        newCurrency = found ? found.currency : 'S/';
-                                                                    } else if (countries.length > 1) {
-                                                                        newCurrency = 'USD$';
-                                                                    }
-
                                                                     setJobData({
                                                                         ...jobData,
                                                                         allowedCountries: countries,
-                                                                        currency: newCurrency
                                                                     });
                                                                 }}
                                                             >
@@ -696,6 +700,70 @@ export default function CreateJob() {
                                                     ))}
                                                 </View>
                                             </View>
+
+                                            {/* Moneda de pago (elección explícita, independiente de los países permitidos) */}
+                                            <Text style={styles.label}>MONEDA DE PAGO</Text>
+                                            <TouchableOpacity
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    backgroundColor: '#0f172a',
+                                                    borderWidth: 1,
+                                                    borderColor: '#334155',
+                                                    padding: 12,
+                                                    borderRadius: 8,
+                                                    marginBottom: 10
+                                                }}
+                                                onPress={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                                            >
+                                                <Text style={{ color: 'white', fontSize: 14 }}>
+                                                    {CURRENCY_OPTIONS.find(c => c.code === jobData.currency)?.label || 'Soles peruanos (S/)'}
+                                                </Text>
+                                                <Text style={{ color: '#38bdf8', fontSize: 13, fontWeight: 'bold' }}>
+                                                    {showCurrencyDropdown ? '▲ Cerrar' : '▼ Cambiar'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                            {showCurrencyDropdown && (
+                                                <View style={{
+                                                    maxHeight: 220,
+                                                    backgroundColor: '#0f172a',
+                                                    borderWidth: 1,
+                                                    borderColor: '#334155',
+                                                    borderRadius: 8,
+                                                    padding: 8,
+                                                    marginBottom: 15
+                                                }}>
+                                                    <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
+                                                        {CURRENCY_OPTIONS.map((c) => {
+                                                            const isSelected = (jobData.currency || 'S/') === c.code;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={c.code}
+                                                                    style={{
+                                                                        flexDirection: 'row',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        paddingVertical: 10,
+                                                                        paddingHorizontal: 12,
+                                                                        borderRadius: 6,
+                                                                        backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'transparent'
+                                                                    }}
+                                                                    onPress={() => {
+                                                                        setJobData({ ...jobData, currency: c.code });
+                                                                        setShowCurrencyDropdown(false);
+                                                                    }}
+                                                                >
+                                                                    <Text style={{ color: isSelected ? '#38bdf8' : '#94a3b8', fontSize: 13 }}>
+                                                                        {c.label}
+                                                                    </Text>
+                                                                    {isSelected && <Check size={14} color="#38bdf8" />}
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
+                                                    </ScrollView>
+                                                </View>
+                                            )}
 
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                                                 <DollarSign color="#10b981" size={18} />

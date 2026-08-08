@@ -76,6 +76,25 @@ const LATAM_COUNTRIES = [
     { name: 'Nicaragua', currency: 'C$' }
 ];
 
+// Nombre completo de cada moneda, para que el candidato no confunda el
+// símbolo (ej. "$") con la moneda de su propio país.
+const CURRENCY_NAMES: Record<string, string> = {
+    'S/': 'Soles peruanos',
+    'USD$': 'Dólares',
+    'COP$': 'Pesos colombianos',
+    'MXN$': 'Pesos mexicanos',
+    'CLP$': 'Pesos chilenos',
+    'ARS$': 'Pesos argentinos',
+    'Bs': 'Bolivianos',
+    'UYU$': 'Pesos uruguayos',
+    'Gs': 'Guaraníes',
+    '₡': 'Colones costarricenses',
+    'DOP$': 'Pesos dominicanos',
+    'Q': 'Quetzales',
+    'L': 'Lempiras',
+    'C$': 'Córdobas',
+};
+
 export default function ExternalApplication() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
@@ -1270,7 +1289,13 @@ export default function ExternalApplication() {
                         </View>
                     )}
 
-                    <Text style={styles.label}>Expectativa mensual bruta ({job.currency || 'PEN'}) *</Text>
+                    <Text style={styles.label}>Expectativa mensual bruta *</Text>
+                    <View style={styles.currencyNotice}>
+                        <DollarSign size={14} color="#38bdf8" />
+                        <Text style={styles.currencyNoticeText}>
+                            Ingresa el monto en <Text style={{ fontWeight: '800' }}>{CURRENCY_NAMES[job.currency || 'S/'] || 'Soles peruanos'} ({job.currency || 'S/'})</Text>, la moneda de pago de esta vacante — no en la moneda de tu país si es distinta.
+                        </Text>
+                    </View>
                     <View style={styles.salaryRow}>
                         <View style={styles.currencyBadge}><Text style={styles.currencyText}>{job.currency || 'S/'}</Text></View>
                         <TextInput
@@ -1286,9 +1311,9 @@ export default function ExternalApplication() {
                         <Text style={styles.errorText}>{formErrors.salary}</Text>
                     ) : (
                         <Text style={styles.helperText}>
-                            {job.currency === 'S/' 
-                                ? 'Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).' 
-                                : `Expectativa en la moneda local (${job.currency || 'USD$'}) de la vacante.`}
+                            {job.currency === 'S/'
+                                ? 'Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).'
+                                : `Expectativa en ${CURRENCY_NAMES[job.currency] || 'la moneda'} (${job.currency || 'USD$'}), la moneda de pago de la vacante.`}
                         </Text>
                     )}
                 </View>
@@ -1572,6 +1597,8 @@ const styles = StyleSheet.create({
     // Salary
     salaryRangeHint: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(79,70,229,0.06)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(79,70,229,0.15)', marginBottom: 14 },
     salaryRangeText: { color: '#4F46E5', fontSize: 12, fontWeight: '600' },
+    currencyNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: 'rgba(56,189,248,0.08)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)', marginBottom: 10 },
+    currencyNoticeText: { color: '#0369a1', fontSize: 12, flex: 1, lineHeight: 17 },
     salaryRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
     currencyBadge: { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, height: 50, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
     currencyText: { color: '#059669', fontWeight: 'bold', fontSize: 16 },

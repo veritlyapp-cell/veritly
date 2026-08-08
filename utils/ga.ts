@@ -11,8 +11,10 @@ export const initGA = () => {
     if (Platform.OS !== 'web') return;
     if (typeof window === 'undefined') return;
 
-    // Evitar doble inicialización
+    // Evitar doble inicialización (marca ANTES de hacer trabajo async para
+    // que dos llamadas casi simultáneas no se ganen la carrera y pasen ambas)
     if ((window as any).gaInitialized) return;
+    (window as any).gaInitialized = true;
 
     // Crear script de gtag
     const script1 = document.createElement('script');
@@ -33,7 +35,6 @@ export const initGA = () => {
     `;
     document.head.appendChild(script2);
 
-    (window as any).gaInitialized = true;
     console.log('📊 Google Analytics inicializado');
 };
 
