@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 // Importamos Auth de manera compatible con React Native
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Auth, getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { Auth, getAuth, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
@@ -28,7 +28,12 @@ if (Platform.OS === 'web') {
     // Establecemos persistencia LOCAL (se mantiene incluso al cerrar navegador)
     setPersistence(auth, browserLocalPersistence);
 } else {
-    // En móvil usamos AsyncStorage para recordar al usuario
+    // En móvil usamos AsyncStorage para recordar al usuario.
+    // getReactNativePersistence existe en el build de React Native de @firebase/auth
+    // (resuelto por Metro en runtime), pero el paquete "firebase" umbrella no declara
+    // esa condición en su mapa de tipos para tsc, así que la tomamos vía require sin
+    // tipar en vez de importarla estáticamente. No cambia el comportamiento en runtime.
+    const { getReactNativePersistence } = require('firebase/auth') as any;
     auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage)
     });

@@ -36,7 +36,7 @@ import {
     saveCandidateAnalysis,
     updateCandidateStatus
 } from '../../../services/storage';
-import { CandidateAnalysis, RecruitmentStatus } from '../../../types';
+import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
 
@@ -309,9 +309,10 @@ export default function JobDetailScreen() {
                 matchScore: 0,
                 summary: 'Pendiente de análisis con IA',
                 recruitmentStatus: 'new' as RecruitmentStatus,
+                matchStatus: 'red' as MatchStatus, // Placeholder hasta que la IA analice
                 analyzedAt: new Date().toISOString() as any,
                 originalJobTitle: jobDetails.title,
-                originalFileUrl: null,
+                originalFileUrl: undefined,
                 pros: [],
                 cons: [],
                 cvBase64: p.base64,
@@ -422,9 +423,12 @@ export default function JobDetailScreen() {
                         email: r.Email || r.Correo || null,
                         phoneNumber: r.Telefono || r.Phone || null,
                         matchScore: 0,
+                        matchStatus: 'red' as MatchStatus, // Placeholder hasta que la IA analice
                         summary: r.Resumen || r.Summary || "Importado de Excel - Sin analizar",
-                        experience: r.Experiencia || r.Experience || null,
-                        skills: r.Habilidades || r.Skills || null,
+                        pros: [],
+                        cons: [],
+                        experience: r.Experiencia || r.Experience || undefined,
+                        skills: r.Habilidades || r.Skills || undefined,
                         recruitmentStatus: 'new',
                         analyzedAt: null as any,
                         originalJobTitle: jobDetails.title
@@ -1066,20 +1070,20 @@ export default function JobDetailScreen() {
                 </View>
 
                 {activeTab === 'pipeline' && (
-                    <View style={[styles.viewToggle, width < 480 && { alignSelf: 'center', marginTop: 4, width: '100%', justifyContent: 'center' }]}>
-                        <TouchableOpacity 
+                    <View style={[styles.viewToggleContainer, width < 480 && { alignSelf: 'center', marginTop: 4, width: '100%', justifyContent: 'center' }]}>
+                        <TouchableOpacity
                             onPress={() => setViewMode('list')}
-                            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive, width < 480 && { flex: 1, alignItems: 'center' }]}
+                            style={[styles.viewToggleButton, viewMode === 'list' && styles.viewToggleButtonActive, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <List size={20} color={viewMode === 'list' ? 'white' : '#64748b'} />
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => setViewMode('kanban')}
-                            style={[styles.viewToggleBtn, viewMode === 'kanban' && styles.viewToggleBtnActive, width < 480 && { flex: 1, alignItems: 'center' }]}
+                            style={[styles.viewToggleButton, viewMode === 'kanban' && styles.viewToggleButtonActive, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <LayoutTemplate size={20} color={viewMode === 'kanban' ? 'white' : '#64748b'} />
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => {
                                 if (isSelectionMode) {
                                     setIsSelectionMode(false);
@@ -1088,7 +1092,7 @@ export default function JobDetailScreen() {
                                     setIsSelectionMode(true);
                                 }
                             }}
-                            style={[styles.viewToggleBtn, isSelectionMode && { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6' }, width < 480 && { flex: 1, alignItems: 'center' }]}
+                            style={[styles.viewToggleButton, isSelectionMode && { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6' }, width < 480 && { flex: 1, alignItems: 'center' }]}
                         >
                             <CheckSquare size={20} color={isSelectionMode ? '#3b82f6' : '#64748b'} />
                         </TouchableOpacity>
@@ -1179,7 +1183,7 @@ export default function JobDetailScreen() {
                                                 {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                             </View>
                                         )}
-                                        <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
+                                        <View style={styles.progressContainer} {...({ title: "Ranking validado bajo criterios de selección inteligente de Veritly." } as any)}>
                                             <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
                                             <View style={styles.validationSeal}>
                                                 <CheckCircle2 color="#2563EB" size={18} fill="white" />
@@ -1313,7 +1317,7 @@ export default function JobDetailScreen() {
                                                 {isSelected ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#64748b" />}
                                             </View>
                                         )}
-                                        <View style={styles.progressContainer} title="Ranking validado bajo criterios de selección inteligente de Veritly.">
+                                        <View style={styles.progressContainer} {...({ title: "Ranking validado bajo criterios de selección inteligente de Veritly." } as any)}>
                                             <CircularProgress percentage={item.matchScore} size={80} strokeWidth={6} />
                                             <View style={styles.validationSeal}>
                                                 <CheckCircle2 color="#2563EB" size={18} fill="white" />

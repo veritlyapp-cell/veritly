@@ -55,7 +55,7 @@ export interface UserProfile {
 export type MatchStatus = 'green' | 'yellow' | 'red';
 
 // Estado del proceso de selección (Gestión humana)
-export type RecruitmentStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'stored' | 'rejected_salary' | 'pending_ai';
+export type RecruitmentStatus = 'new' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'stored' | 'rejected_salary' | 'pending_ai' | 'sourcing_pending';
 
 // --- EMPLEOS (VACANTES) ---
 export interface JobPosting {
@@ -77,6 +77,9 @@ export interface CandidateAnalysis {
   name: string;           // Nombre detectado por IA
   email: string | null;   // Email detectado (Vital para el historial)
   phoneNumber?: string;   // Teléfono para WhatsApp
+  role?: string;          // Cargo capturado desde LinkedIn (sourcing)
+  experience?: string;    // Experiencia en texto libre (import de Excel)
+  skills?: string;        // Habilidades en texto libre (import de Excel)
 
   // Análisis IA
   matchScore: number;     // 0 - 100
