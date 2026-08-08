@@ -128,10 +128,15 @@ export async function checkEmailAvailability(email: string): Promise<{ available
 
         return { available: true };
     } catch (error) {
-        console.error("Error checking email availability:", error);
-        // A-03 FIX: En lugar de asumir que el email está disponible (lo que puede crear duplicados),
-        // propagamos el error para que el UI informe al usuario de verificar su conexión.
-        throw new Error("No se pudo verificar el correo. Comprueba tu conexión e intenta de nuevo.");
+        // Las reglas de Firestore restringen "list" sobre estas colecciones a
+        // dueño/admin (para que nadie enumere candidatos/empresas), así que este
+        // chequeo previo SIEMPRE falla por permisos para un visitante anónimo
+        // registrándose. No bloqueamos el registro por esto: Firebase Auth ya
+        // impide de raíz dos cuentas con el mismo email (createUserWithEmailAndPassword
+        // lanza 'auth/email-already-in-use'), así que en el peor caso el usuario
+        // ve ese error nativo en vez de nuestro mensaje amigable.
+        console.warn("No se pudo verificar disponibilidad de email (se omite el chequeo previo):", error);
+        return { available: true };
     }
 }
 

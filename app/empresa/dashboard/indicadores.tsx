@@ -52,6 +52,7 @@ interface RawCandidate {
     matchScore: number;
     salaryExpectation: number;
     recruitmentStatus: string;
+    failureReason: string;
     source: string;
     analyzedAt: string;
     createdAt: string;
@@ -62,6 +63,7 @@ interface DashboardMetrics {
     totalCandidates: number;
     avgMatchScore: number;
     globalStatusCounts: Record<string, number>;
+    rejectionReasons: { reason: string; count: number }[];
     conversionRate: number;
     linkedinSourced: number;
     cvUploaded: number;
@@ -236,6 +238,7 @@ export default function IndicadoresDashboard() {
                         matchScore: raw.matchScore || 0,
                         salaryExpectation: Number(raw.salaryExpectation) || 0,
                         recruitmentStatus: raw.recruitmentStatus || raw.status || 'new',
+                        failureReason: raw.failureReason || '',
                         source: raw.source || 'cv_upload',
                         analyzedAt: dateStr,
                         createdAt: raw.createdAt || dateStr,
@@ -298,6 +301,7 @@ export default function IndicadoresDashboard() {
         let totalMatchScore = 0;
         let scoredCount = 0;
         const globalStatusCounts: Record<string, number> = {};
+        const rejectionReasonCounts: Record<string, number> = {};
         let linkedinSourced = 0, cvUploaded = 0, excelImported = 0, externalApplicants = 0;
         let topName = '', topScore = 0;
 
@@ -308,6 +312,12 @@ export default function IndicadoresDashboard() {
             // Status
             const st = c.recruitmentStatus;
             globalStatusCounts[st] = (globalStatusCounts[st] || 0) + 1;
+
+            // Motivo de rechazo
+            if (st === 'rejected' || st === 'rejected_salary') {
+                const reason = c.failureReason || 'Rechazado manualmente por la empresa';
+                rejectionReasonCounts[reason] = (rejectionReasonCounts[reason] || 0) + 1;
+            }
 
             // Source
             if (c.source === 'veritly_sourcing') linkedinSourced++;
@@ -356,11 +366,17 @@ export default function IndicadoresDashboard() {
 
         const hiredTotal = globalStatusCounts['hired'] || 0;
 
+        const rejectionReasons = Object.entries(rejectionReasonCounts)
+            .map(([reason, count]) => ({ reason, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6);
+
         return {
             totalJobs: jobIds.size,
             totalCandidates: candidates.length,
             avgMatchScore: scoredCount > 0 ? Math.round(totalMatchScore / scoredCount) : 0,
             globalStatusCounts,
+            rejectionReasons,
             conversionRate: candidates.length > 0 ? Math.round((hiredTotal / candidates.length) * 100) : 0,
             linkedinSourced,
             cvUploaded,
@@ -674,6 +690,34 @@ export default function IndicadoresDashboard() {
                         );
                     })}
                 </View>
+
+                {/* ===== PRINCIPALES MOTIVOS DE RECHAZO ===== */}
+                {metrics.rejectionReasons.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <UserX color="#ef4444" size={20} />
+                            <Text style={styles.sectionTitle}>Principales Motivos de Rechazo</Text>
+                        </View>
+                        {(() => {
+                            const totalRejected = metrics.rejectionReasons.reduce((sum, r) => sum + r.count, 0);
+                            return metrics.rejectionReasons.map(({ reason, count }) => {
+                                const pct = totalRejected > 0 ? (count / totalRejected) * 100 : 0;
+                                return (
+                                    <View key={reason} style={styles.funnelRow}>
+                                        <View style={styles.funnelLabelRow}>
+                                            <View style={[styles.funnelDot, { backgroundColor: '#ef4444' }]} />
+                                            <Text style={styles.funnelLabel} numberOfLines={1}>{reason}</Text>
+                                            <Text style={styles.funnelCount}>{count}</Text>
+                                        </View>
+                                        <View style={styles.funnelBarBg}>
+                                            <View style={[styles.funnelBarFill, { width: `${Math.max(pct, 1)}%`, backgroundColor: '#ef4444' }]} />
+                                        </View>
+                                    </View>
+                                );
+                            });
+                        })()}
+                    </View>
+                )}
 
                 {/* ===== SOURCES ===== */}
                 <View style={styles.section}>
