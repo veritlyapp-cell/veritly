@@ -5,13 +5,15 @@ import { Platform } from 'react-native';
 // nunca la ve. Todas las llamadas pasan por este proxy.
 const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
 
-// 🔄 LISTA DE MODELOS OFICIALES (Actualizada mayo 2026)
-// La app probará en este orden hasta que uno funcione.
+// 🔄 LISTA DE MODELOS OFICIALES (Actualizada agosto 2026)
+// Los modelos Gemini 2.5 se apagan el 16 de octubre de 2026, migrados a la
+// familia 3.x. La app prueba en este orden, priorizando el más económico,
+// hasta que uno funcione.
 const MODELS_TO_TRY = [
-    "gemini-2.5-flash",      // 1. Principal — Alta velocidad (880ms)
-    "gemini-2.5-flash-lite", // 2. Ligero — Excelente velocidad (~1100ms)
-    "gemini-3.1-flash-lite", // 3. Vanguardia — Eficiencia (~1700ms)
-    "gemini-2.5-pro"         // 4. Premium — Razonamiento superior como fallback
+    "gemini-3.1-flash-lite",  // 1. Más económico — $0.25 / $1.50 por millón de tokens
+    "gemini-3.5-flash-lite",  // 2. Económico — $0.30 / $2.50
+    "gemini-3.6-flash",       // 3. Balanceado — $1.50 / $7.50, mejor calidad
+    "gemini-3.1-pro-preview"  // 4. Premium — el más caro, solo como último recurso
 ];
 
 // --- FUNCIÓN INTELIGENTE DE PETICIÓN ---

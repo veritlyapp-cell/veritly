@@ -5,12 +5,14 @@
 // nunca la ve. Todas las llamadas pasan por este proxy.
 const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
 
-// 🔄 Modelos para EMPRESA — Priorizamos capacidad para análisis precisos
+// 🔄 Modelos para EMPRESA (Actualizado agosto 2026 — Gemini 2.5 se apaga el
+// 16 de octubre de 2026). Priorizamos el más económico, con fallback a mayor
+// capacidad solo si el económico falla.
 const MODELS_TO_TRY = [
-    "gemini-2.5-flash",      // 1. Principal — rápido y preciso (880ms)
-    "gemini-2.5-flash-lite", // 2. Ligero — para validaciones rápidas (~1100ms)
-    "gemini-3.1-flash-lite", // 3. Vanguardia — eficiencia y modernidad (~1700ms)
-    "gemini-2.5-pro"         // 4. Alta capacidad — para JDs y CVs complejos como fallback
+    "gemini-3.1-flash-lite",  // 1. Más económico — $0.25 / $1.50 por millón de tokens
+    "gemini-3.5-flash-lite",  // 2. Económico — $0.30 / $2.50
+    "gemini-3.6-flash",       // 3. Balanceado — $1.50 / $7.50, mejor calidad
+    "gemini-3.1-pro-preview"  // 4. Alta capacidad — para JDs y CVs complejos, más caro
 ];
 
 const fetchWithFallback = async (body: any) => {

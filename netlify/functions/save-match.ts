@@ -134,7 +134,9 @@ export const handler: Handler = async (event) => {
             }
         `;
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        // Gemini 2.5 se apaga el 16 de octubre de 2026. gemini-3.1-flash-lite es
+        // el más económico de la familia 3.x ($0.25/$1.50 por millón de tokens).
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
         const geminiRes = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

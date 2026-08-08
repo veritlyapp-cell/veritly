@@ -37,7 +37,9 @@ export const handler = async (event: any) => {
       throw new Error('Configuración incompleta: Falta GEMINI_API_KEY en el servidor.');
     }
 
-    const model = "gemini-2.5-flash";
+    // Gemini 2.5 se apaga el 16 de octubre de 2026. gemini-3.1-flash-lite es
+    // el más económico de la familia 3.x ($0.25/$1.50 por millón de tokens).
+    const model = "gemini-3.1-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
     const response = await fetch(url, {
