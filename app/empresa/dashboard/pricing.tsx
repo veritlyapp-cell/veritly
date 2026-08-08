@@ -238,9 +238,8 @@ export default function PricingScreen() {
                             
                             <View style={styles.features}>
                                 <FeatureItem text={`${plan.aiAnalysisLimit} Análisis de IA`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
-                                <FeatureItem text={`${plan.internalVacanciesLimit} Vacantes Internas`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
-                                <FeatureItem text={`${plan.publicVacanciesLimit} Vacantes Públicas`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
-                                <FeatureItem text={`${plan.killerQuestionsLimit || 2} Preguntas Filtros avanzados`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={`${plan.internalVacanciesLimit} Vacantes Activas`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
+                                <FeatureItem text={(plan.killerQuestionsLimit || 0) >= 999 ? 'Preguntas Filtro Ilimitadas' : `${plan.killerQuestionsLimit || 2} Preguntas Filtro avanzados`} color="#4B5563" iconColor={isRecommended ? "#4F46E5" : (isBeta ? "#10b981" : "#64748b")} />
                                 
                                 {plan.features && plan.features.length > 0 ? (
                                     plan.features.filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes") && !f.includes("Filtros Avanzados") && !f.includes("Preguntas Filtro")).map((feat: string) => (

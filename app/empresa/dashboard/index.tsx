@@ -513,25 +513,14 @@ export default function CompanyDashboard() {
                     </View>
 
                     <View style={styles.limitsRow}>
-                        {/* Internal Vacancies */}
+                        {/* Vacantes Activas (total, internas + públicas) */}
                         <View style={styles.limitMiniCard}>
                             <View style={styles.limitMiniHeader}>
-                                <Text style={styles.limitMiniLabel}>Capacidad Total</Text>
+                                <Text style={styles.limitMiniLabel}>Vacantes Activas</Text>
                                 <Text style={styles.limitMiniValue}>{jobs.length} / {userSubscription?.internalVacanciesLimit || 10}</Text>
                             </View>
                             <View style={styles.miniBarBg}>
                                 <View style={[styles.miniBarFill, { width: `${Math.min((activeJobsCount / (userSubscription?.internalVacanciesLimit || 10)) * 100, 100)}%` }]} />
-                            </View>
-                        </View>
-
-                        {/* Public Vacancies */}
-                        <View style={styles.limitMiniCard}>
-                            <View style={styles.limitMiniHeader}>
-                                <Text style={styles.limitMiniLabel}>Puestos Públicos</Text>
-                                <Text style={styles.limitMiniValue}>{publicJobsCount} / {userSubscription?.publicVacanciesLimit || 5}</Text>
-                            </View>
-                            <View style={styles.miniBarBg}>
-                                <View style={[styles.miniBarFill, { width: `${Math.min((publicJobsCount / (userSubscription?.publicVacanciesLimit || 5)) * 100, 100)}%`, backgroundColor: COLORS.accent }]} />
                             </View>
                         </View>
                     </View>

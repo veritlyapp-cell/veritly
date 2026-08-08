@@ -286,42 +286,53 @@ export default function EmpresaAdminDashboard() {
 
     const handleRestoreDefaults = async () => {
         const defaults = [
-            { 
-                id: 'beta_free', 
-                name: 'Beta Free', 
-                aiAnalysisLimit: 200, 
-                internalVacanciesLimit: 10, 
-                publicVacanciesLimit: 5, 
-                killerQuestionsLimit: 3, 
-                priceMonthly: 0, 
-                priceAnnual: 0, 
+            {
+                id: 'beta_free',
+                name: 'Beta Free',
+                aiAnalysisLimit: 100,
+                internalVacanciesLimit: 5,
+                publicVacanciesLimit: 5,
+                killerQuestionsLimit: 3,
+                priceMonthly: 0,
+                priceAnnual: 0,
+                stripePriceIdMonthly: '',
+                stripePriceIdAnnual: '',
                 isComingSoon: false,
+                isHidden: false,
                 isRecommended: false,
-                features: ["Subida CVs (PDF/Word)", "Subida masiva por Excel", "Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Soporte Directo"]
+                features: ["Subida CVs (PDF/Word)", "Subida masiva por Excel", "Análisis de IA", "Vacantes Activas", "Soporte Directo"]
             },
-            { 
-                id: 'plan_pro', 
-                name: 'Pro', 
-                aiAnalysisLimit: 500, 
-                internalVacanciesLimit: 20, 
-                publicVacanciesLimit: 5, 
-                killerQuestionsLimit: 5, 
-                priceAnnual: 1800, 
+            {
+                id: 'plan_pro',
+                name: 'Pro',
+                aiAnalysisLimit: 500,
+                internalVacanciesLimit: 10,
+                publicVacanciesLimit: 10,
+                killerQuestionsLimit: 5,
+                priceMonthly: 89,
+                priceAnnual: 908,
+                stripePriceIdMonthly: '',
+                stripePriceIdAnnual: '',
                 isComingSoon: false,
+                isHidden: false,
                 isRecommended: true,
-                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Filtros Avanzados"]
+                features: ["Análisis de IA", "Vacantes Activas", "Exportación a Excel/PDF", "Filtros Avanzados"]
             },
-            { 
-                id: 'plan_gold', 
-                name: 'Gold', 
-                aiAnalysisLimit: 2000, 
-                internalVacanciesLimit: 50, 
-                publicVacanciesLimit: 15, 
-                killerQuestionsLimit: 10, 
-                priceAnnual: 4000, 
+            {
+                id: 'plan_gold',
+                name: 'Gold',
+                aiAnalysisLimit: 2000,
+                internalVacanciesLimit: 15,
+                publicVacanciesLimit: 15,
+                killerQuestionsLimit: 999,
+                priceMonthly: 199,
+                priceAnnual: 2028,
+                stripePriceIdMonthly: '',
+                stripePriceIdAnnual: '',
                 isComingSoon: true,
+                isHidden: true,
                 isRecommended: false,
-                features: ["Análisis de IA", "Vacantes Internas", "Vacantes Públicas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica"]
+                features: ["Análisis de IA", "Vacantes Activas", "Preguntas Filtro Ilimitadas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica"]
             },
         ];
 
@@ -784,26 +795,16 @@ export default function EmpresaAdminDashboard() {
                                 </View>
                             </View>
 
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>Vacantes Internas</Text>
-                                    <TextInput 
-                                        style={styles.input}
-                                        value={(newPlan.internalVacanciesLimit || 0).toString()}
-                                        onChangeText={t => setNewPlan({...newPlan, internalVacanciesLimit: parseInt(t) || 0})}
-                                        keyboardType="numeric"
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>Vacantes Públicas</Text>
-                                    <TextInput 
-                                        style={styles.input}
-                                        value={(newPlan.publicVacanciesLimit || 0).toString()}
-                                        onChangeText={t => setNewPlan({...newPlan, publicVacanciesLimit: parseInt(t) || 0})}
-                                        keyboardType="numeric"
-                                    />
-                                </View>
-                            </View>
+                            <Text style={styles.label}>Vacantes Activas (total, internas + públicas)</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={(newPlan.internalVacanciesLimit || 0).toString()}
+                                onChangeText={t => {
+                                    const n = parseInt(t) || 0;
+                                    setNewPlan({...newPlan, internalVacanciesLimit: n, publicVacanciesLimit: n});
+                                }}
+                                keyboardType="numeric"
+                            />
 
                             <View style={{ flexDirection: 'row', gap: 10 }}>
                                 <View style={{ flex: 1 }}>
