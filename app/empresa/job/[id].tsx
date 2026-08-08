@@ -80,7 +80,7 @@ export default function JobDetailScreen() {
     const { width } = useWindowDimensions();
 
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
-    const [activeTab, setActiveTab] = useState<'ranking' | 'pipeline'>('ranking');
+    const [activeTab, setActiveTab] = useState<'ranking' | 'pipeline'>('pipeline');
     const [candidates, setCandidates] = useState<CandidateAnalysis[]>([]);
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
