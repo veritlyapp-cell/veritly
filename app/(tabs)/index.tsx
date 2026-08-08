@@ -418,6 +418,10 @@ export default function VeritlyScanner() {
           <Text style={[styles.companyTitle, { color: color }]}>{result.role && result.role !== "NN" ? result.role : "Puesto Detectado"}</Text>
           <Text style={styles.companyName}>{result.company && result.company !== "NN" ? result.company : "Empresa Detectada"}</Text>
           <Text style={[styles.title, { color: color, fontSize: 50 }]}>{result.match}%</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0f', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12, marginTop: -8, marginBottom: 14 }}>
+            <Sparkles size={11} color="#ffffff" style={{ marginRight: 5 }} />
+            <Text style={{ fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.4 }}>EVALUADO POR RACSO</Text>
+          </View>
           {isOverqualified && (
             <View style={styles.overqualifiedBox}>
               <AlertTriangle size={24} color="#c2410c" style={{ marginRight: 10 }} />
