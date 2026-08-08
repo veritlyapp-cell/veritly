@@ -81,6 +81,7 @@ const LATAM_COUNTRIES = [
 const CURRENCY_NAMES: Record<string, string> = {
     'S/': 'Soles peruanos',
     'USD$': 'Dólares',
+    '€': 'Euros',
     'COP$': 'Pesos colombianos',
     'MXN$': 'Pesos mexicanos',
     'CLP$': 'Pesos chilenos',

@@ -64,6 +64,7 @@ const LATAM_COUNTRIES = [
 const CURRENCY_OPTIONS = [
     { code: 'S/', label: 'Soles peruanos (S/)' },
     { code: 'USD$', label: 'Dólares (USD$)' },
+    { code: '€', label: 'Euros (€)' },
     { code: 'COP$', label: 'Pesos colombianos (COP$)' },
     { code: 'MXN$', label: 'Pesos mexicanos (MXN$)' },
     { code: 'CLP$', label: 'Pesos chilenos (CLP$)' },
