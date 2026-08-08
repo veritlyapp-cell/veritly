@@ -1,21 +1,8 @@
 
 import { Handler } from '@netlify/functions';
-import { initializeApp } from 'firebase/app';
-import { arrayUnion, doc, getDoc, getFirestore, increment, setDoc } from 'firebase/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from './_firebaseAdmin';
 import { getCorsHeaders, checkRateLimit } from './_security';
-
-// Firebase configuration (using same as config/firebase.ts)
-const firebaseConfig = {
-    apiKey: "AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8",
-    authDomain: "auth.veritlyapp.com",
-    projectId: "vinku-3a3af",
-    storageBucket: "vinku-3a3af.firebasestorage.app",
-    messagingSenderId: "1052083063406",
-    appId: "1:1052083063406:web:20b981e0bf896caa7ab47f"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
 // ⚠️ Sin EXPO_PUBLIC_ — esta key NUNCA sale al cliente
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -102,9 +89,9 @@ export const handler: Handler = async (event) => {
             const collections = ['users', 'users_candidatos'];
 
             for (const colName of collections) {
-                const userSnap = await getDoc(doc(db, colName, uid));
-                if (userSnap.exists()) {
-                    const userData = userSnap.data();
+                const userSnap = await adminDb.collection(colName).doc(uid).get();
+                if (userSnap.exists) {
+                    const userData = userSnap.data()!;
                     // Try to find the CV text in various possible fields
                     cvText =
                         userData.profile?.contextForAI ||
@@ -196,13 +183,13 @@ export const handler: Handler = async (event) => {
             };
 
             // Save to user history
-            await setDoc(doc(db, 'users', uid), {
-                history: arrayUnion(resultItem)
+            await adminDb.collection('users').doc(uid).set({
+                history: FieldValue.arrayUnion(resultItem)
             }, { merge: true });
 
             // Deduct credit if applicable (simplified here)
-            await setDoc(doc(db, 'user_credits', uid), {
-                totalCreditsUsed: increment(1)
+            await adminDb.collection('user_credits').doc(uid).set({
+                totalCreditsUsed: FieldValue.increment(1)
             }, { merge: true });
         }
 

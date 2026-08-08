@@ -1,23 +1,8 @@
 import { Handler } from '@netlify/functions';
-import { initializeApp, getApps } from 'firebase/app';
-import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
+import { adminDb } from './_firebaseAdmin';
 const Culqi = require('culqi-node');
 
 const CULQI_PRIVATE_KEY = process.env.CULQI_PRIVATE_KEY;
-
-// Firebase (mismo config que save-match.ts)
-const firebaseConfig = {
-    apiKey: "AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8",
-    authDomain: "auth.veritlyapp.com",
-    projectId: "vinku-3a3af",
-    storageBucket: "vinku-3a3af.firebasestorage.app",
-    messagingSenderId: "1052083063406",
-    appId: "1:1052083063406:web:20b981e0bf896caa7ab47f"
-};
-
-// Evitar inicializar Firebase múltiples veces en funciones calientes
-const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(fbApp);
 
 // Fallback Mapa de planId (Culqi) → datos del plan en Veritly en caso de que falle la DB
 const PLAN_MAP_FALLBACK: Record<string, { name: string; aiAnalysisLimit: number; internalVacanciesLimit: number; publicVacanciesLimit: number }> = {
@@ -70,8 +55,8 @@ export const handler: Handler = async (event) => {
         // B-03: Intentar obtener configuración dinámica del plan desde Firestore
         let planData: any = PLAN_MAP_FALLBACK[planId];
         try {
-            const planDoc = await getDoc(doc(db, 'config_plans', planId));
-            if (planDoc.exists()) {
+            const planDoc = await adminDb.collection('config_plans').doc(planId).get();
+            if (planDoc.exists) {
                 planData = planDoc.data();
                 if (!planData.name) planData.name = planId; // Fallback name
             }
@@ -117,7 +102,7 @@ export const handler: Handler = async (event) => {
         // Esto garantiza que el plan se active incluso si el usuario cierra la ventana
         // o pierde conexión justo después del cobro.
         console.log(`💳 [subscribe] Pago confirmado. Actualizando plan en Firebase para: ${userId}`);
-        await setDoc(doc(db, 'users_empresas', userId), {
+        await adminDb.collection('users_empresas').doc(userId).set({
             subscription: {
                 plan: planData.name || planId,
                 aiAnalysisLimit: planData.aiAnalysisLimit || 200,
