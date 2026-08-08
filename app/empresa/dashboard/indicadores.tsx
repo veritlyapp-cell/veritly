@@ -67,7 +67,11 @@ interface DashboardMetrics {
     cvUploaded: number;
     excelImported: number;
     externalApplicants: number;
-    jobMetrics: { jobId: string; jobTitle: string; jobStatus: string; totalCandidates: number; avgMatchScore: number; topScore: number; hiredCount: number; rejectedCount: number; }[];
+    jobMetrics: {
+        jobId: string; jobTitle: string; jobStatus: string; totalCandidates: number;
+        avgMatchScore: number; topScore: number; hiredCount: number; rejectedCount: number;
+        salaryBudget: number; avgSalaryExpectation: number; minSalaryExpectation: number; maxSalaryExpectation: number;
+    }[];
     topCandidateName: string;
     topCandidateScore: number;
 }

@@ -145,7 +145,7 @@ export default function TalentInsightsDashboard() {
                     createdAt: candData.createdAt || userData.createdAt || candData.updatedAt || new Date().toISOString(),
                     history,
                     reliabilityIndex: candData.reliabilityIndex ?? userProfile.reliabilityIndex ?? Math.round(candData.aiCredits !== undefined ? 100 - (candData.aiCredits * 10) : 75)
-                };
+                } as any;
             });
 
             // Sort candidates by creation date in memory (newest first)

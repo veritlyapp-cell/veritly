@@ -583,7 +583,7 @@ export default function ExternalApplication() {
                     jobId: id,
                     companyId: job.companyId || ''
                 });
-                setLastUploadedCv({ url: cvUrl, base64: cvBase64, mimeType: file?.mimeType });
+                setLastUploadedCv({ url: cvUrl ?? undefined, base64: cvBase64 ?? undefined, mimeType: file?.mimeType });
 
                 // OPCIONAL: Guardar en el perfil del usuario si marcó el checkbox
                 if (saveToProfile && !useSavedCv && cvUrl) {

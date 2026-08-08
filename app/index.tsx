@@ -40,7 +40,7 @@ export default function VeritlyLandingPage() {
         const fetchPlans = async () => {
             try {
                 const plansSnap = await getDocs(collection(db, 'config_plans'));
-                const plansData = plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const plansData = plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
                 plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
                 setSystemPlans(plansData);
             } catch (e) {

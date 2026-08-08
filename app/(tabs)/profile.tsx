@@ -302,7 +302,7 @@ export default function ProfileScreen() {
                     showAlert("✨ Éxito", "CV vinculado a tu cuenta para postulaciones rápidas.");
                 } catch (err) {
                     // Bypass si el servidor principal demora
-                    if (rawBase64 && file.size < 750 * 1024) {
+                    if (rawBase64 && typeof file.size === 'number' && file.size < 750 * 1024) {
                         const base64Data = rawBase64.split(',')[1] || rawBase64;
                         setCvBase64(base64Data);
                         const user = auth.currentUser;

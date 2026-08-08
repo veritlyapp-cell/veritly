@@ -714,6 +714,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20
     },
+    planInfo: {
+        flex: 1,
+    },
     planLabel: {
         fontSize: 11,
         fontWeight: '700',
