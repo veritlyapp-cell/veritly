@@ -56,6 +56,7 @@ export interface CompanyProfile {
         aiAnalysisLimit: number;
         internalVacanciesLimit: number;
         publicVacanciesLimit: number;
+        killerQuestionsLimit?: number;
         candidatesAnalyzed: number;
         status?: 'active' | 'expired' | 'trial';
         updatedAt?: any;

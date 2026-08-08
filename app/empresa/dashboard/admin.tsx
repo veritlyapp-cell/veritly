@@ -68,9 +68,16 @@ export default function EmpresaAdminDashboard() {
     const [newPlan, setNewPlan] = useState({
         id: '',
         name: '',
-        isRecommended: false,
-        features: [],
+        aiAnalysisLimit: 200,
+        internalVacanciesLimit: 10,
+        publicVacanciesLimit: 5,
         killerQuestionsLimit: 2,
+        priceMonthly: 0,
+        priceAnnual: 0,
+        isComingSoon: false,
+        isRecommended: false,
+        isHidden: false,
+        features: [] as string[],
     });
 
     useEffect(() => {
