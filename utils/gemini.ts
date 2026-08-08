@@ -7,11 +7,10 @@ const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
 
 // 🔄 LISTA DE MODELOS OFICIALES (Actualizada agosto 2026)
 // Los modelos Gemini 2.5 se apagan el 16 de octubre de 2026, migrados a la
-// familia 3.x. La app prueba en este orden, priorizando el más económico,
-// hasta que uno funcione.
+// familia 3.x. La app prueba en este orden, priorizando velocidad primero.
 const MODELS_TO_TRY = [
-    "gemini-3.1-flash-lite",  // 1. Más económico — $0.25 / $1.50 por millón de tokens
-    "gemini-3.5-flash-lite",  // 2. Económico — $0.30 / $2.50
+    "gemini-3.5-flash-lite",  // 1. Más rápido — ~350 tokens/seg, $0.30 / $2.50
+    "gemini-3.1-flash-lite",  // 2. Más económico — $0.25 / $1.50 por millón de tokens
     "gemini-3.6-flash",       // 3. Balanceado — $1.50 / $7.50, mejor calidad
     "gemini-3.1-pro-preview"  // 4. Premium — el más caro, solo como último recurso
 ];
