@@ -142,7 +142,16 @@ export default function ProfileScreen() {
     const [cvUrl, setCvUrl] = useState('');
     const [cvBase64, setCvBase64] = useState('');
     const [hasFile, setHasFile] = useState(false);
+    const [cvLabel, setCvLabel] = useState('CV Principal');
+    // Segundo CV opcional (ej. "CV Ventas" / "CV Marketing")
+    const [fileName2, setFileName2] = useState('');
+    const [cvUrl2, setCvUrl2] = useState('');
+    const [cvBase64_2, setCvBase64_2] = useState('');
+    const [hasFile2, setHasFile2] = useState(false);
+    const [cvLabel2, setCvLabel2] = useState('');
+    const [showSecondCv, setShowSecondCv] = useState(false);
     const [extracting, setExtracting] = useState(false);
+    const [extracting2, setExtracting2] = useState(false);
     const [saving, setSaving] = useState(false); // Estado de guardado
 
     // Estados para optimización de perfil
@@ -182,12 +191,23 @@ export default function ProfileScreen() {
                 setModality(data.modality || 'Remoto');
                 setInterests(data.interests || '');
                 setBio(data.bio || '');
-                if (data.fileName || data.cvName) { 
-                    setFileName(data.fileName || data.cvName); 
-                    setHasFile(true); 
+                if (data.fileName || data.cvName) {
+                    setFileName(data.fileName || data.cvName);
+                    setHasFile(true);
                 }
                 if (data.cvUrl || data.cv) setCvUrl(data.cvUrl || data.cv);
                 if (data.cvBase64) setCvBase64(data.cvBase64);
+                if (data.cvLabel) setCvLabel(data.cvLabel);
+
+                // Segundo CV, si el candidato guardó uno
+                if (data.cv2FileName) {
+                    setFileName2(data.cv2FileName);
+                    setHasFile2(true);
+                    setShowSecondCv(true);
+                }
+                if (data.cv2Url) setCvUrl2(data.cv2Url);
+                if (data.cv2Base64) setCvBase64_2(data.cv2Base64);
+                if (data.cv2Label) setCvLabel2(data.cv2Label);
             }
         } catch (e) { console.error(e); }
     };
@@ -216,7 +236,8 @@ export default function ProfileScreen() {
 
                 await saveUserProfileToCloud(user.uid, {
                     fullName, birthDate, email, phone, country, department, province, district,
-                    salary, modality, interests, bio, fileName, cvUrl, cvBase64, contextForAI
+                    salary, modality, interests, bio, fileName, cvUrl, cvBase64, cvLabel, contextForAI,
+                    cv2FileName: fileName2, cv2Url: cvUrl2, cv2Base64: cvBase64_2, cv2Label: cvLabel2
                 });
 
                 // También sincronizar con la nueva colección 'users_candidatos'
@@ -225,6 +246,10 @@ export default function ProfileScreen() {
                     await updateDoc(candidRef, {
                         'profile.cv': cvUrl,
                         'profile.cvName': fileName,
+                        'profile.cvLabel': cvLabel,
+                        'profile.cv2Url': cvUrl2,
+                        'profile.cv2FileName': fileName2,
+                        'profile.cv2Label': cvLabel2,
                         'cvBase64': cvBase64, // Redundancia para fácil lectura
                         fullName,
                         phone
@@ -243,26 +268,38 @@ export default function ProfileScreen() {
         }
     };
 
-    const pickDocument = async () => {
+    const pickDocument = async (slot: 1 | 2 = 1) => {
+        const setFileNameFn = slot === 1 ? setFileName : setFileName2;
+        const setHasFileFn = slot === 1 ? setHasFile : setHasFile2;
+        const setExtractingFn = slot === 1 ? setExtracting : setExtracting2;
+        const setCvUrlFn = slot === 1 ? setCvUrl : setCvUrl2;
+        const setCvBase64Fn = slot === 1 ? setCvBase64 : setCvBase64_2;
+        const urlField = slot === 1 ? 'profile.cvUrl' : 'profile.cv2Url';
+        const base64Field = slot === 1 ? 'profile.cvBase64' : 'profile.cv2Base64';
+        const fileNameField = slot === 1 ? 'profile.fileName' : 'profile.cv2FileName';
+
         try {
             const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
             if (result.canceled) return;
             const file = result.assets[0];
-            setFileName(file.name);
-            setHasFile(true);
-            setExtracting(true);
+            setFileNameFn(file.name);
+            setHasFileFn(true);
+            setExtractingFn(true);
             try {
                 const webFile = Platform.OS === 'web' ? (file as any).file : undefined;
-                
-                // 1. Extraer Texto (Con Timeout de 20s)
-                const extractionPromise = extractTextFromPDF(file.uri, file.mimeType || 'application/pdf', webFile);
-                const timeoutExtract = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: La IA tardó demasiado en responder")), 20000));
-                const text: any = await Promise.race([extractionPromise, timeoutExtract]);
-                setBio(text);
+
+                // 1. Extraer Texto (Con Timeout de 20s). Solo el CV principal
+                // sobrescribe el resumen general del perfil.
+                if (slot === 1) {
+                    const extractionPromise = extractTextFromPDF(file.uri, file.mimeType || 'application/pdf', webFile);
+                    const timeoutExtract = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: La IA tardó demasiado en responder")), 20000));
+                    const text: any = await Promise.race([extractionPromise, timeoutExtract]);
+                    setBio(text);
+                }
 
                 // 2. Convertir a Base64 y Subir a Storage
-                const storageRef = ref(storage, `candidates_cvs/${auth.currentUser?.uid}/${file.name}`);
-                
+                const storageRef = ref(storage, `candidates_cvs/${auth.currentUser?.uid}/${slot === 2 ? 'cv2_' : ''}${file.name}`);
+
                 let rawBase64 = "";
 
                 const uploadPromise = async () => {
@@ -288,40 +325,40 @@ export default function ProfileScreen() {
                 };
 
                 const timeoutUpload = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout_Upload")), 8000));
-                
+
                 try {
                     const downloadUrl = (await Promise.race([uploadPromise(), timeoutUpload])) as string;
-                    setCvUrl(downloadUrl);
-                    
+                    setCvUrlFn(downloadUrl);
+
                     // Auto-guardado en base de datos al tener URL
                     const user = auth.currentUser;
                     if (user) {
                         const userRef = doc(db, 'users', user.uid);
-                        await updateDoc(userRef, { 'profile.cvUrl': downloadUrl, 'profile.fileName': file.name }).catch(() => {});
+                        await updateDoc(userRef, { [urlField]: downloadUrl, [fileNameField]: file.name }).catch(() => {});
                     }
                     showAlert("✨ Éxito", "CV vinculado a tu cuenta para postulaciones rápidas.");
                 } catch (err) {
                     // Bypass si el servidor principal demora
                     if (rawBase64 && typeof file.size === 'number' && file.size < 750 * 1024) {
                         const base64Data = rawBase64.split(',')[1] || rawBase64;
-                        setCvBase64(base64Data);
+                        setCvBase64Fn(base64Data);
                         const user = auth.currentUser;
                         if (user) {
                             const userRef = doc(db, 'users', user.uid);
-                            await updateDoc(userRef, { 'profile.cvBase64': base64Data, 'profile.fileName': file.name }).catch(() => {});
+                            await updateDoc(userRef, { [base64Field]: base64Data, [fileNameField]: file.name }).catch(() => {});
                         }
                         showAlert("✨ Éxito (Modo Rápido)", "Tu CV se guardó directamente en tu perfil para uso inmediato.");
                     } else {
                         throw new Error("El archivo es demasiado grande para carga rápida y el servidor principal no responde.");
                     }
                 }
-                
-            } catch (e: any) { 
+
+            } catch (e: any) {
                 console.error("Upload error:", e);
-                showAlert("Error IA/Storage", e.message); 
+                showAlert("Error IA/Storage", e.message);
             }
-            finally { setExtracting(false); }
-        } catch (err: any) { showAlert("Error", err.message); setExtracting(false); }
+            finally { setExtractingFn(false); }
+        } catch (err: any) { showAlert("Error", err.message); setExtractingFn(false); }
     };
 
     const optimizeProfile = async () => {
@@ -452,12 +489,46 @@ export default function ProfileScreen() {
 
                 {/* 4. CV */}
                 <Text style={styles.sectionTitle}>HOJA DE VIDA</Text>
-                <TouchableOpacity style={[styles.uploadCard, hasFile && { borderColor: '#10b981' }]} onPress={() => extracting ? null : pickDocument()}>
+                {hasFile && (
+                    <TextInput
+                        style={styles.cvLabelInput}
+                        value={cvLabel}
+                        onChangeText={setCvLabel}
+                        placeholder="Nombre de este CV (ej. CV Ventas)"
+                        placeholderTextColor="#64748b"
+                    />
+                )}
+                <TouchableOpacity style={[styles.uploadCard, hasFile && { borderColor: '#10b981' }]} onPress={() => extracting ? null : pickDocument(1)}>
                     {extracting ? <ActivityIndicator color="#3b82f6" /> : <UploadCloud size={24} color={hasFile ? "#10b981" : "#3b82f6"} />}
                     <View style={{ marginLeft: 15 }}>
-                        <Text style={styles.uploadTitle}>{extracting ? "Procesando..." : hasFile ? "CV Cargado" : "Subir PDF"}</Text>
+                        <Text style={styles.uploadTitle}>{extracting ? "Procesando..." : hasFile ? (fileName || "CV Cargado") : "Subir PDF"}</Text>
                     </View>
                 </TouchableOpacity>
+
+                {!showSecondCv ? (
+                    <TouchableOpacity style={styles.addSecondCvBtn} onPress={() => setShowSecondCv(true)}>
+                        <Text style={styles.addSecondCvText}>+ Agregar un segundo CV (ej. para otro tipo de puesto)</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <>
+                        {hasFile2 && (
+                            <TextInput
+                                style={styles.cvLabelInput}
+                                value={cvLabel2}
+                                onChangeText={setCvLabel2}
+                                placeholder="Nombre de este CV (ej. CV Marketing)"
+                                placeholderTextColor="#64748b"
+                            />
+                        )}
+                        <TouchableOpacity style={[styles.uploadCard, hasFile2 && { borderColor: '#10b981' }]} onPress={() => extracting2 ? null : pickDocument(2)}>
+                            {extracting2 ? <ActivityIndicator color="#3b82f6" /> : <UploadCloud size={24} color={hasFile2 ? "#10b981" : "#3b82f6"} />}
+                            <View style={{ marginLeft: 15 }}>
+                                <Text style={styles.uploadTitle}>{extracting2 ? "Procesando..." : hasFile2 ? (fileName2 || "CV Cargado") : "Subir segundo PDF"}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </>
+                )}
+
                 <View style={styles.inputGroupArea}>
                     <Briefcase size={18} color="#64748b" style={[styles.inputIcon, { marginTop: 12 }]} />
                     <TextInput style={[styles.inputField, { height: 120, textAlignVertical: 'top' }]} multiline value={bio} onChangeText={setBio} placeholder="Resumen..." placeholderTextColor="#64748b" />
@@ -570,6 +641,9 @@ const styles = StyleSheet.create({
     uploadCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 15, borderStyle: 'dashed' },
     uploadTitle: { color: '#111827', fontWeight: 'bold', fontSize: 14 },
     uploadSubtitle: { color: '#9CA3AF', fontSize: 12 },
+    cvLabelInput: { backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 12, paddingVertical: 10, color: '#111827', fontSize: 13, fontWeight: '600', marginBottom: 8 },
+    addSecondCvBtn: { alignItems: 'center', paddingVertical: 10, marginBottom: 15 },
+    addSecondCvText: { color: '#4F46E5', fontSize: 13, fontWeight: '600' },
     saveButton: { backgroundColor: '#4F46E5', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10, marginBottom: 40 },
     saveText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 

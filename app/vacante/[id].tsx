@@ -140,6 +140,7 @@ export default function ExternalApplication() {
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [savedCv, setSavedCv] = useState<{ url: string; name: string } | null>(null);
+    const [savedCvOptions, setSavedCvOptions] = useState<{ url: string; name: string }[]>([]);
     const [useSavedCv, setUseSavedCv] = useState(false);
     const [saveToProfile, setSaveToProfile] = useState(true);
     const [selectedCountry, setSelectedCountry] = useState<string>('');
@@ -190,6 +191,10 @@ export default function ExternalApplication() {
 
             let foundCv: string | null = null;
             let foundCvName: string | null = null;
+            let foundCvLabel: string | null = null;
+            let foundCv2: string | null = null;
+            let foundCv2Name: string | null = null;
+            let foundCv2Label: string | null = null;
             let foundName: string | null = null;
             let foundPhone: string | null = null;
 
@@ -200,6 +205,10 @@ export default function ExternalApplication() {
                 foundPhone = d.phone || d.profile?.phone || foundPhone;
                 foundCv = d.profile?.cv || d.profile?.cvUrl || d.cvUrl || d.cvBase64 || foundCv;
                 foundCvName = d.profile?.cvName || d.profile?.fileName || d.cvFileName || foundCvName;
+                foundCvLabel = d.profile?.cvLabel || foundCvLabel;
+                foundCv2 = d.profile?.cv2Url || d.profile?.cv2Base64 || foundCv2;
+                foundCv2Name = d.profile?.cv2FileName || foundCv2Name;
+                foundCv2Label = d.profile?.cv2Label || foundCv2Label;
             }
 
             // 2. Extraer de users (Legacy / Perfil principal)
@@ -210,6 +219,10 @@ export default function ExternalApplication() {
                 // Buscar CV en todas sus posibles variantes
                 foundCv = foundCv || d.profile?.cvUrl || d.profile?.cv || d.profile?.cvBase64 || d.cvUrl || d.cv;
                 foundCvName = foundCvName || d.profile?.cvName || d.profile?.fileName || d.cvFileName;
+                foundCvLabel = foundCvLabel || d.profile?.cvLabel;
+                foundCv2 = foundCv2 || d.profile?.cv2Url || d.profile?.cv2Base64;
+                foundCv2Name = foundCv2Name || d.profile?.cv2FileName;
+                foundCv2Label = foundCv2Label || d.profile?.cv2Label;
             }
 
             if (foundName) setFullName(foundName);
@@ -217,10 +230,18 @@ export default function ExternalApplication() {
 
             if (foundCv) {
                 console.log("✅ CV detectado con éxito");
-                setSavedCv({ 
-                    url: foundCv, 
-                    name: foundCvName || 'Mi CV Guardado.pdf' 
-                });
+                const options = [{
+                    url: foundCv,
+                    name: foundCvLabel || foundCvName || 'Mi CV Guardado.pdf'
+                }];
+                if (foundCv2) {
+                    options.push({
+                        url: foundCv2,
+                        name: foundCv2Label || foundCv2Name || 'Mi segundo CV'
+                    });
+                }
+                setSavedCvOptions(options);
+                setSavedCv(options[0]);
                 setUseSavedCv(true);
             } else {
                 console.warn("⚠️ No se encontró CV en ninguna colección para este usuario.");
@@ -1383,7 +1404,31 @@ export default function ExternalApplication() {
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity 
+                    {useSavedCv && savedCvOptions.length > 1 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -6, marginBottom: 15 }}>
+                            {savedCvOptions.map((opt) => {
+                                const isSelected = savedCv?.url === opt.url;
+                                return (
+                                    <TouchableOpacity
+                                        key={opt.url}
+                                        onPress={() => setSavedCv(opt)}
+                                        style={{
+                                            paddingVertical: 6,
+                                            paddingHorizontal: 12,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: isSelected ? '#38bdf8' : '#334155',
+                                            backgroundColor: isSelected ? 'rgba(56,189,248,0.1)' : 'transparent'
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? '#38bdf8' : '#94a3b8' }}>{opt.name}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    <TouchableOpacity
                         style={[
                             styles.uploadCard, 
                             file && styles.uploadCardDone, 
