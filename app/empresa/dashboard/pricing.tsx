@@ -4,7 +4,7 @@ import { Check } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { auth, db } from '../../../config/firebase';
-import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
     PE: { currency: 'PEN', symbol: 'S/' },
@@ -34,6 +34,7 @@ export default function PricingScreen() {
     const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
     const [priceLoading, setPriceLoading] = useState(true);
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
+    const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
     const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
         USD: 0.27,
         COP: 1100,
@@ -43,21 +44,23 @@ export default function PricingScreen() {
         PEN: 1.0,
     });
 
-    // Manejar cierre del modal de Culqi
+    // Cargar el plan actual de la empresa (vive en Firestore, no en el
+    // usuario de Firebase Auth)
     useEffect(() => {
-        if (Platform.OS === 'web') {
-            const handleCulqiClose = () => {
-                console.log('Culqi modal cerrado');
-                setLoading(false);
-            };
-            window.addEventListener('message', (event) => {
-                if (event.data === 'checkout_closed') {
-                    handleCulqiClose();
+        const loadCurrentPlan = async () => {
+            if (!auth.currentUser) return;
+            try {
+                const snap = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+                if (snap.exists()) {
+                    setCurrentPlanName(snap.data().subscription?.plan || null);
                 }
-            });
-        }
+            } catch (e) {
+                console.error("Error cargando plan actual:", e);
+            }
+        };
+        loadCurrentPlan();
     }, []);
-    
+
     // Detect Location & Currency
     useEffect(() => {
         const detectLocation = async () => {
@@ -111,21 +114,16 @@ export default function PricingScreen() {
         fetchPlans();
     }, []);
 
-    // Configuración de Culqi (Web Only)
+    // Si Stripe redirige de vuelta con ?checkout=success, el webhook ya activó
+    // el plan en el backend; solo avisamos y refrescamos.
     useEffect(() => {
-        if (Platform.OS === 'web') {
-            const script = document.createElement('script');
-            script.src = 'https://checkout.culqi.com/js/v4';
-            script.async = true;
-            document.body.appendChild(script);
-
-            script.onload = () => {
-                console.log('✅ Culqi Script cargado');
-            };
-
-            return () => {
-                document.body.removeChild(script);
-            };
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('checkout') === 'success') {
+            alert('¡Pago recibido! Tu plan se activará en unos segundos.');
+            router.replace('/empresa/dashboard');
+        } else if (params.get('checkout') === 'cancelled') {
+            alert('Pago cancelado. Puedes intentarlo de nuevo cuando quieras.');
         }
     }, []);
 
@@ -140,97 +138,28 @@ export default function PricingScreen() {
 
         if (planName === 'Freemium' || priceInSoles === 0) return;
 
-        const CULQI_PK = process.env.EXPO_PUBLIC_CULQI_PUBLIC_KEY || 'pk_test_3066914563f68340'; // Reemplazar con real pk_test_...
-
-        // @ts-ignore
-        const Culqi = window.Culqi;
-
-        if (!Culqi) {
-            return alert("Culqi no está cargado correctamente. Recarga la página.");
-        }
-
         setLoading(true);
+        try {
+            const response = await fetch('/.netlify/functions/create-checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    planId,
+                    billingPeriod,
+                    userId: auth.currentUser.uid,
+                    email: auth.currentUser.email
+                })
+            });
 
-        Culqi.publicKey = CULQI_PK;
-        
-        let chargeCurrency = 'PEN';
-        let chargeAmount = priceInSoles;
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Error al iniciar el pago');
 
-        if (locationInfo.currency !== 'PEN') {
-            chargeCurrency = 'USD';
-            const usdRate = exchangeRates['USD'] || 0.27;
-            chargeAmount = Math.round(priceInSoles * usdRate * 100) / 100;
+            // Redirección a la página de pago alojada por Stripe
+            window.location.href = data.url;
+        } catch (e: any) {
+            setLoading(false);
+            alert(`Error: ${e.message}`);
         }
-
-        const culqiPlanId = planName.toLowerCase().includes('pro') ? 'plan_pro_5' : 'plan_gold_12';
-
-        Culqi.settings({
-            title: `Veritly - Plan ${planName}`,
-            currency: chargeCurrency,
-            description: `Suscripción ${billingPeriod === 'monthly' ? 'Mensual' : 'Anual'} ${planName}`,
-            amount: Math.round(chargeAmount * 100) // Culqi usa céntimos
-        });
-
-        Culqi.options({
-            style: {
-                logo: 'https://veritly.app/assets/images/veritly3.png',
-                maincolor: '#38bdf8',
-                buttontext: '#ffffff',
-                maintext: '#ffffff',
-                desctext: '#94a3b8'
-            }
-        });
-
-        // Configuración de evento para Token
-        // @ts-ignore
-        window.culqi = async () => {
-            if (Culqi.token) {
-                const token = Culqi.token.id;
-                console.log('✅ Token recibido:', token);
-
-                try {
-                    // 1. Llamar al backend (Netlify Function)
-                    const response = await fetch('/.netlify/functions/subscribe', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            token: token,
-                            email: auth.currentUser?.email,
-                            planId: culqiPlanId,
-                            userId: auth.currentUser?.uid
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (!response.ok) throw new Error(data.error || 'Error al procesar suscripción');
-
-                    // 2. Actualizar Firebase
-                    if (auth.currentUser) {
-                        const userRef = doc(db, 'users_empresas', auth.currentUser.uid);
-                        await updateDoc(userRef, {
-                            'subscription.plan': planName,
-                            'subscription.status': 'Active',
-                            'subscription.jobsLimit': planName.toLowerCase().includes('pro') ? 50 : 200, // Limites según plan
-                            'subscription.updatedAt': new Date()
-                        });
-                    }
-
-                    setLoading(false);
-                    alert(`¡Bienvenido a Veritly ${planName}! Tu plan ha sido activado.`);
-                    router.replace('/empresa/dashboard');
-
-                } catch (e: any) {
-                    setLoading(false);
-                    alert(`Error: ${e.message}`);
-                }
-            } else {
-                setLoading(false);
-                console.log('Error:', Culqi.error);
-                alert(Culqi.error.user_message);
-            }
-        };
-
-        Culqi.open();
     };
 
     return (
@@ -281,7 +210,7 @@ export default function PricingScreen() {
                         displayPrice = priceInSoles * rate;
                     }
                     const formattedPrice = formatCurrencyValue(displayPrice, locationInfo.currency);
-                    const isCurrentPlan = auth.currentUser && (auth.currentUser as any).subscription?.plan === plan.name;
+                    const isCurrentPlan = currentPlanName === plan.name;
 
                     return (
                         <View key={plan.id} style={[styles.card, isRecommended && styles.cardPro, isBeta && { borderColor: '#10b981', borderWidth: 2 }, isComingSoon && { opacity: 0.8 }]}>

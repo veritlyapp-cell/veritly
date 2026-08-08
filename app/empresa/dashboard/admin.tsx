@@ -74,6 +74,8 @@ export default function EmpresaAdminDashboard() {
         killerQuestionsLimit: 2,
         priceMonthly: 0,
         priceAnnual: 0,
+        stripePriceIdMonthly: '',
+        stripePriceIdAnnual: '',
         isComingSoon: false,
         isRecommended: false,
         isHidden: false,
@@ -454,6 +456,8 @@ export default function EmpresaAdminDashboard() {
                 killerQuestionsLimit: plan.killerQuestionsLimit || 2,
                 priceMonthly: plan.priceMonthly || 0,
                 priceAnnual: plan.priceAnnual || 0,
+                stripePriceIdMonthly: plan.stripePriceIdMonthly || '',
+                stripePriceIdAnnual: plan.stripePriceIdAnnual || '',
                 isComingSoon: plan.isComingSoon || false,
                 isRecommended: plan.isRecommended || false,
                 isHidden: plan.isHidden || false,
@@ -470,6 +474,8 @@ export default function EmpresaAdminDashboard() {
                 killerQuestionsLimit: 2,
                 priceMonthly: 0,
                 priceAnnual: 0,
+                stripePriceIdMonthly: '',
+                stripePriceIdAnnual: '',
                 isComingSoon: false,
                 isRecommended: false,
                 isHidden: false,
@@ -751,6 +757,29 @@ export default function EmpresaAdminDashboard() {
                                         value={(newPlan.priceAnnual || 0).toString()}
                                         onChangeText={t => setNewPlan({...newPlan, priceAnnual: parseInt(t) || 0})}
                                         keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Stripe Price ID (mensual)</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={newPlan.stripePriceIdMonthly || ''}
+                                        onChangeText={t => setNewPlan({...newPlan, stripePriceIdMonthly: t})}
+                                        placeholder="price_..."
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Stripe Price ID (anual)</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={newPlan.stripePriceIdAnnual || ''}
+                                        onChangeText={t => setNewPlan({...newPlan, stripePriceIdAnnual: t})}
+                                        placeholder="price_..."
+                                        autoCapitalize="none"
                                     />
                                 </View>
                             </View>

@@ -38,7 +38,7 @@ export default function TermsScreen() {
 
                     <Text style={styles.sectionTitle}>3. Suscripciones y Pagos</Text>
                     <Text style={styles.paragraph}>
-                        Los planes Pro y Gold se facturan mensualmente o anualmente según su elección. Los pagos se procesan a través de Culqi. No se realizan reembolsos por periodos parciales de uso.
+                        Los planes Pro y Gold se facturan mensualmente o anualmente según su elección. Los pagos se procesan a través de Stripe. No se realizan reembolsos por periodos parciales de uso.
                     </Text>
 
                     <Text style={styles.sectionTitle}>4. Protección de Datos (Perú)</Text>
