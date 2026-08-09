@@ -237,14 +237,26 @@ export default function CompanyDashboard() {
             const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+            // El limite de "Analisis IA" del plan es mensual, asi que solo contamos
+            // candidatos analizados dentro del mes calendario actual.
+            const now = new Date();
+            const isThisMonth = (raw: any): boolean => {
+                if (!raw) return false;
+                const d = raw?.toDate ? raw.toDate() : new Date(raw);
+                if (isNaN(d.getTime())) return false;
+                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            };
+
             const jobsWithCounts = await Promise.all(
                 jobsList.map(async (job) => {
                     try {
                         const candidatesSnapshot = await getDocs(collection(db, 'jobs', job.id, 'candidates'));
                         const candidates = candidatesSnapshot.docs.map(doc => doc.data());
-                        const analyzedCount = candidates.filter((c: any) => c.matchScore && c.matchScore > 0).length;
-                        return { 
-                            ...job, 
+                        const analyzedCount = candidates.filter((c: any) =>
+                            c.matchScore && c.matchScore > 0 && isThisMonth(c.analyzedAt)
+                        ).length;
+                        return {
+                            ...job,
                             candidateCount: candidatesSnapshot.size,
                             analyzedCount: analyzedCount
                         };
