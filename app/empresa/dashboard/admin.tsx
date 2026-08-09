@@ -54,6 +54,7 @@ export default function EmpresaAdminDashboard() {
     // Edit Modal State (Cuentas)
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<CompanyProfile | null>(null);
+    const [showEditPlanDropdown, setShowEditPlanDropdown] = useState(false);
     const [editSub, setEditSub] = useState({
         planId: '',
         plan: '',
@@ -484,6 +485,7 @@ export default function EmpresaAdminDashboard() {
             maxAdmins: (comp.subscription as any)?.maxAdmins || 1,
             maxRecruiters: (comp.subscription as any)?.maxRecruiters || 0,
         });
+        setShowEditPlanDropdown(false);
         setEditModalVisible(true);
     };
 
@@ -700,75 +702,112 @@ export default function EmpresaAdminDashboard() {
                         <Text style={styles.modalTitle}>Editar Cuenta</Text>
                         <Text style={styles.modalSub}>{selectedCompany?.email}</Text>
 
-                        <Text style={styles.label}>Aplicar un plan existente</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15 }}>
-                            {plans.map((p: any) => (
+                        <Text style={styles.label}>Plan</Text>
+                        <TouchableOpacity
+                            style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                            onPress={() => setShowEditPlanDropdown(!showEditPlanDropdown)}
+                        >
+                            <Text style={{ color: '#111827', fontSize: 14 }}>
+                                {editSub.planId === 'custom' ? 'Personalizado (Enterprise)' : (plans.find((p: any) => p.id === editSub.planId)?.name || editSub.plan || 'Seleccionar plan...')}
+                            </Text>
+                            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: 'bold' }}>{showEditPlanDropdown ? '▲' : '▼'}</Text>
+                        </TouchableOpacity>
+
+                        {showEditPlanDropdown && (
+                            <View style={{ backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 6, marginBottom: 15 }}>
+                                {plans.map((p: any) => (
+                                    <TouchableOpacity
+                                        key={p.id}
+                                        onPress={() => {
+                                            setEditSub({
+                                                planId: p.id,
+                                                plan: p.name,
+                                                aiAnalysisLimit: p.aiAnalysisLimit || 0,
+                                                internalVacanciesLimit: p.internalVacanciesLimit || 0,
+                                                publicVacanciesLimit: p.publicVacanciesLimit || p.internalVacanciesLimit || 0,
+                                                killerQuestionsLimit: p.killerQuestionsLimit || 0,
+                                                maxAdmins: p.maxAdmins || 1,
+                                                maxRecruiters: p.maxRecruiters || 0,
+                                            });
+                                            setShowEditPlanDropdown(false);
+                                        }}
+                                        style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
+                                    >
+                                        <Text style={{ color: '#111827', fontSize: 13 }}>{p.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
                                 <TouchableOpacity
-                                    key={p.id}
-                                    onPress={() => setEditSub({
-                                        planId: p.id,
-                                        plan: p.name,
-                                        aiAnalysisLimit: p.aiAnalysisLimit || 0,
-                                        internalVacanciesLimit: p.internalVacanciesLimit || 0,
-                                        publicVacanciesLimit: p.publicVacanciesLimit || p.internalVacanciesLimit || 0,
-                                        killerQuestionsLimit: p.killerQuestionsLimit || 0,
-                                        maxAdmins: p.maxAdmins || 1,
-                                        maxRecruiters: p.maxRecruiters || 0,
-                                    })}
-                                    style={{
-                                        paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1,
-                                        borderColor: editSub.planId === p.id ? COLORS.primary : '#E5E7EB',
-                                        backgroundColor: editSub.planId === p.id ? 'rgba(79,70,229,0.08)' : '#fff'
+                                    onPress={() => {
+                                        setEditSub({ ...editSub, planId: 'custom', plan: 'Personalizado' });
+                                        setShowEditPlanDropdown(false);
                                     }}
+                                    style={{ padding: 12 }}
                                 >
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: editSub.planId === p.id ? COLORS.primary : '#374151' }}>{p.name}</Text>
+                                    <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>Personalizado (Enterprise)</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <Text style={styles.label}>Plan Activo (ID)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={editSub.plan}
-                            onChangeText={t => setEditSub({...editSub, plan: t})}
-                        />
-
-                        <Text style={styles.label}>Límite Análisis IA</Text>
-                        <TextInput 
-                            style={styles.input}
-                            value={(editSub.aiAnalysisLimit || 0).toString()}
-                            onChangeText={t => setEditSub({...editSub, aiAnalysisLimit: parseInt(t) || 0})}
-                            keyboardType="numeric"
-                        />
-
-                        <View style={{ flexDirection: 'row', gap: 10 }}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.label}>Vacantes Internas</Text>
-                                <TextInput 
-                                    style={styles.input}
-                                    value={(editSub.internalVacanciesLimit || 0).toString()}
-                                    onChangeText={t => setEditSub({...editSub, internalVacanciesLimit: parseInt(t) || 0})}
-                                    keyboardType="numeric"
-                                />
                             </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.label}>Vacantes Públicas</Text>
-                                <TextInput 
-                                    style={styles.input}
-                                    value={(editSub.publicVacanciesLimit || 0).toString()}
-                                    onChangeText={t => setEditSub({...editSub, publicVacanciesLimit: parseInt(t) || 0})}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                        </View>
+                        )}
 
-                        <Text style={styles.label}>Límite Preguntas Filtro (Killer)</Text>
-                        <TextInput 
-                            style={styles.input}
-                            value={(editSub.killerQuestionsLimit || 0).toString()}
-                            onChangeText={t => setEditSub({...editSub, killerQuestionsLimit: parseInt(t) || 0})}
-                            keyboardType="numeric"
-                        />
+                        {(() => {
+                            const isLocked = editSub.planId !== 'custom' && plans.some((p: any) => p.id === editSub.planId);
+                            const fieldStyle = isLocked ? [styles.input, { backgroundColor: '#F3F4F6', color: '#6B7280' }] : styles.input;
+                            return (
+                                <>
+                                    <Text style={styles.label}>Límite Análisis IA</Text>
+                                    <TextInput
+                                        style={fieldStyle}
+                                        editable={!isLocked}
+                                        value={(editSub.aiAnalysisLimit || 0).toString()}
+                                        onChangeText={t => setEditSub({...editSub, aiAnalysisLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+
+                                    <Text style={styles.label}>Vacantes Activas (total)</Text>
+                                    <TextInput
+                                        style={fieldStyle}
+                                        editable={!isLocked}
+                                        value={(editSub.internalVacanciesLimit || 0).toString()}
+                                        onChangeText={t => {
+                                            const n = parseInt(t) || 0;
+                                            setEditSub({...editSub, internalVacanciesLimit: n, publicVacanciesLimit: n});
+                                        }}
+                                        keyboardType="numeric"
+                                    />
+
+                                    <Text style={styles.label}>Límite Preguntas Filtro (Killer)</Text>
+                                    <TextInput
+                                        style={fieldStyle}
+                                        editable={!isLocked}
+                                        value={(editSub.killerQuestionsLimit || 0).toString()}
+                                        onChangeText={t => setEditSub({...editSub, killerQuestionsLimit: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.label}>Cuentas Admin</Text>
+                                            <TextInput
+                                                style={fieldStyle}
+                                                editable={!isLocked}
+                                                value={(editSub.maxAdmins || 0).toString()}
+                                                onChangeText={t => setEditSub({...editSub, maxAdmins: parseInt(t) || 0})}
+                                                keyboardType="numeric"
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.label}>Cuentas Reclutadores</Text>
+                                            <TextInput
+                                                style={fieldStyle}
+                                                editable={!isLocked}
+                                                value={(editSub.maxRecruiters || 0).toString()}
+                                                onChangeText={t => setEditSub({...editSub, maxRecruiters: parseInt(t) || 0})}
+                                                keyboardType="numeric"
+                                            />
+                                        </View>
+                                    </View>
+                                </>
+                            );
+                        })()}
 
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 25 }}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
