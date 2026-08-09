@@ -100,6 +100,7 @@ export default function CreateJob() {
         salaryToleranceDown: '10', // Default 10%
         isSalaryPublic: false,
         isExternal: false,
+        showOnLandingPage: false,
         killerQuestions: [],
         allowedCountries: ['Perú'],
         currency: 'S/'
@@ -225,6 +226,7 @@ export default function CreateJob() {
                     salaryToleranceDown: data.salaryToleranceDown?.toString() || '10',
                     isSalaryPublic: data.isSalaryPublic || false,
                     isExternal: data.isExternal || false,
+                    showOnLandingPage: data.showOnLandingPage || false,
                     killerQuestions: data.killerQuestions || [],
                     allowedCountries: data.allowedCountries || ['Perú'],
                     currency: data.currency || 'S/'
@@ -362,6 +364,7 @@ export default function CreateJob() {
                 isSalaryPublic: !!jobData.isSalaryPublic,
                 killerQuestions: (jobData.killerQuestions || []).filter((q: any) => q.question?.trim().length > 0),
                 isExternal: !!jobData.isExternal,
+                showOnLandingPage: !!jobData.showOnLandingPage,
                 originalText: rawText,
                 optimizedText: optimizedDescription,
                 companyId: auth.currentUser.uid,
@@ -569,7 +572,23 @@ export default function CreateJob() {
 
                                     {jobData?.isExternal && (
                                         <View style={{ marginTop: 20, backgroundColor: '#1e293b', padding: 15, borderRadius: 8 }}>
-                                            
+
+                                            {/* --- PUBLICAR EN PÁGINA DE EMPLEOS --- */}
+                                            <TouchableOpacity
+                                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}
+                                                onPress={() => setJobData({ ...jobData, showOnLandingPage: !jobData?.showOnLandingPage })}
+                                            >
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Publicar en Página de Empleos de la Empresa</Text>
+                                                    <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
+                                                        Aparecerá en tu landing page pública (disponible en planes Gold y Enterprise).
+                                                    </Text>
+                                                </View>
+                                                <View style={[styles.switchToggle, jobData?.showOnLandingPage ? { backgroundColor: '#3b82f6', alignItems: 'flex-end' } : { backgroundColor: '#334155', alignItems: 'flex-start' }]}>
+                                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white' }} />
+                                                </View>
+                                            </TouchableOpacity>
+
                                             {/* --- FILTRO POR PAÍSES --- */}
                                             <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>

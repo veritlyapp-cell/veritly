@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3, MessageSquare } from 'lucide-react-native';
+import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3, MessageSquare, Globe } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Linking, Platform, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
@@ -117,6 +117,15 @@ export default function CompanyDrawerLayout() {
                         drawerLabel: "Indicadores",
                         title: "Indicadores de Reclutamiento",
                         drawerIcon: ({ color, size }) => <BarChart3 color={color} size={size} />
+                    }}
+                />
+
+                <Drawer.Screen
+                    name="landing"
+                    options={{
+                        drawerLabel: "Página de Empleos",
+                        title: "Página de Empleos",
+                        drawerIcon: ({ color, size }) => <Globe color={color} size={size} />
                     }}
                 />
 
