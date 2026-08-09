@@ -113,10 +113,50 @@ export default function JobDetailScreen() {
         notes: ''
     });
     const [savingEdit, setSavingEdit] = useState(false);
+    const [quotaInfo, setQuotaInfo] = useState<{ limit: number; used: number }>({ limit: 200, used: 0 });
 
     useEffect(() => {
         loadJobAndCandidates();
     }, [id]);
+
+    // Consulta cuantos analisis IA ya se hicieron este mes calendario, en todas
+    // las vacantes de la empresa (mismo criterio que el dashboard de inicio).
+    const loadMonthlyQuotaUsage = async (companyId: string, limit: number) => {
+        try {
+            const jobsSnap = await getDocs(query(collection(db, 'jobs'), where('companyId', '==', companyId)));
+            const now = new Date();
+            const isThisMonth = (raw: any): boolean => {
+                if (!raw) return false;
+                const d = raw?.toDate ? raw.toDate() : new Date(raw);
+                if (isNaN(d.getTime())) return false;
+                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            };
+
+            let used = 0;
+            await Promise.all(jobsSnap.docs.map(async (jobDoc) => {
+                const candSnap = await getDocs(collection(db, 'jobs', jobDoc.id, 'candidates'));
+                candSnap.forEach(c => {
+                    const data = c.data();
+                    if (data.matchScore > 0 && isThisMonth(data.analyzedAt)) used++;
+                });
+            }));
+            setQuotaInfo({ limit, used });
+        } catch (e) {
+            console.error("Error calculando uso de cuota IA:", e);
+        }
+    };
+
+    // Devuelve true si hay cupo para analizar; si no, avisa y devuelve false.
+    const checkQuotaOrWarn = (): boolean => {
+        if (quotaInfo.used >= quotaInfo.limit) {
+            Alert.alert(
+                "Límite de análisis alcanzado",
+                `Ya usaste tus ${quotaInfo.limit} análisis de IA de este mes. Sube de plan para seguir analizando candidatos.`
+            );
+            return false;
+        }
+        return true;
+    };
 
     // Carga features del plan del usuario autenticado — mismo patrón que index.tsx
     const loadCurrentUserFeatures = async () => {
@@ -131,6 +171,7 @@ export default function JobDetailScreen() {
 
             const userData = userDoc.data();
             setIsProfileSkipped(!!userData.profileSkipped);
+            loadMonthlyQuotaUsage(currentUser.uid, userData.subscription?.aiAnalysisLimit || 200);
             try {
                 await currentUser.reload();
                 setIsEmailVerified(currentUser.emailVerified);
@@ -593,6 +634,7 @@ export default function JobDetailScreen() {
 
     const handleAnalyzeIndividualCandidate = async (candidate: CandidateAnalysis) => {
         if (!auth.currentUser || processing) return;
+        if (!checkQuotaOrWarn()) return;
         setProcessing(true);
         setProcessingStatus(`Analizando perfil para ${candidate.name}...`);
         
@@ -669,7 +711,8 @@ export default function JobDetailScreen() {
                 Object.entries(updatedCandidate).filter(([_, v]) => v !== undefined)
             );
             await setDoc(docRef, sanitizedData, { merge: true });
-            
+            setQuotaInfo(prev => ({ ...prev, used: prev.used + 1 }));
+
             setCandidates(prev => (prev || []).map(c => c.id === candidate.id ? (updatedCandidate as any) : c));
             setSelectedCandidate(updatedCandidate as any);
             showAlert("Éxito", "Análisis completado satisfactoriamente.");
@@ -860,12 +903,19 @@ export default function JobDetailScreen() {
             return showAlert("Información", "Los candidatos seleccionados ya han sido analizados o no tienen datos suficientes.");
         }
 
+        if (!checkQuotaOrWarn()) return;
+
         try {
             setProcessing(true);
             let count = 0;
+            let remainingQuota = quotaInfo.limit - quotaInfo.used;
             for (const cand of toAnalyze) {
+                if (remainingQuota <= 0) {
+                    showAlert("Límite de análisis alcanzado", `Se analizaron ${count} de ${toAnalyze.length} candidatos antes de llegar al límite mensual de tu plan.`);
+                    break;
+                }
                 setProcessingStatus(`Analizando ${++count}/${toAnalyze.length}: ${cand.name}`);
-                
+
                 let textToAnalyze = "";
                 const cvBase64 = (cand as any).cvBase64;
 
@@ -919,12 +969,14 @@ export default function JobDetailScreen() {
                 );
 
                 await setDoc(docRef, sanitizedBulkData, { merge: true });
-                
+                remainingQuota--;
+                setQuotaInfo(prev => ({ ...prev, used: prev.used + 1 }));
+
                 // Update local state for each processed candidate
-                setCandidates(prev => (prev || []).map(c => 
+                setCandidates(prev => (prev || []).map(c =>
                     c.id === cand.id ? { ...c, ...sanitizedBulkData } : c
                 ));
-                
+
                 // Rate limit safety
                 if (toAnalyze.length > 1) await new Promise(r => setTimeout(r, 1000));
             }
