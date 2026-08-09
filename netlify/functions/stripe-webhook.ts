@@ -59,6 +59,7 @@ export const handler: Handler = async (event) => {
                 console.log(`💳 [stripe-webhook] Pago confirmado. Activando plan '${planId}' para: ${userId}`);
                 await adminDb.collection('users_empresas').doc(userId).set({
                     subscription: {
+                        planId: planId,
                         plan: planData?.name || planId,
                         aiAnalysisLimit: planData?.aiAnalysisLimit || 200,
                         internalVacanciesLimit: planData?.internalVacanciesLimit || 5,

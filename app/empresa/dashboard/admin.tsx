@@ -72,6 +72,8 @@ export default function EmpresaAdminDashboard() {
         internalVacanciesLimit: 10,
         publicVacanciesLimit: 5,
         killerQuestionsLimit: 2,
+        maxAdmins: 1,
+        maxRecruiters: 0,
         priceMonthly: 0,
         priceAnnual: 0,
         stripePriceIdMonthly: '',
@@ -293,6 +295,8 @@ export default function EmpresaAdminDashboard() {
                 internalVacanciesLimit: 5,
                 publicVacanciesLimit: 5,
                 killerQuestionsLimit: 3,
+                maxAdmins: 1,
+                maxRecruiters: 0,
                 priceMonthly: 0,
                 priceAnnual: 0,
                 stripePriceIdMonthly: '',
@@ -309,6 +313,8 @@ export default function EmpresaAdminDashboard() {
                 internalVacanciesLimit: 10,
                 publicVacanciesLimit: 10,
                 killerQuestionsLimit: 5,
+                maxAdmins: 1,
+                maxRecruiters: 0,
                 priceMonthly: 89,
                 priceAnnual: 908,
                 stripePriceIdMonthly: '',
@@ -319,12 +325,32 @@ export default function EmpresaAdminDashboard() {
                 features: ["Análisis de IA", "Vacantes Activas", "Exportación a Excel/PDF", "Filtros Avanzados"]
             },
             {
+                id: 'plan_pro_team',
+                name: 'Pro Team',
+                aiAnalysisLimit: 1200,
+                internalVacanciesLimit: 15,
+                publicVacanciesLimit: 15,
+                killerQuestionsLimit: 5,
+                maxAdmins: 2,
+                maxRecruiters: 4,
+                priceMonthly: 149,
+                priceAnnual: 1520,
+                stripePriceIdMonthly: '',
+                stripePriceIdAnnual: '',
+                isComingSoon: false,
+                isHidden: false,
+                isRecommended: false,
+                features: ["Análisis de IA", "Vacantes Activas", "Exportación a Excel/PDF", "Filtros Avanzados", "Hasta 2 Admins y 4 Reclutadores"]
+            },
+            {
                 id: 'plan_gold',
                 name: 'Gold',
                 aiAnalysisLimit: 2000,
                 internalVacanciesLimit: 15,
                 publicVacanciesLimit: 15,
                 killerQuestionsLimit: 999,
+                maxAdmins: 2,
+                maxRecruiters: 6,
                 priceMonthly: 199,
                 priceAnnual: 2028,
                 stripePriceIdMonthly: '',
@@ -332,7 +358,7 @@ export default function EmpresaAdminDashboard() {
                 isComingSoon: true,
                 isHidden: true,
                 isRecommended: false,
-                features: ["Análisis de IA", "Vacantes Activas", "Preguntas Filtro Ilimitadas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica"]
+                features: ["Análisis de IA", "Vacantes Activas", "Preguntas Filtro Ilimitadas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica", "Hasta 2 Admins y 6 Reclutadores"]
             },
         ];
 
@@ -465,6 +491,8 @@ export default function EmpresaAdminDashboard() {
                 internalVacanciesLimit: plan.internalVacanciesLimit || 10,
                 publicVacanciesLimit: plan.publicVacanciesLimit || 5,
                 killerQuestionsLimit: plan.killerQuestionsLimit || 2,
+                maxAdmins: plan.maxAdmins || 1,
+                maxRecruiters: plan.maxRecruiters || 0,
                 priceMonthly: plan.priceMonthly || 0,
                 priceAnnual: plan.priceAnnual || 0,
                 stripePriceIdMonthly: plan.stripePriceIdMonthly || '',
@@ -483,6 +511,8 @@ export default function EmpresaAdminDashboard() {
                 internalVacanciesLimit: 10,
                 publicVacanciesLimit: 5,
                 killerQuestionsLimit: 2,
+                maxAdmins: 1,
+                maxRecruiters: 0,
                 priceMonthly: 0,
                 priceAnnual: 0,
                 stripePriceIdMonthly: '',
@@ -809,7 +839,7 @@ export default function EmpresaAdminDashboard() {
                             <View style={{ flexDirection: 'row', gap: 10 }}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.label}>Límite Preguntas Filtro (Killer)</Text>
-                                    <TextInput 
+                                    <TextInput
                                         style={styles.input}
                                         value={(newPlan.killerQuestionsLimit || 0).toString()}
                                         onChangeText={t => setNewPlan({...newPlan, killerQuestionsLimit: parseInt(t) || 0})}
@@ -817,7 +847,28 @@ export default function EmpresaAdminDashboard() {
                                     />
                                 </View>
                             </View>
-                             
+
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Máx. Admins (Team)</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={(newPlan.maxAdmins || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, maxAdmins: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Máx. Reclutadores (Team)</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={(newPlan.maxRecruiters || 0).toString()}
+                                        onChangeText={t => setNewPlan({...newPlan, maxRecruiters: parseInt(t) || 0})}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
                              <View style={{ flexDirection: 'row', gap: 15, marginTop: 15, flexWrap: 'wrap' }}>
                                  <TouchableOpacity 
                                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 110, marginVertical: 5 }}

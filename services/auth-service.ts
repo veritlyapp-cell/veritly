@@ -52,6 +52,7 @@ export interface CompanyProfile {
         location?: any;
     };
     subscription: {
+        planId?: string;
         plan: string;
         aiAnalysisLimit: number;
         internalVacanciesLimit: number;
@@ -197,9 +198,10 @@ export async function createCompanyUser(
                 type: companyDataInput.type // Guardar el tipo para referencia
             } as any, // Cast to any to allow dynamic fields if interface is strict
             subscription: {
+                planId: 'beta_free',
                 plan: 'beta_free',
-                aiAnalysisLimit: 200,
-                internalVacanciesLimit: 10,
+                aiAnalysisLimit: 100,
+                internalVacanciesLimit: 5,
                 publicVacanciesLimit: 5,
                 killerQuestionsLimit: 3,
                 candidatesAnalyzed: 0,
@@ -254,7 +256,7 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
         // Parallel checks for better performance - and BYPASSING CACHE
         // We use getDocFromServer to ensure we don't get a "null" result from local cache 
         // right after account creation.
-        const [candidateSnap, companySnap, legacySnap] = await Promise.all([
+        const [candidateSnap, companySnap, legacySnap, teamMemberSnap] = await Promise.all([
             getDocFromServer(doc(db, 'users_candidatos', uid)).catch(e => {
                 console.warn('⚠️ [getCurrentUserRole] users_candidatos check failed:', e.message);
                 return getDoc(doc(db, 'users_candidatos', uid));
@@ -266,6 +268,10 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
             getDocFromServer(doc(db, 'companies', uid)).catch(e => {
                 console.warn('⚠️ [getCurrentUserRole] legacy companies check failed:', e.message);
                 return getDoc(doc(db, 'companies', uid));
+            }),
+            getDocFromServer(doc(db, 'team_members', uid)).catch(e => {
+                console.warn('⚠️ [getCurrentUserRole] team_members check failed:', e.message);
+                return getDoc(doc(db, 'team_members', uid));
             })
         ]);
 
@@ -273,6 +279,12 @@ export async function getCurrentUserRole(uid: string): Promise<UserRole | null> 
 
         if (companySnap.exists()) {
             console.log(`✅ [getCurrentUserRole] Found 'empresa' (new) in ${duration}ms`);
+            userRoleCache[uid] = 'empresa';
+            return 'empresa';
+        }
+
+        if (teamMemberSnap.exists()) {
+            console.log(`✅ [getCurrentUserRole] Found 'empresa' (miembro de equipo) in ${duration}ms`);
             userRoleCache[uid] = 'empresa';
             return 'empresa';
         }

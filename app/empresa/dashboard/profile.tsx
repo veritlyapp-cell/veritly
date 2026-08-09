@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Building2, ChevronDown, MapPin, Save, Sparkles, User, UserCheck, X, Camera, Trash2 } from 'lucide-react-native';
@@ -79,6 +80,16 @@ export default function CompanyProfile() {
     // CONTEXTO IA
     const [rubro, setRubro] = useState('');
     const [beneficios, setBeneficios] = useState('');
+
+    // EQUIPO (Team)
+    const [teamOwner, setTeamOwner] = useState<any>(null);
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    const [teamLimits, setTeamLimits] = useState<{ maxAdmins: number; maxRecruiters: number }>({ maxAdmins: 1, maxRecruiters: 0 });
+    const [loadingTeam, setLoadingTeam] = useState(false);
+    const [inviteModalVisible, setInviteModalVisible] = useState(false);
+    const [inviteRole, setInviteRole] = useState<'admin' | 'reclutador'>('reclutador');
+    const [inviteLink, setInviteLink] = useState('');
+    const [generatingInvite, setGeneratingInvite] = useState(false);
 
     // Lista de rubros comunes en Perú
     const RUBROS_PERU = [
@@ -189,7 +200,93 @@ export default function CompanyProfile() {
             }
         };
         loadProfile();
+        loadTeam();
     }, []);
+
+    const loadTeam = async () => {
+        if (!auth.currentUser) return;
+        setLoadingTeam(true);
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch('/.netlify/functions/team', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'list_team', idToken, companyId: auth.currentUser.uid })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setTeamOwner(data.owner);
+                setTeamMembers(data.members || []);
+                setTeamLimits(data.limits || { maxAdmins: 1, maxRecruiters: 0 });
+            }
+        } catch (e) {
+            console.error("Error cargando equipo:", e);
+        } finally {
+            setLoadingTeam(false);
+        }
+    };
+
+    const handleGenerateInvite = async () => {
+        if (!auth.currentUser) return;
+        setGeneratingInvite(true);
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch('/.netlify/functions/team', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'create_invite', idToken, companyId: auth.currentUser.uid, role: inviteRole })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo generar la invitación');
+            const link = `https://www.veritlyapp.com/empresa/invite/${data.code}`;
+            setInviteLink(link);
+        } catch (e: any) {
+            Alert.alert("Error", e.message);
+        } finally {
+            setGeneratingInvite(false);
+        }
+    };
+
+    const handleRemoveMember = async (targetUid: string) => {
+        if (!auth.currentUser) return;
+        const doRemove = async () => {
+            try {
+                const idToken = await auth.currentUser!.getIdToken();
+                const res = await fetch('/.netlify/functions/team', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove_member', idToken, companyId: auth.currentUser!.uid, targetUid })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo quitar al miembro');
+                loadTeam();
+            } catch (e: any) {
+                Alert.alert("Error", e.message);
+            }
+        };
+        Alert.alert("Quitar del equipo", "¿Seguro que quieres quitar a este miembro? Perderá acceso a la cuenta.", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Quitar", style: "destructive", onPress: doRemove }
+        ]);
+    };
+
+    const handlePromoteMember = async (targetUid: string) => {
+        if (!auth.currentUser) return;
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch('/.netlify/functions/team', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'promote_member', idToken, companyId: auth.currentUser.uid, targetUid })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo ascender al miembro');
+            loadTeam();
+            Alert.alert("Listo", "Ahora es Admin del equipo.");
+        } catch (e: any) {
+            Alert.alert("Error", e.message);
+        }
+    };
 
     // Actualizar provincias cuando cambia departamento
     useEffect(() => {
@@ -570,16 +667,116 @@ export default function CompanyProfile() {
                     <UserCheck color="#38bdf8" size={24} />
                     <Text style={styles.sectionTitle}>Usuarios y Roles</Text>
                 </View>
-                <View style={{ backgroundColor: '#FFFFFF', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' }}>
+
+                <View style={{ backgroundColor: '#FFFFFF', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 }}>
                     <Text style={{ color: '#111827', fontWeight: 'bold' }}>Administrador Principal</Text>
-                    <Text style={{ color: '#6B7280', fontSize: 13 }}>{emailResponsable || "No definido"}</Text>
+                    <Text style={{ color: '#6B7280', fontSize: 13 }}>{teamOwner?.email || emailResponsable || "No definido"}</Text>
                     <View style={{ backgroundColor: '#4F46E5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 5 }}>
                         <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>ADMIN</Text>
                     </View>
                 </View>
-                <Text style={{ color: '#64748b', fontSize: 12, marginTop: 10, fontStyle: 'italic' }}>
-                    * La gestión de múltiples usuarios estará disponible próximamente.
-                </Text>
+
+                {teamMembers.map((m) => (
+                    <View key={m.uid} style={{ backgroundColor: '#FFFFFF', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#111827', fontWeight: 'bold' }}>{m.name || m.email}</Text>
+                            <Text style={{ color: '#6B7280', fontSize: 13 }}>{m.email}</Text>
+                            <View style={{ backgroundColor: m.role === 'admin' ? '#4F46E5' : '#10b981', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 5 }}>
+                                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{m.role === 'admin' ? 'ADMIN' : 'RECLUTADOR'}</Text>
+                            </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            {m.role !== 'admin' && (
+                                <TouchableOpacity onPress={() => handlePromoteMember(m.uid)} style={{ padding: 8 }}>
+                                    <Text style={{ color: '#4F46E5', fontSize: 12, fontWeight: '600' }}>Ascender</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={() => handleRemoveMember(m.uid)} style={{ padding: 8 }}>
+                                <Trash2 size={16} color="#ef4444" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ))}
+
+                {loadingTeam ? (
+                    <ActivityIndicator color="#4F46E5" style={{ marginVertical: 10 }} />
+                ) : (
+                    <>
+                        <Text style={{ color: '#64748b', fontSize: 12, marginBottom: 12 }}>
+                            {teamMembers.filter(m => m.role === 'admin').length + 1} / {teamLimits.maxAdmins} Admins · {teamMembers.filter(m => m.role === 'reclutador').length} / {teamLimits.maxRecruiters} Reclutadores
+                        </Text>
+                        {teamLimits.maxRecruiters > 0 || teamLimits.maxAdmins > 1 ? (
+                            <TouchableOpacity
+                                style={{ backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                                onPress={() => { setInviteLink(''); setInviteRole('reclutador'); setInviteModalVisible(true); }}
+                            >
+                                <Text style={{ color: 'white', fontWeight: 'bold' }}>+ Invitar al equipo</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <Text style={{ color: '#64748b', fontSize: 12, fontStyle: 'italic' }}>
+                                Tu plan actual no incluye Equipo. Pasa a Pro Team o Gold para invitar reclutadores.
+                            </Text>
+                        )}
+                    </>
+                )}
+
+                <Modal visible={inviteModalVisible} transparent animationType="fade" onRequestClose={() => setInviteModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Invitar al equipo</Text>
+                                <TouchableOpacity onPress={() => setInviteModalVisible(false)}><X size={22} color="#6B7280" /></TouchableOpacity>
+                            </View>
+
+                            {!inviteLink ? (
+                                <>
+                                    <Text style={{ color: '#374151', fontSize: 13, marginBottom: 10 }}>Rol del nuevo miembro:</Text>
+                                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                                        <TouchableOpacity
+                                            style={[styles.selectButton, { flex: 1, justifyContent: 'center', backgroundColor: inviteRole === 'reclutador' ? '#EEF2FF' : '#fff', borderColor: inviteRole === 'reclutador' ? '#4F46E5' : '#E5E7EB' }]}
+                                            onPress={() => setInviteRole('reclutador')}
+                                        >
+                                            <Text style={{ color: inviteRole === 'reclutador' ? '#4F46E5' : '#111827', fontWeight: '600' }}>Reclutador</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.selectButton, { flex: 1, justifyContent: 'center', backgroundColor: inviteRole === 'admin' ? '#EEF2FF' : '#fff', borderColor: inviteRole === 'admin' ? '#4F46E5' : '#E5E7EB' }]}
+                                            onPress={() => setInviteRole('admin')}
+                                        >
+                                            <Text style={{ color: inviteRole === 'admin' ? '#4F46E5' : '#111827', fontWeight: '600' }}>Admin</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity style={styles.saveButton} onPress={handleGenerateInvite} disabled={generatingInvite}>
+                                        {generatingInvite ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Generar link de invitación</Text>}
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={{ color: '#374151', fontSize: 13, marginBottom: 10 }}>
+                                        Comparte este link con la persona que quieres invitar (válido por 7 días):
+                                    </Text>
+                                    <View style={{ backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, marginBottom: 15 }}>
+                                        <Text style={{ color: '#111827', fontSize: 12 }} selectable>{inviteLink}</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.saveButton}
+                                        onPress={async () => {
+                                            await Clipboard.setStringAsync(inviteLink);
+                                            Alert.alert("Copiado", "El link se copió al portapapeles.");
+                                        }}
+                                    >
+                                        <Text style={styles.buttonText}>Copiar link</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={{ marginTop: 12, alignItems: 'center' }}
+                                        onPress={() => { setInviteModalVisible(false); loadTeam(); }}
+                                    >
+                                        <Text style={{ color: '#6B7280' }}>Cerrar</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
+                    </View>
+                </Modal>
 
                 {/* SECCIÓN 5: CONTEXTO IA */}
                 <View style={[styles.sectionHeader, { marginTop: 35 }]}>
