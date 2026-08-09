@@ -278,6 +278,7 @@ export default function PricingScreen() {
                     <View style={styles.features}>
                         <FeatureItem text="Análisis Ilimitado" color="#FFFFFF" iconColor="#4F46E5" />
                         <FeatureItem text="API Privada" color="#FFFFFF" iconColor="#4F46E5" />
+                        <FeatureItem text="Landing Page Personalizada" color="#FFFFFF" iconColor="#4F46E5" />
                         <FeatureItem text="Account Manager" color="#FFFFFF" iconColor="#4F46E5" />
                     </View>
                     <TouchableOpacity 

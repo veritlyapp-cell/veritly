@@ -30,7 +30,8 @@ const PREDEFINED_FEATURES = [
     "Soporte VIP Directo",
     "Filtros Avanzados",
     "Dashboards de Analítica",
-    "API Access / SSO"
+    "API Access / SSO",
+    "Landing Page"
 ];
 
 export default function EmpresaAdminDashboard() {
@@ -359,10 +360,10 @@ export default function EmpresaAdminDashboard() {
                 priceAnnual: 2028,
                 stripePriceIdMonthly: '',
                 stripePriceIdAnnual: '',
-                isComingSoon: true,
-                isHidden: true,
+                isComingSoon: false,
+                isHidden: false,
                 isRecommended: false,
-                features: ["Análisis de IA", "Vacantes Activas", "Preguntas Filtro Ilimitadas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica", "Hasta 2 Admins y 6 Reclutadores"]
+                features: ["Análisis de IA", "Vacantes Activas", "Preguntas Filtro Ilimitadas", "Exportación a Excel/PDF", "Soporte VIP Directo", "Dashboards de Analítica", "Hasta 2 Admins y 6 Reclutadores", "Landing Page"]
             },
         ];
 
