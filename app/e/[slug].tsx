@@ -56,7 +56,7 @@ export default function CompanyLandingPage() {
             <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
             <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
                 {data.bannerUrl && (
-                    <Image source={{ uri: data.bannerUrl }} style={styles.banner} resizeMode="cover" />
+                    <Image source={{ uri: data.bannerUrl }} style={styles.banner} resizeMode="contain" />
                 )}
                 <View style={styles.header}>
                     {data.logoUrl && (

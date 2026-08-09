@@ -21,6 +21,7 @@ export default function LandingPageConfig() {
     const [brandColor, setBrandColor] = useState('#4F46E5');
     const [enabled, setEnabled] = useState(true);
     const [uploadingBanner, setUploadingBanner] = useState(false);
+    const [savingBranding, setSavingBranding] = useState(false);
 
     const showAlert = (title: string, msg: string) => {
         if (Platform.OS === 'web') window.alert(`${title}\n${msg}`);
@@ -98,7 +99,6 @@ export default function LandingPageConfig() {
             await uploadBytes(storageRef, blob);
             const url = await getDownloadURL(storageRef);
             setBannerUrl(url);
-            await handleUpdateBranding(url, brandColor, enabled);
         } catch (e: any) {
             showAlert("Error", e.message || "No se pudo subir la imagen.");
         } finally {
@@ -106,22 +106,28 @@ export default function LandingPageConfig() {
         }
     };
 
-    const handleUpdateBranding = async (newBanner?: string, newColor?: string, newEnabled?: boolean) => {
+    const handleSaveBranding = async () => {
         if (!auth.currentUser) return;
+        setSavingBranding(true);
         try {
             const idToken = await auth.currentUser.getIdToken();
-            await fetch('/.netlify/functions/landing-page', {
+            const res = await fetch('/.netlify/functions/landing-page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'update_branding', idToken, companyId: auth.currentUser.uid,
-                    bannerUrl: newBanner ?? bannerUrl,
-                    brandColor: newColor ?? brandColor,
-                    enabled: newEnabled ?? enabled
+                    bannerUrl, brandColor, enabled
                 })
             });
-        } catch (e) {
-            console.error("Error actualizando branding:", e);
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'No se pudo guardar');
+            }
+            showAlert("Guardado", "Los cambios se guardaron correctamente.");
+        } catch (e: any) {
+            showAlert("Error", e.message || "No se pudo guardar.");
+        } finally {
+            setSavingBranding(false);
         }
     };
 
@@ -197,7 +203,7 @@ export default function LandingPageConfig() {
                     {uploadingBanner ? (
                         <ActivityIndicator color="#4F46E5" />
                     ) : bannerUrl ? (
-                        <Image source={{ uri: bannerUrl }} style={styles.bannerPreview} resizeMode="cover" />
+                        <Image source={{ uri: bannerUrl }} style={styles.bannerPreview} resizeMode="contain" />
                     ) : (
                         <>
                             <ImageIcon size={24} color="#9CA3AF" />
@@ -211,11 +217,15 @@ export default function LandingPageConfig() {
                     {BRAND_COLORS.map(c => (
                         <TouchableOpacity
                             key={c}
-                            onPress={() => { setBrandColor(c); handleUpdateBranding(undefined, c, undefined); }}
+                            onPress={() => setBrandColor(c)}
                             style={[styles.colorDot, { backgroundColor: c }, brandColor === c && styles.colorDotActive]}
                         />
                     ))}
                 </View>
+
+                <TouchableOpacity style={styles.saveBrandingBtn} onPress={handleSaveBranding} disabled={savingBranding}>
+                    {savingBranding ? <ActivityIndicator color="white" /> : <Text style={styles.saveSlugBtnText}>Guardar cambios</Text>}
+                </TouchableOpacity>
 
                 <Text style={styles.footerNote}>
                     Las vacantes aparecen aquí solo si marcaste "Publicar en Página de Empleos" al crearlas o editarlas.
@@ -240,6 +250,7 @@ const styles = StyleSheet.create({
     slugPrefix: { color: '#9CA3AF', fontSize: 13 },
     slugInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#111827' },
     saveSlugBtn: { backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+    saveBrandingBtn: { backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 20 },
     saveSlugBtnText: { color: 'white', fontWeight: '700' },
     publicUrlRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, backgroundColor: '#EEF2FF', borderRadius: 10, padding: 10 },
     publicUrlText: { flex: 1, color: '#4F46E5', fontSize: 12, fontWeight: '600' },
