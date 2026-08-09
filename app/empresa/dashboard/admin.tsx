@@ -55,11 +55,14 @@ export default function EmpresaAdminDashboard() {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<CompanyProfile | null>(null);
     const [editSub, setEditSub] = useState({
+        planId: '',
         plan: '',
         aiAnalysisLimit: 0,
         internalVacanciesLimit: 0,
         publicVacanciesLimit: 0,
         killerQuestionsLimit: 0,
+        maxAdmins: 1,
+        maxRecruiters: 0,
     });
 
     // Plan Modal State
@@ -472,11 +475,14 @@ export default function EmpresaAdminDashboard() {
     const openEditModal = (comp: CompanyProfile) => {
         setSelectedCompany(comp);
         setEditSub({
+            planId: (comp.subscription as any)?.planId || '',
             plan: comp.subscription?.plan || 'beta_free',
             aiAnalysisLimit: comp.subscription?.aiAnalysisLimit || 200,
             internalVacanciesLimit: comp.subscription?.internalVacanciesLimit || 10,
             publicVacanciesLimit: comp.subscription?.publicVacanciesLimit || 5,
             killerQuestionsLimit: comp.subscription?.killerQuestionsLimit || 2,
+            maxAdmins: (comp.subscription as any)?.maxAdmins || 1,
+            maxRecruiters: (comp.subscription as any)?.maxRecruiters || 0,
         });
         setEditModalVisible(true);
     };
@@ -694,8 +700,34 @@ export default function EmpresaAdminDashboard() {
                         <Text style={styles.modalTitle}>Editar Cuenta</Text>
                         <Text style={styles.modalSub}>{selectedCompany?.email}</Text>
 
+                        <Text style={styles.label}>Aplicar un plan existente</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15 }}>
+                            {plans.map((p: any) => (
+                                <TouchableOpacity
+                                    key={p.id}
+                                    onPress={() => setEditSub({
+                                        planId: p.id,
+                                        plan: p.name,
+                                        aiAnalysisLimit: p.aiAnalysisLimit || 0,
+                                        internalVacanciesLimit: p.internalVacanciesLimit || 0,
+                                        publicVacanciesLimit: p.publicVacanciesLimit || p.internalVacanciesLimit || 0,
+                                        killerQuestionsLimit: p.killerQuestionsLimit || 0,
+                                        maxAdmins: p.maxAdmins || 1,
+                                        maxRecruiters: p.maxRecruiters || 0,
+                                    })}
+                                    style={{
+                                        paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1,
+                                        borderColor: editSub.planId === p.id ? COLORS.primary : '#E5E7EB',
+                                        backgroundColor: editSub.planId === p.id ? 'rgba(79,70,229,0.08)' : '#fff'
+                                    }}
+                                >
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: editSub.planId === p.id ? COLORS.primary : '#374151' }}>{p.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
                         <Text style={styles.label}>Plan Activo (ID)</Text>
-                        <TextInput 
+                        <TextInput
                             style={styles.input}
                             value={editSub.plan}
                             onChangeText={t => setEditSub({...editSub, plan: t})}
