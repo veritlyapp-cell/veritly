@@ -48,7 +48,7 @@ export function buildPlanActivatedEmail(params: {
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:16px;overflow:hidden;max-width:480px;width:100%;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
         <tr>
           <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:24px;">
-            <img src="https://www.veritlyapp.com/veritly-logo-email.png" alt="Veritly" width="120" style="display:block;max-width:120px;height:auto;">
+            <img src="https://www.veritlyapp.com/veritly-logo-email.png?v=2" alt="Veritly" width="120" style="display:block;max-width:120px;height:auto;">
           </td>
         </tr>
         <tr>
