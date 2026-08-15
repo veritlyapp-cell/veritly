@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { adminDb } from './_firebaseAdmin';
+import { sendEmail } from './_sendEmail';
+import { buildPlanActivatedEmail } from './_emailTemplates';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -74,6 +76,24 @@ export const handler: Handler = async (event) => {
                     }
                 }, { merge: true });
                 console.log(`✅ [stripe-webhook] Plan '${planId}' activado para: ${userId}`);
+
+                try {
+                    const toEmail = session.customer_details?.email;
+                    if (toEmail) {
+                        const { subject, html } = buildPlanActivatedEmail({
+                            companyName: session.customer_details?.name || 'equipo',
+                            planName: planData?.name || planId,
+                            aiAnalysisLimit: planData?.aiAnalysisLimit,
+                            internalVacanciesLimit: planData?.internalVacanciesLimit,
+                            killerQuestionsLimit: planData?.killerQuestionsLimit,
+                            features: planData?.features,
+                        });
+                        await sendEmail({ to: toEmail, subject, html });
+                        console.log(`✉️ [stripe-webhook] Correo de plan activado enviado a: ${toEmail}`);
+                    }
+                } catch (emailError) {
+                    console.error("⚠️ [stripe-webhook] No se pudo enviar el correo de plan activado:", emailError);
+                }
                 break;
             }
 
