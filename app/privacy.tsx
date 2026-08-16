@@ -20,11 +20,11 @@ export default function PrivacyScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Política de Privacidad - Veritly</Text>
-                <Text style={styles.date}>Última actualización: 27 de diciembre de 2025</Text>
+                <Text style={styles.date}>Última actualización: 16 de agosto de 2026</Text>
 
                 <View style={styles.section}>
                     <Text style={styles.text}>
-                        Veritly, un producto de Relié Labs SAC (en adelante, "Veritly"), se compromete a proteger la privacidad de los usuarios que utilizan nuestra tecnología de emparejamiento inteligente (matching). Esta política explica cómo tratamos la información para conectar el talento con las vacantes ideales.
+                        Veritly, un producto de Relié Labs LLC (en adelante, "Veritly"), se compromete a proteger la privacidad de los usuarios que utilizan nuestra tecnología de emparejamiento inteligente (matching). Esta política explica cómo tratamos la información para conectar el talento con las vacantes ideales.
                     </Text>
                 </View>
 
@@ -75,11 +75,11 @@ export default function PrivacyScreen() {
                 <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 30 }} />
 
                 <Text style={styles.title}>Términos y Condiciones de Uso - Veritly</Text>
-                <Text style={styles.date}>Última actualización: 27 de diciembre de 2025</Text>
+                <Text style={styles.date}>Última actualización: 16 de agosto de 2026</Text>
 
                 <View style={styles.section}>
                     <Text style={styles.text}>
-                        Los presentes Términos y Condiciones regulan el acceso y uso de la plataforma Veritly (en adelante, "la Plataforma"), propiedad de Relié Labs SAC (en adelante, "Relié"). Al utilizar la Plataforma, el usuario (en adelante, "el Usuario") acepta plenamente estos términos.
+                        Los presentes Términos y Condiciones regulan el acceso y uso de la plataforma Veritly (en adelante, "la Plataforma"), propiedad de Relié Labs LLC (en adelante, "Relié"). Al utilizar la Plataforma, el usuario (en adelante, "el Usuario") acepta plenamente estos términos.
                     </Text>
                 </View>
 
@@ -123,7 +123,7 @@ export default function PrivacyScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>5. Propiedad Intelectual</Text>
                     <Text style={styles.text}>
-                        Todo el software, algoritmos, marcas (Relié, Liah, Veritly), logotipos y diseños asociados a la Plataforma son propiedad exclusiva de Relié Labs SAC. Queda prohibida su reproducción, ingeniería inversa o distribución sin autorización expresa por escrito.
+                        Todo el software, algoritmos, marcas (Relié, Liah, Veritly), logotipos y diseños asociados a la Plataforma son propiedad exclusiva de Relié Labs LLC. Queda prohibida su reproducción, ingeniería inversa o distribución sin autorización expresa por escrito.
                     </Text>
                 </View>
 
