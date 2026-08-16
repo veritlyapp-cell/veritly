@@ -234,13 +234,13 @@ export default function VeritlyLandingPage() {
                             </View>
                         </View>
 
-                        <View style={[styles.heroRight, isDesktop && { flex: 1 }, !isDesktop && { marginTop: 60 }]}>
-                            <View style={styles.heroImageContainer}>
+                        <View style={[styles.heroRight, isDesktop ? { flex: 1 } : { width: '100%', marginTop: 60 }]}>
+                            <View style={[styles.heroImageContainer, !isDesktop && { width: '100%', alignItems: 'center' }]}>
                                 <Image
                                     source={HeroLaptop}
                                     style={[
                                         styles.heroLaptopImage,
-                                        { height: isDesktop ? 400 : 250, width: isDesktop ? 600 : '100%', maxWidth: 350 }
+                                        { height: isDesktop ? 400 : 250, width: isDesktop ? 600 : '90%', maxWidth: 350 }
                                     ]}
                                     resizeMode="contain"
                                 />
