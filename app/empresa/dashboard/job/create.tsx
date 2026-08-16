@@ -2,7 +2,7 @@ import { setStringAsync } from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, updateDoc, query, where, getDocs } from 'firebase/firestore';
-import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings, Plus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Check, Copy, FileText, Sparkles, Upload, Link as LinkIcon, DollarSign, Settings, Plus, Trash2, Wand2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../../../../config/firebase';
@@ -352,6 +352,33 @@ export default function CreateJob() {
         }
     };
 
+    const handleUseExample = () => {
+        setJobData({
+            ...jobData,
+            jobTitle: 'Ejecutivo/a de Ventas B2B',
+            requiredExperience: '2 años de experiencia en ventas B2B o desarrollo de negocio',
+            hardSkills: ['Prospección de clientes', 'CRM (HubSpot/Salesforce)', 'Negociación', 'Excel intermedio'],
+            killerQuestions: [
+                { question: '¿Cuentas con disponibilidad para trabajar de forma presencial?', expectedAnswer: 'si' },
+                { question: '¿Tienes experiencia previa vendiendo productos o servicios B2B?', expectedAnswer: 'si' }
+            ]
+        });
+        setOptimizedDescription(
+            'Buscamos un/a Ejecutivo/a de Ventas B2B para sumarse a nuestro equipo comercial.\n\n' +
+            'Responsabilidades:\n' +
+            '- Prospectar y calificar nuevos clientes potenciales.\n' +
+            '- Gestionar el ciclo de ventas de principio a fin.\n' +
+            '- Mantener actualizado el CRM con el estado de cada oportunidad.\n' +
+            '- Cumplir metas mensuales de ventas.\n\n' +
+            'Requisitos:\n' +
+            '- 2 años de experiencia en ventas B2B o desarrollo de negocio.\n' +
+            '- Manejo de herramientas CRM.\n' +
+            '- Excelentes habilidades de comunicación y negociación.\n\n' +
+            'Este es un anuncio de ejemplo: edita cada campo con los datos reales de tu vacante.'
+        );
+        setStep(2);
+    };
+
     const handleSave = async () => {
         if (!auth.currentUser || !jobData) return;
         console.log("💾 Iniciando guardado de puesto...");
@@ -497,6 +524,17 @@ export default function CreateJob() {
                                 ) : (
                                     <><Text style={styles.buttonText}>CREAR ANUNCIO CON IA</Text><Sparkles color="white" size={20} style={{ marginLeft: 10 }} /></>
                                 )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 15, padding: 10 }}
+                                onPress={handleUseExample}
+                                disabled={loading}
+                            >
+                                <Wand2 color="#38bdf8" size={16} />
+                                <Text style={{ color: '#38bdf8', marginLeft: 8, fontSize: 13, fontWeight: 'bold' }}>
+                                    O usa una vacante de ejemplo para empezar
+                                </Text>
                             </TouchableOpacity>
                         </>
                     ) : (

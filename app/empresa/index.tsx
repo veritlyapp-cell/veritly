@@ -9,11 +9,46 @@ const LocalLogo = require('../../assets/images/veritly3.png');
 const CompanyHeroImage = require('../../assets/images/company_hero.png');
 const AIFeatureImage = require('../../assets/images/ai_feature.png');
 
+// Precios base en config_plans están en Soles (PEN); detectamos el país del
+// visitante y convertimos con el tipo de cambio para mostrar su moneda local.
+const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
+    PE: { currency: 'PEN', symbol: 'S/' },
+    CO: { currency: 'COP', symbol: '$' },
+    EC: { currency: 'USD', symbol: '$' },
+    BO: { currency: 'BOB', symbol: 'Bs' },
+    CL: { currency: 'CLP', symbol: '$' },
+    PY: { currency: 'PYG', symbol: '₲' },
+    MX: { currency: 'MXN', symbol: '$' },
+    AR: { currency: 'ARS', symbol: '$' },
+};
+
+const formatCurrencyValue = (val: number, currency: string) => {
+    if (currency === 'PEN') return val.toString();
+    if (currency === 'USD') return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
+    const rounded = Math.round(val);
+    try {
+        return rounded.toLocaleString('es-ES');
+    } catch (e) {
+        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+};
+
 export default function VeritlyCompanyLandingPage() {
     const router = useRouter();
 
     const [plans, setPlans] = useState<any[]>([]);
     const [plansLoading, setPlansLoading] = useState(true);
+    const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
+        USD: 0.27,
+        COP: 1100,
+        CLP: 250,
+        BOB: 1.85,
+        PYG: 2000,
+        MXN: 4.9,
+        ARS: 260,
+        PEN: 1.0,
+    });
 
     useEffect(() => {
         const fetchPlans = async () => {
@@ -31,7 +66,43 @@ export default function VeritlyCompanyLandingPage() {
             }
         };
         fetchPlans();
+
+        const detectLocation = async () => {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                const country = data.country_code || 'PE';
+                const mapping = CURRENCY_MAP[country] || { currency: 'USD', symbol: '$' };
+                setLocationInfo({ country, currency: mapping.currency, symbol: mapping.symbol });
+            } catch (error) {
+                console.error("Error detectando ubicación:", error);
+                setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+            }
+        };
+        detectLocation();
+
+        const fetchExchangeRates = async () => {
+            try {
+                const response = await fetch('https://open.er-api.com/v6/latest/PEN');
+                const data = await response.json();
+                if (data && data.result === 'success' && data.rates) {
+                    setExchangeRates(prev => ({ ...prev, ...data.rates }));
+                }
+            } catch (e) {
+                console.error("Error fetching exchange rates:", e);
+            }
+        };
+        fetchExchangeRates();
     }, []);
+
+    const getDisplayPrice = (priceInSoles: number) => {
+        let displayPrice = priceInSoles;
+        if (locationInfo.currency !== 'PEN') {
+            const rate = exchangeRates[locationInfo.currency] || (locationInfo.currency === 'USD' ? 0.27 : 1.0);
+            displayPrice = priceInSoles * rate;
+        }
+        return `${locationInfo.symbol} ${formatCurrencyValue(displayPrice, locationInfo.currency)}`;
+    };
 
     const features = [
         {
@@ -172,21 +243,21 @@ export default function VeritlyCompanyLandingPage() {
                     </View>
                 </View>
 
-                {/* TESTIMONIAL / SOCIAL PROOF */}
+                {/* ETAPA TEMPRANA - mensaje honesto, sin cifras infladas */}
                 <View style={styles.proofSection}>
-                    <Text style={styles.proofTitle}>Empresas que ya confían en Veritly</Text>
+                    <Text style={styles.proofTitle}>Estamos empezando</Text>
                     <View style={styles.metricsContainer}>
                         <View style={styles.metricCard}>
-                            <Text style={styles.metricNumber}>500+</Text>
-                            <Text style={styles.metricLabel}>Empresas activas</Text>
+                            <Text style={styles.metricNumber}>IA</Text>
+                            <Text style={styles.metricLabel}>Match Score automático</Text>
                         </View>
                         <View style={styles.metricCard}>
-                            <Text style={styles.metricNumber}>10K+</Text>
-                            <Text style={styles.metricLabel}>CVs analizados</Text>
+                            <Text style={styles.metricNumber}>1 min</Text>
+                            <Text style={styles.metricLabel}>Para publicar una vacante</Text>
                         </View>
                         <View style={styles.metricCard}>
-                            <Text style={styles.metricNumber}>85%</Text>
-                            <Text style={styles.metricLabel}>Tiempo ahorrado</Text>
+                            <Text style={styles.metricNumber}>0</Text>
+                            <Text style={styles.metricLabel}>Excel para gestionar</Text>
                         </View>
                     </View>
                 </View>
@@ -210,7 +281,7 @@ export default function VeritlyCompanyLandingPage() {
                                     )}
                                     <Text style={styles.pricingPlanName}>{plan.name}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 }}>
-                                        <Text style={styles.pricingPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.pricingPrice}>{getDisplayPrice(plan.priceMonthly || 0)}</Text>
                                         <Text style={styles.pricingPeriod}>/mes</Text>
                                     </View>
                                     <View style={{ marginTop: 16, gap: 10 }}>

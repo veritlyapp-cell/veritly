@@ -127,8 +127,8 @@ export default function CompanySignIn() {
                 if (ruc.length !== 11) return showAlert('RUC Inválido', 'El RUC debe tener 11 dígitos.');
                 if (!razonSocial) return showAlert('Datos Incompletos', 'Por favor ingresa la Razón Social.');
             } else {
-                if (!dni) return showAlert('Datos Incompletos', 'Por favor ingresa tu DNI.');
-                if (dni.length !== 8) return showAlert('DNI Inválido', 'El DNI debe tener 8 dígitos.');
+                // El DNI/ID es opcional al registrarte: no debe frenar la activación.
+                // Solo lo validamos si el usuario decidió llenarlo.
                 if (!fullName) return showAlert('Datos Incompletos', 'Por favor ingresa tu Nombre Completo.');
             }
         }
@@ -163,7 +163,7 @@ export default function CompanySignIn() {
                     type: userType,
                     ruc: userType === 'empresa' ? ruc : undefined,
                     razonSocial: userType === 'empresa' ? razonSocial : undefined,
-                    dni: userType === 'independiente' ? dni : undefined
+                    dni: (userType === 'independiente' && dni.trim()) ? dni.trim() : undefined
                 });
 
                 console.log('✅ Empresa creada');
@@ -326,18 +326,17 @@ export default function CompanySignIn() {
                                 {/* INDEPENDIENTE FIELDS */}
                                 {isRegistering && userType === 'independiente' && (
                                     <View>
-                                        <Text style={styles.label}>DNI</Text>
+                                        <Text style={styles.label}>DNI / ID (opcional)</Text>
                                         <View style={{ marginBottom: 15 }}>
                                             <View style={styles.inputGroup}>
                                                 <UserPlus color="#94a3b8" size={20} />
                                                 <TextInput
                                                     style={styles.input}
-                                                    placeholder="12345678"
+                                                    placeholder="Tu documento de identidad"
                                                     placeholderTextColor="#64748b"
                                                     value={dni}
                                                     onChangeText={(t) => { setDni(t); }}
-                                                    keyboardType="numeric"
-                                                    maxLength={8}
+                                                    maxLength={20}
                                                 />
                                             </View>
                                         </View>

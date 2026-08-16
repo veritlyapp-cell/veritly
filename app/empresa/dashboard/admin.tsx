@@ -336,7 +336,7 @@ export default function EmpresaAdminDashboard() {
                 internalVacanciesLimit: 15,
                 publicVacanciesLimit: 15,
                 killerQuestionsLimit: 5,
-                maxAdmins: 2,
+                maxAdmins: 1,
                 maxRecruiters: 4,
                 priceMonthly: 149,
                 priceAnnual: 1520,
@@ -345,7 +345,7 @@ export default function EmpresaAdminDashboard() {
                 isComingSoon: false,
                 isHidden: false,
                 isRecommended: false,
-                features: ["Análisis de IA", "Vacantes Activas", "Exportación a Excel/PDF", "Filtros Avanzados", "Hasta 2 Admins y 4 Reclutadores"]
+                features: ["Análisis de IA", "Vacantes Activas", "Exportación a Excel/PDF", "Filtros Avanzados", "Asigna vacantes a cada reclutador (1 Admin + 4 Reclutadores)"]
             },
             {
                 id: 'plan_gold',

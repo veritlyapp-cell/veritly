@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Star, Users, Zap, FileText } from 'lucide-react-native';
+import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Users, Zap, FileText } from 'lucide-react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import React, { useRef, useState, useEffect } from 'react';
@@ -7,6 +7,30 @@ import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleShe
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
+
+// Precios base en config_plans están en Soles (PEN); detectamos el país del
+// visitante y convertimos con el tipo de cambio para mostrar su moneda local.
+const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
+    PE: { currency: 'PEN', symbol: 'S/' },
+    CO: { currency: 'COP', symbol: '$' },
+    EC: { currency: 'USD', symbol: '$' },
+    BO: { currency: 'BOB', symbol: 'Bs' },
+    CL: { currency: 'CLP', symbol: '$' },
+    PY: { currency: 'PYG', symbol: '₲' },
+    MX: { currency: 'MXN', symbol: '$' },
+    AR: { currency: 'ARS', symbol: '$' },
+};
+
+const formatCurrencyValue = (val: number, currency: string) => {
+    if (currency === 'PEN') return val.toString();
+    if (currency === 'USD') return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
+    const rounded = Math.round(val);
+    try {
+        return rounded.toLocaleString('es-ES');
+    } catch (e) {
+        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+};
 
 // Light Tech Theme Colors
 const COLORS = {
@@ -30,6 +54,17 @@ export default function VeritlyLandingPage() {
 
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
     const [plansLoading, setPlansLoading] = useState(true);
+    const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
+        USD: 0.27,
+        COP: 1100,
+        CLP: 250,
+        BOB: 1.85,
+        PYG: 2000,
+        MXN: 4.9,
+        ARS: 260,
+        PEN: 1.0,
+    });
 
     const scrollRef = useRef<ScrollView>(null);
     const [sectionPositions, setSectionPositions] = useState({
@@ -53,7 +88,43 @@ export default function VeritlyLandingPage() {
             }
         };
         fetchPlans();
+
+        const detectLocation = async () => {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                const country = data.country_code || 'PE';
+                const mapping = CURRENCY_MAP[country] || { currency: 'USD', symbol: '$' };
+                setLocationInfo({ country, currency: mapping.currency, symbol: mapping.symbol });
+            } catch (error) {
+                console.error("Error detectando ubicación:", error);
+                setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
+            }
+        };
+        detectLocation();
+
+        const fetchExchangeRates = async () => {
+            try {
+                const response = await fetch('https://open.er-api.com/v6/latest/PEN');
+                const data = await response.json();
+                if (data && data.result === 'success' && data.rates) {
+                    setExchangeRates(prev => ({ ...prev, ...data.rates }));
+                }
+            } catch (e) {
+                console.error("Error fetching exchange rates:", e);
+            }
+        };
+        fetchExchangeRates();
     }, []);
+
+    const getDisplayPrice = (priceInSoles: number) => {
+        let displayPrice = priceInSoles;
+        if (locationInfo.currency !== 'PEN') {
+            const rate = exchangeRates[locationInfo.currency] || (locationInfo.currency === 'USD' ? 0.27 : 1.0);
+            displayPrice = priceInSoles * rate;
+        }
+        return `${locationInfo.symbol} ${formatCurrencyValue(displayPrice, locationInfo.currency)}`;
+    };
 
     const scrollToSection = (section: 'howItWorks' | 'pricing') => {
         const position = sectionPositions[section];
@@ -120,8 +191,8 @@ export default function VeritlyLandingPage() {
                         <View style={[styles.heroLeft, isDesktop && { flex: 1, maxWidth: 600 }]}>
                             <View style={[styles.trustBadge, { backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
                                 <Sparkles size={14} color={COLORS.accent} />
-                                <Text style={[styles.trustBadgeText, { color: COLORS.accent }]}>R2R: DISEÑADO POR RECLUTADORES PARA RECLUTADORES</Text>
-                            </View>                            
+                                <Text style={[styles.trustBadgeText, { color: COLORS.accent }]}>DISEÑADO POR RECLUTADORES, PARA RECLUTADORES</Text>
+                            </View>
 
                             <Text style={[
                                 styles.heroTitle,
@@ -147,19 +218,17 @@ export default function VeritlyLandingPage() {
 
                                 <Text style={[styles.heroSubText, !isDesktop && { textAlign: 'center' }]}>Sin tarjetas de crédito. Configuración en 2 minutos.</Text>
                                 
-                                {/* Social Proof */}
-                                <View style={{ 
-                                    flexDirection: isDesktop ? 'row' : 'column', 
-                                    alignItems: 'center', 
-                                    marginTop: 20, 
-                                    gap: 8, 
-                                    alignSelf: isDesktop ? 'flex-start' : 'center' 
+                                {/* Etapa temprana - mensaje honesto, sin cifras infladas */}
+                                <View style={{
+                                    flexDirection: isDesktop ? 'row' : 'column',
+                                    alignItems: 'center',
+                                    marginTop: 20,
+                                    gap: 8,
+                                    alignSelf: isDesktop ? 'flex-start' : 'center'
                                 }}>
-                                    <View style={{ flexDirection: 'row' }}>
-                                        {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={16} color="#FBBF24" fill="#FBBF24" />)}
-                                    </View>
+                                    <Zap size={16} color={COLORS.accent} />
                                     <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: '600', textAlign: 'center' }}>
-                                        Únete a +150 reclutadores que ya dejaron el Excel.
+                                        Estamos empezando — sé de los primeros reclutadores en dejar el Excel.
                                     </Text>
                                 </View>
                             </View>
@@ -246,7 +315,7 @@ export default function VeritlyLandingPage() {
                                     )}
                                     <Text style={[styles.planName, plan.isRecommended && { color: COLORS.primary }]}>{plan.name}</Text>
                                     <View style={styles.priceRow}>
-                                        <Text style={styles.planPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.planPrice}>{getDisplayPrice(plan.priceMonthly || 0)}</Text>
                                         <Text style={styles.planPriceUnit}>{plan.priceMonthly > 0 ? '/ mes' : '/ permanente'}</Text>
                                     </View>
                                     <Text style={styles.planDesc}>
