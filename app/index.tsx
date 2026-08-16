@@ -3,7 +3,7 @@ import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, Map
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import React, { useRef, useState, useEffect } from 'react';
-import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
@@ -29,6 +29,7 @@ export default function VeritlyLandingPage() {
     const isDesktop = width >= 768;
 
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
+    const [plansLoading, setPlansLoading] = useState(true);
 
     const scrollRef = useRef<ScrollView>(null);
     const [sectionPositions, setSectionPositions] = useState({
@@ -40,11 +41,15 @@ export default function VeritlyLandingPage() {
         const fetchPlans = async () => {
             try {
                 const plansSnap = await getDocs(collection(db, 'config_plans'));
-                const plansData = plansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+                const plansData = plansSnap.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() } as any))
+                    .filter((p: any) => !p.isHidden);
                 plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
                 setSystemPlans(plansData);
             } catch (e) {
                 console.error("Error fetching plans:", e);
+            } finally {
+                setPlansLoading(false);
             }
         };
         fetchPlans();
@@ -228,51 +233,64 @@ export default function VeritlyLandingPage() {
                     <Text style={styles.sectionTitle}>Planes y Precios</Text>
                     <Text style={styles.sectionSubtitle}>Comienza gratis hoy y escala tu consultoría a medida que creces.</Text>
 
-                    <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
-                        {/* Plan Base */}
-                        <View style={[styles.pricingCard, styles.pricingCardActive]}>
-                            <View style={styles.bestValueBadge}>
-                                <Text style={styles.bestValueText}>PLAN FUNDADORES</Text>
-                            </View>
-                            <Text style={[styles.planName, { color: COLORS.primary }]}>Plan Base</Text>
-                            <View style={styles.priceRow}>
-                                <Text style={styles.planPrice}>S/ 0</Text>
-                                <Text style={styles.planPriceUnit}>/ permanente</Text>
-                            </View>
-                            <Text style={styles.planDesc}>
-                                Ideal para reclutadores independientes, consultoras y PYMEs que quieren centralizar su reclutamiento.
-                            </Text>
-                            
-                            <View style={styles.planFeatures}>
-                                <FeatureItemLanding text="200 Análisis de perfiles por IA" />
-                                <FeatureItemLanding text="Publicar 5 anuncios en simultáneo" />
-                                <FeatureItemLanding text="Subir CVs por PDF, Word y Excel" />
-                            </View>
-                            <TouchableOpacity 
-                                style={styles.planButtonPrimary}
-                                onPress={() => router.push('/empresa/signin?register=true')}
-                            >
-                                <Text style={styles.planButtonPrimaryText}>Empezar Gratis Ahora</Text>
-                            </TouchableOpacity>
-                        </View>
+                    {plansLoading ? (
+                        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
+                    ) : (
+                        <View style={[styles.pricingGrid, isDesktop && styles.pricingGridDesktop]}>
+                            {systemPlans.map((plan: any) => (
+                                <View key={plan.id} style={[styles.pricingCard, plan.isRecommended && styles.pricingCardActive]}>
+                                    {plan.isRecommended && (
+                                        <View style={styles.bestValueBadge}>
+                                            <Text style={styles.bestValueText}>RECOMENDADO</Text>
+                                        </View>
+                                    )}
+                                    <Text style={[styles.planName, plan.isRecommended && { color: COLORS.primary }]}>{plan.name}</Text>
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.planPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.planPriceUnit}>{plan.priceMonthly > 0 ? '/ mes' : '/ permanente'}</Text>
+                                    </View>
+                                    <Text style={styles.planDesc}>
+                                        {plan.priceMonthly > 0
+                                            ? 'Para reclutadores y equipos que buscan escalar sus procesos.'
+                                            : 'Ideal para reclutadores independientes, consultoras y PYMEs que arrancan.'}
+                                    </Text>
 
-                        {/* Enterprise */}
-                        <View style={styles.pricingCard}>
-                            <Text style={styles.planName}>Enterprise</Text>
-                            <View style={styles.priceRow}>
-                                <Text style={styles.planPrice}>Custom</Text>
+                                    <View style={styles.planFeatures}>
+                                        <FeatureItemLanding text={`${plan.aiAnalysisLimit || 0} análisis de IA por mes`} />
+                                        <FeatureItemLanding text={`${plan.internalVacanciesLimit || 0} vacantes activas`} />
+                                        {(plan.features || []).slice(0, 2).map((f: string, i: number) => (
+                                            <FeatureItemLanding key={i} text={f} />
+                                        ))}
+                                    </View>
+                                    <TouchableOpacity
+                                        style={plan.isRecommended ? styles.planButtonPrimary : styles.planButtonSecondary}
+                                        onPress={() => router.push('/empresa/signin?register=true')}
+                                    >
+                                        <Text style={plan.isRecommended ? styles.planButtonPrimaryText : styles.planButtonSecondaryText}>
+                                            {plan.priceMonthly > 0 ? 'Elegir Plan' : 'Empezar Gratis Ahora'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+
+                            {/* Enterprise: no vive en config_plans, es a medida */}
+                            <View style={styles.pricingCard}>
+                                <Text style={styles.planName}>Enterprise</Text>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.planPrice}>Custom</Text>
+                                </View>
+                                <Text style={styles.planDesc}>Soluciones a medida para grandes equipos de RPO y corporaciones.</Text>
+                                <View style={styles.planFeatures}>
+                                    <FeatureItemLanding text="Análisis Ilimitado" />
+                                    <FeatureItemLanding text="API Privada / SSO" />
+                                    <FeatureItemLanding text="Account Manager" />
+                                </View>
+                                <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('https://wa.me/51986731032')}>
+                                    <Text style={styles.planButtonSecondaryText}>Contactar</Text>
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.planDesc}>Soluciones a medida para grandes equipos de RPO y corporaciones.</Text>
-                            <View style={styles.planFeatures}>
-                                <FeatureItemLanding text="Análisis Ilimitado" />
-                                <FeatureItemLanding text="API Privada / SSO" />
-                                <FeatureItemLanding text="Account Manager" />
-                            </View>
-                            <TouchableOpacity style={styles.planButtonSecondary} onPress={() => Linking.openURL('https://wa.me/51986731032')}>
-                                <Text style={styles.planButtonSecondaryText}>Contactar</Text>
-                            </TouchableOpacity>
                         </View>
-                    </View>
+                    )}
                 </View>
 
                 {/* ========== BOTTOM CTA ========== */}
