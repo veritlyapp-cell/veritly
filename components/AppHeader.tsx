@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, LogOut, Share2 } from 'lucide-react-native';
+import { ArrowLeft, LogOut } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Image, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../config/firebase';
 
 const LocalLogo = require('../assets/images/veritly3.png');
+const RacsoLogo = require('../assets/images/racso-logo.png');
 
 interface AppHeaderProps {
     showAuthButtons?: boolean;
@@ -47,35 +48,8 @@ export default function AppHeader({
         }
     };
 
-    const handleShare = async () => {
-        const shareMessage = {
-            title: 'Veritly - IA para tu carrera',
-            message: '¡Descubre Veritly! 🚀 Usa IA para analizar vacantes y mejorar tu CV. Antes de postular, Veritly. https://veritly.netlify.app',
-            url: 'https://veritly.netlify.app'
-        };
-
-        try {
-            if (Platform.OS === 'web') {
-                if (navigator.share) {
-                    await navigator.share({
-                        title: shareMessage.title,
-                        text: shareMessage.message,
-                        url: shareMessage.url
-                    });
-                } else {
-                    await navigator.clipboard.writeText(`${shareMessage.message}\n${shareMessage.url}`);
-                    window.alert('¡Link copiado al portapapeles!');
-                }
-            } else {
-                await Share.share({
-                    message: shareMessage.message,
-                    url: shareMessage.url,
-                    title: shareMessage.title
-                });
-            }
-        } catch (error: any) {
-            console.log('Error sharing:', error);
-        }
+    const handleOpenRacso = () => {
+        Linking.openURL('https://racso.app/ingreso');
     };
 
     const activeHeaderStyle = [
@@ -113,19 +87,16 @@ export default function AppHeader({
                         onPress={() => router.replace(homeRoute as any)}
                     >
                         <Image source={LocalLogo} style={styles.logoImage} resizeMode="contain" />
-                        <View>
-                            <Text style={styles.appName}>{title || 'VERITLY'}</Text>
-                            <Text style={styles.tagline}>Antes de postular, Veritly</Text>
-                        </View>
+                        <Text style={styles.appName}>{title || 'VERITLY'}</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
             {showAuthButtons && !minimal && (
                 <View style={styles.buttonSection}>
-                    <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-                        <Share2 size={18} color="#3b82f6" />
-                        <Text style={styles.shareButtonText}>Compartir</Text>
+                    <TouchableOpacity style={styles.racsoButton} onPress={handleOpenRacso}>
+                        <Image source={RacsoLogo} style={styles.racsoLogo} />
+                        <Text style={styles.racsoButtonText}>Racso</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -182,30 +153,29 @@ const styles = StyleSheet.create({
         color: 'white',
         letterSpacing: 2
     },
-    tagline: {
-        fontSize: 9,
-        color: '#f59e0b',
-        fontStyle: 'italic',
-        fontWeight: '600'
-    },
     buttonSection: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10
     },
-    shareButton: {
+    racsoButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
         gap: 6,
         borderWidth: 1,
-        borderColor: '#3b82f6'
+        borderColor: '#4F46E5'
     },
-    shareButtonText: {
-        color: '#3b82f6',
+    racsoLogo: {
+        width: 16,
+        height: 16,
+        borderRadius: 8
+    },
+    racsoButtonText: {
+        color: '#4F46E5',
         fontSize: 12,
         fontWeight: 'bold'
     },

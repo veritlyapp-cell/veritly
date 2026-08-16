@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
-import { BarChart3, Brain, Clock, TrendingUp, Users, Zap } from 'lucide-react-native';
-import React from 'react';
-import { Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BarChart3, Brain, Check, Clock, TrendingUp, Users, Zap } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 const LocalLogo = require('../../assets/images/veritly3.png');
 const CompanyHeroImage = require('../../assets/images/company_hero.png');
@@ -9,6 +11,27 @@ const AIFeatureImage = require('../../assets/images/ai_feature.png');
 
 export default function VeritlyCompanyLandingPage() {
     const router = useRouter();
+
+    const [plans, setPlans] = useState<any[]>([]);
+    const [plansLoading, setPlansLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const snap = await getDocs(collection(db, 'config_plans'));
+                const plansData = snap.docs
+                    .map(d => ({ id: d.id, ...d.data() } as any))
+                    .filter((p: any) => !p.isHidden);
+                plansData.sort((a, b) => (a.priceMonthly || 0) - (b.priceMonthly || 0));
+                setPlans(plansData);
+            } catch (e) {
+                console.error("Error cargando planes:", e);
+            } finally {
+                setPlansLoading(false);
+            }
+        };
+        fetchPlans();
+    }, []);
 
     const features = [
         {
@@ -168,6 +191,58 @@ export default function VeritlyCompanyLandingPage() {
                     </View>
                 </View>
 
+                {/* PRICING SECTION */}
+                <View style={styles.pricingSection}>
+                    <Text style={styles.sectionTitle}>Planes simples, sin sorpresas</Text>
+                    {plansLoading ? (
+                        <ActivityIndicator size="large" color="#10b981" style={{ marginVertical: 30 }} />
+                    ) : (
+                        <View style={styles.pricingGrid}>
+                            {plans.map((plan) => (
+                                <View
+                                    key={plan.id}
+                                    style={[styles.pricingCard, plan.isRecommended && styles.pricingCardRecommended]}
+                                >
+                                    {plan.isRecommended && (
+                                        <View style={styles.recommendedBadge}>
+                                            <Text style={styles.recommendedBadgeText}>RECOMENDADO</Text>
+                                        </View>
+                                    )}
+                                    <Text style={styles.pricingPlanName}>{plan.name}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 }}>
+                                        <Text style={styles.pricingPrice}>S/ {plan.priceMonthly || 0}</Text>
+                                        <Text style={styles.pricingPeriod}>/mes</Text>
+                                    </View>
+                                    <View style={{ marginTop: 16, gap: 10 }}>
+                                        <View style={styles.pricingFeatureRow}>
+                                            <Check size={16} color="#10b981" />
+                                            <Text style={styles.pricingFeatureText}>{plan.aiAnalysisLimit || 0} análisis de IA/mes</Text>
+                                        </View>
+                                        <View style={styles.pricingFeatureRow}>
+                                            <Check size={16} color="#10b981" />
+                                            <Text style={styles.pricingFeatureText}>{plan.internalVacanciesLimit || 0} vacantes activas</Text>
+                                        </View>
+                                        {(plan.features || []).slice(0, 3).map((f: string, i: number) => (
+                                            <View key={i} style={styles.pricingFeatureRow}>
+                                                <Check size={16} color="#10b981" />
+                                                <Text style={styles.pricingFeatureText}>{f}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.pricingButton, plan.isRecommended && styles.pricingButtonRecommended]}
+                                        onPress={() => router.push('/empresa/signin?register=true')}
+                                    >
+                                        <Text style={[styles.pricingButtonText, plan.isRecommended && { color: '#065f46' }]}>
+                                            {plan.priceMonthly > 0 ? 'Elegir Plan' : 'Empezar Gratis'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
                 {/* CTA SECTION */}
                 <View style={styles.ctaSection}>
                     <Text style={styles.ctaTitle}>¿Listo para transformar tu reclutamiento?</Text>
@@ -265,6 +340,22 @@ const styles = StyleSheet.create({
     metricCard: { flex: 1, backgroundColor: '#1e293b', borderRadius: 12, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#10b981' },
     metricNumber: { fontSize: 32, fontWeight: '900', color: '#10b981', marginBottom: 5 },
     metricLabel: { fontSize: 12, color: '#94a3b8', textAlign: 'center' },
+
+    // Pricing Section
+    pricingSection: { paddingHorizontal: 30, marginBottom: 60 },
+    pricingGrid: { gap: 16 },
+    pricingCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: '#334155', position: 'relative' },
+    pricingCardRecommended: { borderColor: '#10b981', borderWidth: 2 },
+    recommendedBadge: { position: 'absolute', top: -12, alignSelf: 'center', backgroundColor: '#10b981', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 100 },
+    recommendedBadgeText: { color: '#0a0f1e', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    pricingPlanName: { color: 'white', fontSize: 20, fontWeight: '800', marginBottom: 8 },
+    pricingPrice: { color: 'white', fontSize: 40, fontWeight: '900' },
+    pricingPeriod: { color: '#64748b', fontSize: 14, marginLeft: 4, marginBottom: 8 },
+    pricingFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    pricingFeatureText: { color: '#cbd5e1', fontSize: 14, flex: 1 },
+    pricingButton: { marginTop: 24, backgroundColor: '#334155', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+    pricingButtonRecommended: { backgroundColor: '#10b981' },
+    pricingButtonText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 
     // CTA Section
     ctaSection: { paddingHorizontal: 30, paddingVertical: 60, backgroundColor: '#065f46', alignItems: 'center', marginBottom: 40, borderRadius: 24, marginHorizontal: 20 },
