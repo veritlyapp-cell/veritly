@@ -217,19 +217,26 @@ export default function JobDetailScreen() {
 
     const loadJobAndCandidates = async () => {
         setLoading(true);
-        // Cargar features del usuario autenticado de inmediato (no depende del job)
-        await loadCurrentUserFeatures();
+        // No depende del job ni de los candidatos: se dispara en paralelo,
+        // sin bloquear el render de la lista (antes se esperaba con `await`
+        // aca mismo, retrasando innecesariamente la aparicion de candidatos).
+        loadCurrentUserFeatures();
         try {
-            // Siempre cargamos el job doc para obtener companyId
-            const jobDoc = await getDoc(doc(db, 'jobs', id as string));
+            // El job doc y los candidatos tampoco dependen uno del otro para
+            // poder pedirse: se piden a la vez en lugar de en serie.
+            const [jobDoc, data] = await Promise.all([
+                getDoc(doc(db, 'jobs', id as string)),
+                getJobCandidates(id as string)
+            ]);
+
             if (jobDoc.exists()) {
-                const data = jobDoc.data();
-                const compId = data.companyId || '';
+                const jobData = jobDoc.data();
+                const compId = jobData.companyId || '';
 
                 if (!jobDetails.description) {
                     setJobDetails({
-                        title: data.jobTitle || 'Vacante',
-                        description: data.optimizedText || data.originalText || '',
+                        title: jobData.jobTitle || 'Vacante',
+                        description: jobData.optimizedText || jobData.originalText || '',
                         companyId: compId
                     });
                 }
@@ -237,7 +244,6 @@ export default function JobDetailScreen() {
                 showAlert("Error", "No se encontró la información del puesto.");
             }
 
-            const data = await getJobCandidates(id as string);
             setCandidates(data);
         } catch (error) {
             console.error(error);
