@@ -258,6 +258,34 @@ export async function getEffectiveCompanyId(uid: string): Promise<string> {
     return uid;
 }
 
+export type CompanyMembership = { companyId: string; role: 'owner' | 'admin' | 'reclutador' };
+const membershipCache: Record<string, CompanyMembership> = {};
+
+/**
+ * Like getEffectiveCompanyId, but also returns the user's role within the
+ * company: 'owner' (the original account, uid === companyId), or the role
+ * assigned in team_members ('admin' | 'reclutador') for invited members.
+ */
+export async function getEffectiveMembership(uid: string): Promise<CompanyMembership> {
+    if (membershipCache[uid]) {
+        return membershipCache[uid];
+    }
+    try {
+        const teamMemberSnap = await getDoc(doc(db, 'team_members', uid));
+        if (teamMemberSnap.exists()) {
+            const data = teamMemberSnap.data();
+            const membership: CompanyMembership = { companyId: data.companyId, role: data.role };
+            membershipCache[uid] = membership;
+            return membership;
+        }
+    } catch (error) {
+        console.warn('⚠️ [getEffectiveMembership] team_members check failed, falling back to owner:', error);
+    }
+    const membership: CompanyMembership = { companyId: uid, role: 'owner' };
+    membershipCache[uid] = membership;
+    return membership;
+}
+
 /**
  * Gets the role of the current user from Firestore
  * Includes fallback to legacy 'companies' collection for existing users

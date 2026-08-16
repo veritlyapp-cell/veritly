@@ -1,12 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, RotateCw } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, RotateCw, UserCog } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
-import { getEffectiveCompanyId } from '../../../services/auth-service';
+import { getEffectiveMembership } from '../../../services/auth-service';
 
 const TooltipWrapper = Platform.OS === 'web' 
   ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
@@ -51,6 +51,9 @@ export default function CompanyJobs() {
     const [checkingProfile, setCheckingProfile] = useState(true);
     const [userPlan, setUserPlan] = useState('Freemium');
     const [totalCandidates, setTotalCandidates] = useState(0);
+    const [role, setRole] = useState<'owner' | 'admin' | 'reclutador'>('owner');
+    const [recruiters, setRecruiters] = useState<{ uid: string; name: string; email: string }[]>([]);
+    const [assigningJob, setAssigningJob] = useState<{ id: string; jobTitle: string } | null>(null);
 
     // Gesture state for Web pull-to-refresh
     const [pullDistance, setPullDistance] = useState(0);
@@ -131,7 +134,9 @@ export default function CompanyJobs() {
             setLoading(true);
         }
         try {
-            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+            const membership = await getEffectiveMembership(auth.currentUser.uid);
+            const companyId = membership.companyId;
+            setRole(membership.role);
             // 1. Verificar Perfil (nueva colección con fallback)
             let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
 
@@ -153,12 +158,38 @@ export default function CompanyJobs() {
 
             // 2. Cargar Puestos
             // NOTA: Quitamos orderBy temporalmente para evitar error de "Index Missing" en Firestore si no esta creado
-            const q = query(
-                collection(db, 'jobs'),
-                where('companyId', '==', companyId)
-            );
+            // Un reclutador solo ve las vacantes que el Admin le asigno explicitamente.
+            const q = membership.role === 'reclutador'
+                ? query(
+                    collection(db, 'jobs'),
+                    where('companyId', '==', companyId),
+                    where('assignedTo', '==', auth.currentUser.uid)
+                )
+                : query(
+                    collection(db, 'jobs'),
+                    where('companyId', '==', companyId)
+                );
 
             console.log("  🔎 Buscando jobs con companyId:", companyId);
+
+            // 2b. Si es Admin/dueño, cargar la lista de reclutadores para poder asignar vacantes
+            if (membership.role !== 'reclutador') {
+                try {
+                    const idToken = await auth.currentUser.getIdToken();
+                    const teamRes = await fetch('/.netlify/functions/team', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'list_team', idToken, companyId })
+                    });
+                    const teamData = await teamRes.json();
+                    if (teamRes.ok) {
+                        const onlyRecruiters = (teamData.members || []).filter((m: any) => m.role === 'reclutador');
+                        setRecruiters(onlyRecruiters.map((m: any) => ({ uid: m.uid, name: m.name, email: m.email })));
+                    }
+                } catch (teamErr) {
+                    console.warn('No se pudo cargar la lista de reclutadores:', teamErr);
+                }
+            }
 
             const querySnapshot = await getDocs(q);
             const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -258,6 +289,18 @@ export default function CompanyJobs() {
         }
     };
 
+    const handleAssignJob = async (recruiterUid: string | null) => {
+        if (!assigningJob) return;
+        try {
+            await updateDoc(doc(db, 'jobs', assigningJob.id), { assignedTo: recruiterUid || null });
+            setJobs(prev => prev.map(j => j.id === assigningJob.id ? { ...j, assignedTo: recruiterUid || null } : j));
+            setAssigningJob(null);
+        } catch (e: any) {
+            console.error('Assign job error:', e);
+            Alert.alert('Error', 'No se pudo asignar la vacante: ' + e.message);
+        }
+    };
+
     const renderJobItem = ({ item }: { item: any }) => {
         const isActive = item.status !== 'Closed';
         return (
@@ -266,6 +309,19 @@ export default function CompanyJobs() {
                 <View style={{ flex: 1, minWidth: 200 }}>
                     <Text style={styles.jobTitle}>{item.jobTitle}</Text>
                     <Text style={styles.jobMeta}>{item.location || "Remoto"} • {item.employmentType || "Tiempo Completo"}</Text>
+                    {role !== 'reclutador' && (
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}
+                            onPress={() => setAssigningJob({ id: item.id, jobTitle: item.jobTitle })}
+                        >
+                            <UserCog color="#4F46E5" size={13} />
+                            <Text style={{ color: '#4F46E5', fontSize: 11, fontWeight: '600' }}>
+                                {item.assignedTo
+                                    ? (recruiters.find(r => r.uid === item.assignedTo)?.name || 'Asignado')
+                                    : 'Sin asignar'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
                 <TouchableOpacity
                     style={[styles.statusBadge, {
@@ -340,25 +396,29 @@ export default function CompanyJobs() {
                         </TouchableOpacity>
                     </TooltipWrapper>
 
-                    <TooltipWrapper title="Editar vacante">
-                        <TouchableOpacity
-                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
-                            onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
-                        >
-                            <Pencil color="#94a3b8" size={20} />
-                            <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
-                        </TouchableOpacity>
-                    </TooltipWrapper>
+                    {role !== 'reclutador' && (
+                        <TooltipWrapper title="Editar vacante">
+                            <TouchableOpacity
+                                style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                                onPress={() => router.push({ pathname: '/empresa/dashboard/job/create', params: { id: item.id } })}
+                            >
+                                <Pencil color="#94a3b8" size={20} />
+                                <Text style={{ color: '#94a3b8', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>EDITAR</Text>
+                            </TouchableOpacity>
+                        </TooltipWrapper>
+                    )}
 
-                    <TooltipWrapper title="Eliminar vacante">
-                        <TouchableOpacity
-                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
-                            onPress={() => handleDeleteJob(item.id, item.jobTitle)}
-                        >
-                            <Trash2 color="#ef4444" size={20} />
-                            <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>BORRAR</Text>
-                        </TouchableOpacity>
-                    </TooltipWrapper>
+                    {role !== 'reclutador' && (
+                        <TooltipWrapper title="Eliminar vacante">
+                            <TouchableOpacity
+                                style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                                onPress={() => handleDeleteJob(item.id, item.jobTitle)}
+                            >
+                                <Trash2 color="#ef4444" size={20} />
+                                <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>BORRAR</Text>
+                            </TouchableOpacity>
+                        </TooltipWrapper>
+                    )}
                 </View>
             </View>
         </View>
@@ -431,11 +491,50 @@ export default function CompanyJobs() {
                 )}
             </ScrollView>
 
-            <TooltipWrapper title="Publicar Vacante" style={{ position: 'absolute', bottom: 30, right: 20, zIndex: 999 }}>
-                <TouchableOpacity style={[styles.fab, { position: 'relative', bottom: 0, right: 0 }]} onPress={() => router.push('/empresa/dashboard/job/create')}>
-                    <Plus color="white" size={30} />
-                </TouchableOpacity>
-            </TooltipWrapper>
+            {role !== 'reclutador' && (
+                <TooltipWrapper title="Publicar Vacante" style={{ position: 'absolute', bottom: 30, right: 20, zIndex: 999 }}>
+                    <TouchableOpacity style={[styles.fab, { position: 'relative', bottom: 0, right: 0 }]} onPress={() => router.push('/empresa/dashboard/job/create')}>
+                        <Plus color="white" size={30} />
+                    </TouchableOpacity>
+                </TooltipWrapper>
+            )}
+
+            <Modal visible={!!assigningJob} transparent animationType="fade" onRequestClose={() => setAssigningJob(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 380 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Asignar vacante</Text>
+                        <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>{assigningJob?.jobTitle}</Text>
+
+                        <TouchableOpacity
+                            style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}
+                            onPress={() => handleAssignJob(null)}
+                        >
+                            <Text style={{ color: '#6B7280', fontSize: 14 }}>Sin asignar</Text>
+                        </TouchableOpacity>
+
+                        {recruiters.length === 0 ? (
+                            <Text style={{ color: '#9CA3AF', fontSize: 13, paddingVertical: 12 }}>
+                                No tienes reclutadores en tu equipo todavía. Invita uno desde Configuración.
+                            </Text>
+                        ) : (
+                            recruiters.map(r => (
+                                <TouchableOpacity
+                                    key={r.uid}
+                                    style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}
+                                    onPress={() => handleAssignJob(r.uid)}
+                                >
+                                    <Text style={{ color: '#111827', fontSize: 14, fontWeight: '600' }}>{r.name}</Text>
+                                    <Text style={{ color: '#9CA3AF', fontSize: 12 }}>{r.email}</Text>
+                                </TouchableOpacity>
+                            ))
+                        )}
+
+                        <TouchableOpacity style={{ marginTop: 16, alignItems: 'center' }} onPress={() => setAssigningJob(null)}>
+                            <Text style={{ color: '#4F46E5', fontWeight: '600', fontSize: 14 }}>Cancelar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             <FeedbackButton />
         </SafeAreaView>
