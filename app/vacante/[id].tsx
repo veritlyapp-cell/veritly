@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where } from 'firebase/firestore';
 import { deductCredit } from '../../services/credits-service';
-import { saveAnalysisToCloud } from '../../services/storage';
+import { saveAnalysisToCloud, saveCandidateCvBase64 } from '../../services/storage';
 import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 import {
     ArrowLeft,
@@ -613,7 +613,6 @@ export default function ExternalApplication() {
                     country: selectedCountry,
                     salaryExpectation: expectationNumber,
                     cvUrl: cvUrl,
-                    cvBase64: cvBase64,
                     originalFileUrl: cvUrl,
                     cvFileName: file?.name || '',
                     appliedAt: serverTimestamp(),
@@ -626,6 +625,14 @@ export default function ExternalApplication() {
                     jobId: id,
                     companyId: job.companyId || ''
                 });
+
+                // El CV en base64 (solo existe cuando la subida a Storage
+                // fallo/tardo demasiado) se guarda en un doc aparte, para que
+                // la lista de candidatos del reclutador no tenga que
+                // descargar el archivo completo de cada postulante.
+                if (cvBase64) {
+                    await saveCandidateCvBase64(id as string, docRef.id, cvBase64);
+                }
                 setLastUploadedCv({ url: cvUrl ?? undefined, base64: cvBase64 ?? undefined, mimeType: file?.mimeType });
 
                 // OPCIONAL: Guardar en el perfil del usuario si marcó el checkbox

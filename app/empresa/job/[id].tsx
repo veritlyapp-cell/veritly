@@ -31,6 +31,7 @@ import {
 import CircularProgress from '../../../components/CircularProgress';
 import { auth, db, storage } from '../../../config/firebase';
 import {
+    getCandidateCvBase64,
     getCandidateHistoryForCompany,
     getJobCandidates,
     saveCandidateAnalysis,
@@ -115,6 +116,22 @@ export default function JobDetailScreen() {
     });
     const [savingEdit, setSavingEdit] = useState(false);
     const [quotaInfo, setQuotaInfo] = useState<{ limit: number; used: number }>({ limit: 200, used: 0 });
+    // CV en base64 del candidato actualmente abierto en el modal. Ya no vive
+    // en el documento principal (ver services/storage.ts), asi que se trae
+    // aparte solo cuando se abre ese candidato puntual, nunca junto a la lista.
+    const [resolvedCv, setResolvedCv] = useState<{ candidateId: string; base64: string } | null>(null);
+
+    // Resuelve el CV en base64 de un candidato puntual: usa el valor inline
+    // si el doc todavia lo trae (formato viejo), o lo trae del sub-documento
+    // privado si no. Nunca se debe pegar el resultado de vuelta en el objeto
+    // `candidate`/`selectedCandidate` en memoria (se re-escribiria en
+    // Firestore la proxima vez que ese candidato se guarde).
+    const resolveCandidateCv = async (candidate: CandidateAnalysis): Promise<string | undefined> => {
+        const inline = (candidate as any).cvBase64;
+        if (inline) return inline;
+        if (candidate.originalFileUrl || (candidate as any).cvUrl) return undefined; // hay URL, no hace falta base64
+        return (await getCandidateCvBase64(id as string, candidate.id)) || undefined;
+    };
 
     useEffect(() => {
         loadJobAndCandidates();
@@ -648,7 +665,7 @@ export default function JobDetailScreen() {
         
         try {
             let textToAnalyze = "";
-            const cvBase64 = (candidate as any).cvBase64;
+            const cvBase64 = await resolveCandidateCv(candidate);
             
             // Case 1: LinkedIn Sourced (captured text)
             if ((candidate as any).about || candidate.role) {
@@ -674,7 +691,7 @@ export default function JobDetailScreen() {
                 }
                 
                 // Passing base64 if URL is not available, with correct mimeType for Word detection
-                textToAnalyze = await extractTextFromDocument(fileSource, mimeType);
+                textToAnalyze = await extractTextFromDocument(fileSource!, mimeType);
             }
             // Case 3: Excel or manual with some summary/experience
             else if (candidate.summary || (candidate as any).experience || (candidate as any).skills) {
@@ -737,10 +754,15 @@ export default function JobDetailScreen() {
         const convertWordToHtml = async () => {
             if (!selectedCandidate) {
                 setWordPreviewHtml(null);
+                setResolvedCv(null);
                 return;
             }
-            
-            const base64 = (selectedCandidate as any).cvBase64;
+
+            setResolvedCv(null);
+            const base64 = await resolveCandidateCv(selectedCandidate);
+            if (base64 && selectedCandidate.id) {
+                setResolvedCv({ candidateId: selectedCandidate.id, base64 });
+            }
             // Detección de Word por header
             const isWord = base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'));
             
@@ -925,7 +947,7 @@ export default function JobDetailScreen() {
                 setProcessingStatus(`Analizando ${++count}/${toAnalyze.length}: ${cand.name}`);
 
                 let textToAnalyze = "";
-                const cvBase64 = (cand as any).cvBase64;
+                const cvBase64 = await resolveCandidateCv(cand);
 
                 // 1. LinkedIn Sourced
                 if ((cand as any).about || cand.role) {
@@ -936,7 +958,7 @@ export default function JobDetailScreen() {
                 // 2. CV Document
                 else if (cand.originalFileUrl || cvBase64) {
                     try {
-                        textToAnalyze = await extractTextFromDocument(cand.originalFileUrl || cvBase64);
+                        textToAnalyze = await extractTextFromDocument((cand.originalFileUrl || cvBase64)!);
                     } catch (e) {
                         console.error("Text extraction failed for bulk candidate:", cand.id, e);
                     }
@@ -1807,7 +1829,12 @@ export default function JobDetailScreen() {
                             )}
 
                             {/* CV Preview OR Profile Text (Web Only) */}
-                            {Platform.OS === 'web' && (
+                            {Platform.OS === 'web' && (() => {
+                                // El CV en base64 puede vivir inline (formato viejo) o en el
+                                // sub-documento privado, resuelto de forma perezosa arriba.
+                                const effectiveCvBase64 = (selectedCandidate as any).cvBase64 ||
+                                    (resolvedCv?.candidateId === selectedCandidate.id ? resolvedCv.base64 : '');
+                                return (
                                 <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
                                     {(selectedCandidate as any).isUploading ? (
                                         <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed' }}>
@@ -1815,7 +1842,7 @@ export default function JobDetailScreen() {
                                             <Text style={{ marginTop: 15, color: '#475569', fontSize: 14, fontWeight: '500' }}>El documento se está asegurando en la nube...</Text>
                                             <Text style={{ marginTop: 5, color: '#94a3b8', fontSize: 12 }}>Esto puede tomar unos segundos dependiendo del tamaño.</Text>
                                         </View>
-                                    ) : (selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cvBase64) ? (
+                                    ) : (selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || effectiveCvBase64) ? (
                                         <>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                                 <FileText size={18} color="#38bdf8" />
@@ -1824,8 +1851,8 @@ export default function JobDetailScreen() {
                                             <View style={{ height: 600, backgroundColor: '#F8FAFC', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' }}>
                                                 {(() => {
                                                     const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url || '';
-                                                    const base64 = (selectedCandidate as any).cvBase64 || '';
-                                                    
+                                                    const base64 = effectiveCvBase64 || '';
+
                                                     if (!url && !base64) return null;
                                                     
                                                     if (isPreviewLoading) {
@@ -1883,7 +1910,8 @@ export default function JobDetailScreen() {
                                         </View>
                                     )}
                                 </View>
-                            )}
+                                );
+                            })()}
 
 
                             {/* Contact Actions */}
@@ -1891,9 +1919,11 @@ export default function JobDetailScreen() {
 
                                 <TouchableOpacity
                                     style={styles.cvBigButton}
-                                    onPress={() => {
+                                    onPress={async () => {
                                         const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url;
-                                        const base64 = (selectedCandidate as any).cvBase64;
+                                        const base64 = (selectedCandidate as any).cvBase64 ||
+                                            (resolvedCv?.candidateId === selectedCandidate.id ? resolvedCv.base64 : undefined) ||
+                                            (!url ? await resolveCandidateCv(selectedCandidate) : undefined);
                                         let mimeType = (selectedCandidate as any).cvMimeType || (selectedCandidate as any).cv_mime_type;
                                         
                                         // Auto-sanación: Si el base64 tiene el header de un DOCX o DOC

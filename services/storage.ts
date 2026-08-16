@@ -126,19 +126,50 @@ export const getCompanyJobs = async (companyId: string) => {
 };
 
 // 3. Guardar Análisis de Candidato (Subcolección)
+//
+// El CV en base64 NO se guarda en este documento: si va inline aca, cada
+// lectura de la lista de candidatos (getJobCandidates) descarga el CV
+// completo de TODOS los candidatos aunque solo se necesiten nombre/score.
+// Se guarda aparte en jobs/{jobId}/candidates/{id}/private/cv y se trae
+// bajo demanda solo cuando se abre ese candidato puntual (ver
+// getCandidateCvBase64 mas abajo).
 export const saveCandidateAnalysis = async (jobId: string, analysis: CandidateAnalysis) => {
     try {
+        const { cvBase64, ...rest } = analysis as any;
         // Ruta: jobs -> {jobId} -> candidates -> {candidateId}
         const candidateRef = doc(db, "jobs", jobId, "candidates", analysis.id);
         // Agregamos companyId al documento para facilitar búsquedas futuras
         const dataToSave = {
-            ...analysis,
+            ...rest,
             companyId: auth.currentUser?.uid // Aseguramos que tenga el ID de empresa para filtros
         };
         await setDoc(candidateRef, dataToSave);
+
+        if (cvBase64) {
+            await saveCandidateCvBase64(jobId, analysis.id, cvBase64);
+        }
     } catch (e) {
         console.error("Error guardando candidato: ", e);
         throw e;
+    }
+};
+
+// Guarda el CV en base64 en un sub-documento aparte del candidato (ver nota arriba)
+export const saveCandidateCvBase64 = async (jobId: string, candidateId: string, cvBase64: string) => {
+    const cvRef = doc(db, "jobs", jobId, "candidates", candidateId, "private", "cv");
+    await setDoc(cvRef, { cvBase64 });
+};
+
+// Trae el CV en base64 de un candidato puntual bajo demanda (al abrirlo/analizarlo),
+// nunca como parte de la lista completa de candidatos.
+export const getCandidateCvBase64 = async (jobId: string, candidateId: string): Promise<string | null> => {
+    try {
+        const cvRef = doc(db, "jobs", jobId, "candidates", candidateId, "private", "cv");
+        const snap = await getDoc(cvRef);
+        return snap.exists() ? (snap.data().cvBase64 || null) : null;
+    } catch (e) {
+        console.error("Error obteniendo CV del candidato: ", e);
+        return null;
     }
 };
 
