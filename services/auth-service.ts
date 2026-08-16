@@ -231,6 +231,33 @@ export async function createCompanyUser(
     }
 }
 
+// Cache for team membership resolution (uid -> companyId or null if not a team member)
+const effectiveCompanyIdCache: Record<string, string> = {};
+
+/**
+ * Resolves the Firestore "companyId" a user's data actually lives under.
+ * For the account owner this is their own uid. For an invited team member
+ * (recruiter/admin added via Team invites), their own uid is different from
+ * the company's uid, so we look up team_members/{uid} to find the real one.
+ */
+export async function getEffectiveCompanyId(uid: string): Promise<string> {
+    if (effectiveCompanyIdCache[uid]) {
+        return effectiveCompanyIdCache[uid];
+    }
+    try {
+        const teamMemberSnap = await getDoc(doc(db, 'team_members', uid));
+        if (teamMemberSnap.exists()) {
+            const companyId = teamMemberSnap.data().companyId as string;
+            effectiveCompanyIdCache[uid] = companyId;
+            return companyId;
+        }
+    } catch (error) {
+        console.warn('⚠️ [getEffectiveCompanyId] team_members check failed, falling back to own uid:', error);
+    }
+    effectiveCompanyIdCache[uid] = uid;
+    return uid;
+}
+
 /**
  * Gets the role of the current user from Firestore
  * Includes fallback to legacy 'companies' collection for existing users

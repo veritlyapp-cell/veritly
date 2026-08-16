@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import { auth, db, storage } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -124,14 +125,15 @@ export default function CompanyProfile() {
             }
 
             try {
+                const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
                 // Intentar primero con la colección nueva
-                let docRef = doc(db, 'users_empresas', auth.currentUser.uid);
+                let docRef = doc(db, 'users_empresas', companyId);
                 let docSnap = await getDoc(docRef);
 
                 // Fallback a colección antigua
                 if (!docSnap.exists()) {
                     console.log("📦 No encontrado en users_empresas, probando companies...");
-                    docRef = doc(db, 'companies', auth.currentUser.uid);
+                    docRef = doc(db, 'companies', companyId);
                     docSnap = await getDoc(docRef);
                 }
 
@@ -208,10 +210,11 @@ export default function CompanyProfile() {
         setLoadingTeam(true);
         try {
             const idToken = await auth.currentUser.getIdToken();
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const res = await fetch('/.netlify/functions/team', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'list_team', idToken, companyId: auth.currentUser.uid })
+                body: JSON.stringify({ action: 'list_team', idToken, companyId })
             });
             const data = await res.json();
             if (res.ok) {
@@ -231,10 +234,11 @@ export default function CompanyProfile() {
         setGeneratingInvite(true);
         try {
             const idToken = await auth.currentUser.getIdToken();
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const res = await fetch('/.netlify/functions/team', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'create_invite', idToken, companyId: auth.currentUser.uid, role: inviteRole })
+                body: JSON.stringify({ action: 'create_invite', idToken, companyId, role: inviteRole })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'No se pudo generar la invitación');
@@ -252,10 +256,11 @@ export default function CompanyProfile() {
         const doRemove = async () => {
             try {
                 const idToken = await auth.currentUser!.getIdToken();
+                const companyId = await getEffectiveCompanyId(auth.currentUser!.uid);
                 const res = await fetch('/.netlify/functions/team', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'remove_member', idToken, companyId: auth.currentUser!.uid, targetUid })
+                    body: JSON.stringify({ action: 'remove_member', idToken, companyId, targetUid })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'No se pudo quitar al miembro');
@@ -274,10 +279,11 @@ export default function CompanyProfile() {
         if (!auth.currentUser) return;
         try {
             const idToken = await auth.currentUser.getIdToken();
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const res = await fetch('/.netlify/functions/team', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'promote_member', idToken, companyId: auth.currentUser.uid, targetUid })
+                body: JSON.stringify({ action: 'promote_member', idToken, companyId, targetUid })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'No se pudo ascender al miembro');

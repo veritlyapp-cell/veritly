@@ -6,6 +6,7 @@ import { ArrowLeft, Copy, ExternalLink, Image as ImageIcon, Lock } from 'lucide-
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, storage } from '../../../config/firebase';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 
 const BRAND_COLORS = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#111827'];
 
@@ -33,10 +34,11 @@ export default function LandingPageConfig() {
             if (!auth.currentUser) return;
             try {
                 const idToken = await auth.currentUser.getIdToken();
+                const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
                 const res = await fetch('/.netlify/functions/landing-page', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_config', idToken, companyId: auth.currentUser.uid })
+                    body: JSON.stringify({ action: 'get_config', idToken, companyId })
                 });
                 const data = await res.json();
                 if (res.ok) {
@@ -63,10 +65,11 @@ export default function LandingPageConfig() {
         setSaving(true);
         try {
             const idToken = await auth.currentUser.getIdToken();
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const res = await fetch('/.netlify/functions/landing-page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'set_slug', idToken, companyId: auth.currentUser.uid, slug: slug.trim().toLowerCase() })
+                body: JSON.stringify({ action: 'set_slug', idToken, companyId, slug: slug.trim().toLowerCase() })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'No se pudo guardar');
@@ -111,11 +114,12 @@ export default function LandingPageConfig() {
         setSavingBranding(true);
         try {
             const idToken = await auth.currentUser.getIdToken();
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const res = await fetch('/.netlify/functions/landing-page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'update_branding', idToken, companyId: auth.currentUser.uid,
+                    action: 'update_branding', idToken, companyId,
                     bannerUrl, brandColor, enabled
                 })
             });

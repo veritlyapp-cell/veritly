@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 
 const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
     PE: { currency: 'PEN', symbol: 'S/' },
@@ -50,7 +51,8 @@ export default function PricingScreen() {
         const loadCurrentPlan = async () => {
             if (!auth.currentUser) return;
             try {
-                const snap = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+                const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+                const snap = await getDoc(doc(db, 'users_empresas', companyId));
                 if (snap.exists()) {
                     setCurrentPlanName(snap.data().subscription?.plan || null);
                 }
@@ -140,13 +142,14 @@ export default function PricingScreen() {
 
         setLoading(true);
         try {
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             const response = await fetch('/.netlify/functions/create-checkout-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     planId,
                     billingPeriod,
-                    userId: auth.currentUser.uid,
+                    userId: companyId,
                     email: auth.currentUser.email
                 })
             });

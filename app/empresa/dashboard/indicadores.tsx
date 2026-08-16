@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../../config/firebase';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { useFocusEffect } from 'expo-router';
 
 const TooltipWrapper = Platform.OS === 'web' 
@@ -208,7 +209,8 @@ export default function IndicadoresDashboard() {
             if (allJobs.length === 0) {
                 setLoading(true);
             }
-            const jobsQuery = query(collection(db, 'jobs'), where('companyId', '==', auth.currentUser.uid));
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+            const jobsQuery = query(collection(db, 'jobs'), where('companyId', '==', companyId));
             const jobsSnapshot = await getDocs(jobsQuery);
             const jobs = jobsSnapshot.docs.map(d => {
                 const jd = d.data() as any;

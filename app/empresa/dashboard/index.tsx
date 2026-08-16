@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 
 // Light Tech Theme Colors
 const COLORS = {
@@ -182,9 +183,10 @@ export default function CompanyDashboard() {
             setLoading(true);
         }
         try {
-            let userDoc = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+            let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
             if (!userDoc.exists()) {
-                userDoc = await getDoc(doc(db, 'companies', auth.currentUser.uid));
+                userDoc = await getDoc(doc(db, 'companies', companyId));
             }
 
             if (!userDoc.exists() || !userDoc.data().profileCompleted) {
@@ -230,7 +232,7 @@ export default function CompanyDashboard() {
             setUserSubscription(subscription);
             const q = query(
                 collection(db, 'jobs'),
-                where('companyId', '==', auth.currentUser.uid)
+                where('companyId', '==', companyId)
             );
 
             const querySnapshot = await getDocs(q);

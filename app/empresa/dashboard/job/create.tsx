@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert as RNAlert, Platform, SafeAreaView, ScrollView
 import { auth, db } from '../../../../config/firebase';
 import { extractTextFromDocument } from '../../../../utils/gemini';
 import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
+import { getEffectiveCompanyId } from '../../../../services/auth-service';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -148,7 +149,8 @@ export default function CreateJob() {
         const loadCompanyContext = async () => {
             if (!auth.currentUser) return;
             try {
-                const docRef = doc(db, 'users_empresas', auth.currentUser.uid);
+                const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+                const docRef = doc(db, 'users_empresas', companyId);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -355,6 +357,7 @@ export default function CreateJob() {
         console.log("💾 Iniciando guardado de puesto...");
         setLoading(true);
         try {
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             // Convierte salario y tolerancia a números antes de guardar
             const finalData = {
                 ...jobData,
@@ -367,7 +370,7 @@ export default function CreateJob() {
                 showOnLandingPage: !!jobData.showOnLandingPage,
                 originalText: rawText,
                 optimizedText: optimizedDescription,
-                companyId: auth.currentUser.uid,
+                companyId,
                 updatedAt: new Date().toISOString(),
                 // Si es nuevo: createdAt, status, active
                 ...(!id && {
@@ -388,12 +391,12 @@ export default function CreateJob() {
                 // CREAR
                 // Validar Límite de Vacantes Activas
                 const jobsQ = query(
-                    collection(db, 'jobs'), 
-                    where('companyId', '==', auth.currentUser.uid)
+                    collection(db, 'jobs'),
+                    where('companyId', '==', companyId)
                 );
                 const jobsSnap = await getDocs(jobsQ);
-                
-                const userSnap = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+
+                const userSnap = await getDoc(doc(db, 'users_empresas', companyId));
                 const userData = userSnap.data();
                 const limit = userData?.subscription?.internalVacanciesLimit || 10; 
 

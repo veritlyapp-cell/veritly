@@ -36,6 +36,7 @@ import {
     saveCandidateAnalysis,
     updateCandidateStatus
 } from '../../../services/storage';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
@@ -163,15 +164,16 @@ export default function JobDetailScreen() {
         const currentUser = auth.currentUser;
         if (!currentUser) return;
         try {
-            let userDoc = await getDoc(doc(db, 'users_empresas', currentUser.uid));
+            const companyId = await getEffectiveCompanyId(currentUser.uid);
+            let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
             if (!userDoc.exists()) {
-                userDoc = await getDoc(doc(db, 'companies', currentUser.uid));
+                userDoc = await getDoc(doc(db, 'companies', companyId));
             }
             if (!userDoc.exists()) return;
 
             const userData = userDoc.data();
             setIsProfileSkipped(!!userData.profileSkipped);
-            loadMonthlyQuotaUsage(currentUser.uid, userData.subscription?.aiAnalysisLimit || 200);
+            loadMonthlyQuotaUsage(companyId, userData.subscription?.aiAnalysisLimit || 200);
             try {
                 await currentUser.reload();
                 setIsEmailVerified(currentUser.emailVerified);
@@ -842,7 +844,7 @@ export default function JobDetailScreen() {
 
         if (candidate.email && auth.currentUser) {
             try {
-                const history = await getCandidateHistoryForCompany(auth.currentUser.uid, candidate.email, id as string);
+                const history = await getCandidateHistoryForCompany(jobDetails.companyId || auth.currentUser.uid, candidate.email, id as string);
                 setCandidateHistory(history);
             } catch (err) {
                 console.error("Error loading candidate history:", err);

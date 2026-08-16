@@ -6,6 +6,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
+import { getEffectiveCompanyId } from '../../../services/auth-service';
 
 const TooltipWrapper = Platform.OS === 'web' 
   ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
@@ -130,14 +131,15 @@ export default function CompanyJobs() {
             setLoading(true);
         }
         try {
+            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
             // 1. Verificar Perfil (nueva colección con fallback)
-            let userDoc = await getDoc(doc(db, 'users_empresas', auth.currentUser.uid));
+            let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
 
             console.log("  users_empresas existe?", userDoc.exists());
 
             // Fallback a colección antigua
             if (!userDoc.exists()) {
-                userDoc = await getDoc(doc(db, 'companies', auth.currentUser.uid));
+                userDoc = await getDoc(doc(db, 'companies', companyId));
                 console.log("  companies existe?", userDoc.exists());
             }
 
@@ -153,10 +155,10 @@ export default function CompanyJobs() {
             // NOTA: Quitamos orderBy temporalmente para evitar error de "Index Missing" en Firestore si no esta creado
             const q = query(
                 collection(db, 'jobs'),
-                where('companyId', '==', auth.currentUser.uid)
+                where('companyId', '==', companyId)
             );
 
-            console.log("  🔎 Buscando jobs con companyId:", auth.currentUser.uid);
+            console.log("  🔎 Buscando jobs con companyId:", companyId);
 
             const querySnapshot = await getDocs(q);
             const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
