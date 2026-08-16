@@ -312,7 +312,16 @@ export default function VeritlyLandingPage() {
                             <Image source={LocalLogo} style={[styles.navLogoImage, { tintColor: COLORS.textTertiary, marginBottom: 8 }]} resizeMode="contain" />
                             <Text style={styles.footerBrandText}>Veritly</Text>
                         </View>
-                        <Text style={styles.footerCopyright}>© {new Date().getFullYear()} Veritly. Reclutamiento inteligente.</Text>
+                        <Text style={styles.footerCopyright}>© {new Date().getFullYear()} Relié Labs LLC. Veritly es un producto de Relié Labs LLC.</Text>
+                        <View style={styles.footerLinks}>
+                            <TouchableOpacity onPress={() => router.push('/privacy')}>
+                                <Text style={styles.footerLinkText}>Términos y Condiciones</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.footerLinkSeparator}>·</Text>
+                            <TouchableOpacity onPress={() => router.push('/privacy')}>
+                                <Text style={styles.footerLinkText}>Política de Privacidad</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
 
@@ -699,6 +708,22 @@ const styles = StyleSheet.create({
     },
     footerCopyright: {
         fontSize: 14,
+        color: COLORS.textTertiary,
+        textAlign: 'center',
+    },
+    footerLinks: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 12,
+    },
+    footerLinkText: {
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+    },
+    footerLinkSeparator: {
+        fontSize: 13,
         color: COLORS.textTertiary,
     },
 

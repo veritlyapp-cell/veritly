@@ -268,7 +268,16 @@ export default function VeritlyCompanyLandingPage() {
                             ¿Eres candidato? Encuentra tu trabajo ideal en Veritly
                         </Text>
                     </TouchableOpacity>
-                    <Text style={styles.copyright}>© 2024 Veritly. Todos los derechos reservados.</Text>
+                    <Text style={styles.copyright}>© {new Date().getFullYear()} Relié Labs LLC. Veritly es un producto de Relié Labs LLC.</Text>
+                    <View style={styles.legalLinks}>
+                        <TouchableOpacity onPress={() => router.push('/privacy')}>
+                            <Text style={styles.legalLinkText}>Términos y Condiciones</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.legalLinkSeparator}>·</Text>
+                        <TouchableOpacity onPress={() => router.push('/privacy')}>
+                            <Text style={styles.legalLinkText}>Política de Privacidad</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
             </ScrollView>
@@ -369,5 +378,8 @@ const styles = StyleSheet.create({
     divider: { height: 1, backgroundColor: '#334155', marginBottom: 30 },
     candidateLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 12, borderWidth: 1, borderColor: '#3b82f6', gap: 10, marginBottom: 20 },
     candidateLinkText: { color: '#3b82f6', fontSize: 16, fontWeight: '600' },
-    copyright: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingVertical: 20 }
+    copyright: { textAlign: 'center', color: '#64748b', fontSize: 14, paddingTop: 20 },
+    legalLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingBottom: 20 },
+    legalLinkText: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+    legalLinkSeparator: { fontSize: 12, color: '#475569' }
 });
