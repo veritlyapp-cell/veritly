@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { BarChart2, FileText, ScanFace, Settings } from 'lucide-react-native';
+import { BarChart2, Briefcase, FileText, Settings } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { auth } from '../../config/firebase';
@@ -35,12 +35,12 @@ export default function TabLayout() {
         tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold', marginTop: -5 }
       }}>
 
-      {/* 1. SCANNER */}
+      {/* 1. MIS POSTULACIONES */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Scanner',
-          tabBarIcon: ({ color }) => <ScanFace size={26} color={color} />,
+          title: 'Postulaciones',
+          tabBarIcon: ({ color }) => <Briefcase size={26} color={color} />,
         }}
       />
 

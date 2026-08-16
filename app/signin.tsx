@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
-import { ArrowRight, CheckSquare, Lock, Mail, Square } from 'lucide-react-native';
+import { ArrowRight, CheckSquare, Lock, Mail, Square, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, ScrollView } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, ScrollView } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import AppHeader from '../components/AppHeader';
@@ -13,6 +13,7 @@ import { setUserId, trackLogin } from '../utils/ga';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroImage = require('../assets/images/friendly_hero.png');
+const RacsoLogo = require('../assets/images/racso-logo.png');
 
 // Helper to detect mobile browser
 const isMobileBrowser = () => {
@@ -416,24 +417,39 @@ export default function AuthScreen() {
               <View style={styles.brandOverlay}>
                 <View style={styles.brandContent}>
                   <Image source={LocalLogo} style={styles.brandLogoBig} resizeMode="contain" />
-                  <Text style={[styles.brandDesc, { fontSize: 14, color: '#38bdf8', fontWeight: 'bold', marginBottom: 20 }]}>✨ Antes de postular, Veritly</Text>
-                  <Text style={styles.brandTitle}>Coach de Carrera IA</Text>
+                  <Text style={styles.brandTitle}>Postula al trabajo que sí encaja contigo</Text>
                   <Text style={styles.brandDesc}>
-                    Optimiza tu CV, practica entrevistas y consigue el trabajo que realmente encaja contigo.
+                    Vacantes verificadas, postulación en un clic y seguimiento de todos tus procesos en un solo lugar.
                   </Text>
 
                   <View style={styles.featurePill}>
                     <CheckSquare color="#10b981" size={16} />
-                    <Text style={styles.featureText}>Análisis de CV con IA</Text>
+                    <Text style={styles.featureText}>Vacantes verificadas</Text>
                   </View>
                   <View style={styles.featurePill}>
                     <CheckSquare color="#10b981" size={16} />
-                    <Text style={styles.featureText}>Match Perfecto</Text>
+                    <Text style={styles.featureText}>Postulación en 1 clic</Text>
                   </View>
                   <View style={styles.featurePill}>
                     <CheckSquare color="#10b981" size={16} />
-                    <Text style={styles.featureText}>Feedback Instantáneo</Text>
+                    <Text style={styles.featureText}>Seguimiento de tus postulaciones</Text>
                   </View>
+
+                  {/* PUBLICIDAD RACSO */}
+                  <TouchableOpacity style={styles.racsoCard} onPress={() => Linking.openURL('https://racso.app/ingreso')}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <Image source={RacsoLogo} style={{ width: 22, height: 22, borderRadius: 11 }} />
+                      <Text style={styles.racsoTitle}>¿Quieres preparar tu CV antes de postular?</Text>
+                    </View>
+                    <Text style={styles.racsoText}>
+                      Usa Racso para analizar tu CV y practicar entrevistas. Regístrate con el código{' '}
+                      <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>VERITLY</Text> y obtén 7 días premium gratis.
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                      <Zap size={14} color="#38bdf8" />
+                      <Text style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: 12 }}>IR A RACSO</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -659,5 +675,25 @@ const styles = StyleSheet.create({
   featureText: {
     color: '#e2e8f0',
     fontWeight: '500'
+  },
+  racsoCard: {
+    marginTop: 24,
+    width: '100%',
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155'
+  },
+  racsoTitle: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 13,
+    flex: 1
+  },
+  racsoText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 17
   }
 });

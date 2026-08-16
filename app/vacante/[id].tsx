@@ -30,8 +30,7 @@ import {
     Sparkles,
     Upload,
     User,
-    Zap,
-    Share2
+    Zap
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -47,7 +46,6 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    Share,
     Linking
 } from 'react-native';
 import { showAlert } from '../../utils/ui';
@@ -1054,16 +1052,6 @@ export default function ExternalApplication() {
     // ─── STEP: SUCCESS ───────────────────────────────────────────────────────────
 
     if (step === 'success') {
-        const handleShareReferral = async () => {
-             try {
-                 await Share.share({
-                     message: `¡Hola! Únete a Veritly, la plataforma que me ayudó a mejorar mis postulaciones con IA. Usa mi código ${candidateRefCode} y gana créditos gratis para analizar tu CV: https://veritly.app`,
-                 });
-             } catch (error: any) {
-                 console.error(error.message);
-             }
-        };
-
         return (
             <SafeAreaView style={styles.container}>
                 <ScrollView key={`scroll-${step}`} contentContainerStyle={[styles.scrollContent]}>
@@ -1125,20 +1113,27 @@ export default function ExternalApplication() {
                                         "Usaste 1 crédito de análisis. ¡Buen trabajo!"
                                     </Text>
 
-                                    {/* REFERRAL CALLOUT */}
-                                    <View style={{ backgroundColor: '#0f172a', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#f59e0b', width: '100%' }}>
-                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>🚀 ¿Quieres más créditos?</Text>
+                                    {/* RACSO CALLOUT */}
+                                    <TouchableOpacity
+                                        style={{ backgroundColor: '#0f172a', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#4F46E5', width: '100%' }}
+                                        onPress={() => Linking.openURL('https://racso.app/ingreso')}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                            <Image source={require('../../assets/images/racso-logo.png')} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13, flex: 1 }}>
+                                                {matchResult.match < 70
+                                                    ? `Tu compatibilidad con esta vacante es de ${matchResult.match}%. Mejora tu CV y aumenta tus chances con Racso →`
+                                                    : `¡Tu compatibilidad con esta vacante es de ${matchResult.match}%! Ahora prepárate para una posible entrevista y asegura el puesto con Racso →`}
+                                            </Text>
+                                        </View>
                                         <Text style={{ color: '#94a3b8', fontSize: 12, lineHeight: 18 }}>
-                                            Comparte tu código <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>{candidateRefCode}</Text> con amigos. Si se registran, ¡ambos ganan +2 créditos gratis!
+                                            Regístrate con el código <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}>VERITLY</Text> y obtén 7 días premium gratis.
                                         </Text>
-                                        <TouchableOpacity 
-                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}
-                                            onPress={handleShareReferral}
-                                        >
-                                            <Share2 size={16} color="#3b82f6" />
-                                            <Text style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: 13 }}>COMPARTIR CÓDIGO</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
+                                            <Sparkles size={16} color="#4F46E5" />
+                                            <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>REGISTRARME EN RACSO</Text>
+                                        </View>
+                                    </TouchableOpacity>
                                 </View>
                             )}
                         </View>
