@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { adminDb } from './_firebaseAdmin';
 import { getCorsHeaders, checkRateLimit } from './_security';
+import { verifyIdToken } from './_verifyAuth';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const SITE_URL = 'https://www.veritlyapp.com';
@@ -36,15 +37,33 @@ export const handler: Handler = async (event) => {
     }
 
     try {
-        const { planId, billingPeriod, userId, email } = JSON.parse(event.body || '{}');
+        const { planId, billingPeriod, userId, idToken } = JSON.parse(event.body || '{}');
 
-        if (!planId || !billingPeriod || !userId || !email) {
+        if (!planId || !billingPeriod || !userId) {
             return {
                 statusCode: 400,
                 headers,
-                body: JSON.stringify({ error: 'Faltan datos requeridos (planId, billingPeriod, userId, email)' })
+                body: JSON.stringify({ error: 'Faltan datos requeridos (planId, billingPeriod, userId)' })
             };
         }
+
+        // El email se toma del token verificado (no de lo que mande el
+        // cliente), y se exige que quien llama sea dueño de la cuenta
+        // "userId" o admin de su equipo: si no, cualquiera podria pedir una
+        // sesion de pago que (al completarse) active el plan en la cuenta
+        // de OTRA empresa.
+        const verified = await verifyIdToken(idToken);
+        if (!verified || !verified.email) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sesión inválida' }) };
+        }
+        if (verified.uid !== userId) {
+            const teamSnap = await adminDb.collection('team_members').doc(verified.uid).get();
+            const isAdminOfCompany = teamSnap.exists && teamSnap.data()?.companyId === userId && teamSnap.data()?.role === 'admin';
+            if (!isAdminOfCompany) {
+                return { statusCode: 403, headers, body: JSON.stringify({ error: 'No autorizado para gestionar el plan de esta cuenta' }) };
+            }
+        }
+        const email = verified.email;
 
         const planDoc = await adminDb.collection('config_plans').doc(planId).get();
         if (!planDoc.exists) {

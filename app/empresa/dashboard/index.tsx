@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendEmailVerification } from 'firebase/auth';
-import { collection, deleteDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Sparkles, ChevronRight, RotateCw } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, useWindowDimensions } from 'react-native';
@@ -185,36 +185,50 @@ export default function CompanyDashboard() {
         try {
             const membership = await getEffectiveMembership(auth.currentUser.uid);
             const companyId = membership.companyId;
-            let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
-            if (!userDoc.exists()) {
-                userDoc = await getDoc(doc(db, 'companies', companyId));
-            }
 
-            if (!userDoc.exists() || !userDoc.data().profileCompleted) {
+            // El doc de la empresa y la lista de vacantes no dependen uno del
+            // otro: se piden en paralelo en vez de en cadena para no sumar
+            // sus latencias (la causa principal de la demora del dashboard).
+            const jobsQuery = membership.role === 'reclutador'
+                ? query(
+                    collection(db, 'jobs'),
+                    where('companyId', '==', companyId),
+                    where('assignedTo', '==', auth.currentUser.uid)
+                )
+                : query(
+                    collection(db, 'jobs'),
+                    where('companyId', '==', companyId)
+                );
+
+            const [userDocRaw, jobsSnapshot] = await Promise.all([
+                (async () => {
+                    let d = await getDoc(doc(db, 'users_empresas', companyId));
+                    if (!d.exists()) d = await getDoc(doc(db, 'companies', companyId));
+                    return d;
+                })(),
+                getDocs(jobsQuery),
+                // No bloqueamos la carga por esto: solo refresca el estado de
+                // verificación de email, no es data critica para pintar la pantalla.
+                auth.currentUser.reload()
+                    .then(() => setIsEmailVerified(auth.currentUser?.emailVerified ?? true))
+                    .catch(reloadErr => console.log("Error reloading user info:", reloadErr))
+            ]);
+
+            if (!userDocRaw.exists() || !userDocRaw.data().profileCompleted) {
                 return router.replace('/empresa/dashboard/profile');
             }
 
-            const userData = userDoc.data();
+            const userData = userDocRaw.data();
             let subscription = userData.subscription || { plan: 'beta_free' };
-            
             setIsProfileSkipped(!!userData.profileSkipped);
 
-            if (auth.currentUser) {
-                try {
-                    await auth.currentUser.reload();
-                    setIsEmailVerified(auth.currentUser.emailVerified);
-                } catch (reloadErr) {
-                    console.log("Error reloading user info:", reloadErr);
-                }
-            }
-            
             // [FIX] Query by 'id' field instead of Doc ID
             try {
                 const planId = (subscription.plan || 'beta_free').toLowerCase().replace(' ', '_');
                 const plansRef = collection(db, 'config_plans');
                 const qPlan = query(plansRef, where('id', '==', planId));
                 const planSnap = await getDocs(qPlan);
-                
+
                 if (!planSnap.empty) {
                     const planData = planSnap.docs[0].data();
                     subscription = {
@@ -231,19 +245,8 @@ export default function CompanyDashboard() {
             }
 
             setUserSubscription(subscription);
-            const q = membership.role === 'reclutador'
-                ? query(
-                    collection(db, 'jobs'),
-                    where('companyId', '==', companyId),
-                    where('assignedTo', '==', auth.currentUser.uid)
-                )
-                : query(
-                    collection(db, 'jobs'),
-                    where('companyId', '==', companyId)
-                );
 
-            const querySnapshot = await getDocs(q);
-            const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const jobsList = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
             // El limite de "Analisis IA" del plan es mensual, asi que solo contamos
@@ -256,18 +259,25 @@ export default function CompanyDashboard() {
                 return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
             };
 
+            // Antes esto descargaba TODOS los documentos de candidatos de
+            // CADA vacante solo para contar cuantos habian y cuantos estaban
+            // analizados: con decenas/cientos de candidatos por vacante era
+            // la causa principal de la demora al abrir el dashboard.
+            // getCountFromServer cuenta sin transferir los documentos, y la
+            // query de analizados solo trae los que ya tienen matchScore.
             const jobsWithCounts = await Promise.all(
                 jobsList.map(async (job) => {
                     try {
-                        const candidatesSnapshot = await getDocs(collection(db, 'jobs', job.id, 'candidates'));
-                        const candidates = candidatesSnapshot.docs.map(doc => doc.data());
-                        const analyzedCount = candidates.filter((c: any) =>
-                            c.matchScore && c.matchScore > 0 && isThisMonth(c.analyzedAt)
-                        ).length;
+                        const candidatesRef = collection(db, 'jobs', job.id, 'candidates');
+                        const [countSnap, analyzedSnap] = await Promise.all([
+                            getCountFromServer(candidatesRef),
+                            getDocs(query(candidatesRef, where('matchScore', '>', 0)))
+                        ]);
+                        const analyzedCount = analyzedSnap.docs.filter(d => isThisMonth(d.data().analyzedAt)).length;
                         return {
                             ...job,
-                            candidateCount: candidatesSnapshot.size,
-                            analyzedCount: analyzedCount
+                            candidateCount: countSnap.data().count,
+                            analyzedCount
                         };
                     } catch (e) {
                         return { ...job, candidateCount: 0, analyzedCount: 0 };

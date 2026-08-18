@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
-import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, RotateCw, UserCog } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
@@ -203,11 +203,13 @@ export default function CompanyJobs() {
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
             // 3. Cargar conteo de candidatos para cada puesto
+            // getCountFromServer cuenta sin descargar los documentos completos
+            // (antes traia todos los candidatos de cada vacante solo para contarlos)
             const jobsWithCounts = await Promise.all(
                 jobsList.map(async (job) => {
                     try {
-                        const candidatesSnapshot = await getDocs(collection(db, 'jobs', job.id, 'candidates'));
-                        return { ...job, candidateCount: candidatesSnapshot.size };
+                        const countSnap = await getCountFromServer(collection(db, 'jobs', job.id, 'candidates'));
+                        return { ...job, candidateCount: countSnap.data().count };
                     } catch (e) {
                         console.error(`Error loading candidates for job ${job.id}:`, e);
                         return { ...job, candidateCount: 0 };

@@ -143,6 +143,7 @@ export default function PricingScreen() {
         setLoading(true);
         try {
             const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
+            const idToken = await auth.currentUser.getIdToken();
             const response = await fetch('/.netlify/functions/create-checkout-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -150,7 +151,7 @@ export default function PricingScreen() {
                     planId,
                     billingPeriod,
                     userId: companyId,
-                    email: auth.currentUser.email
+                    idToken
                 })
             });
 
