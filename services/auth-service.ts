@@ -2,6 +2,7 @@ import { createUserWithEmailAndPassword, User } from 'firebase/auth';
 import { collection, doc, getDoc, getDocFromServer, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { sendAdminNotification } from './notification-service';
+import { trackCompleteRegistration } from '../utils/fbPixel';
 
 export type UserRole = 'candidato' | 'empresa';
 
@@ -223,6 +224,9 @@ export async function createCompanyUser(
             email: user.email || email,
             id: companyProfile.company.ruc || (companyProfile.company as any).dni
         });
+
+        // Reporta la conversión real a Meta Ads (no solo el clic al anuncio)
+        trackCompleteRegistration();
 
         return user;
     } catch (error: any) {

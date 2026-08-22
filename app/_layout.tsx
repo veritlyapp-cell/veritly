@@ -2,11 +2,13 @@ import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { initGA } from '../utils/ga';
+import { initFbPixel } from '../utils/fbPixel';
 import { initSentry } from '../utils/sentry';
 
 export default function RootLayout() {
   useEffect(() => {
     initGA();
+    initFbPixel();
     initSentry();
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
