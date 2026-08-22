@@ -4,7 +4,7 @@
 import { Platform } from 'react-native';
 
 // Pixel ID de la cuenta de Meta Business de Veritly
-const FB_PIXEL_ID = '1023446300728952';
+const FB_PIXEL_ID = '1668431677585947';
 
 // Inicializar el Pixel (llamar una vez al cargar la app)
 export const initFbPixel = () => {
