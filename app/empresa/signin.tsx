@@ -256,9 +256,9 @@ export default function CompanySignIn() {
                         </View>
                     )}
 
-                    <ScrollView 
+                    <ScrollView
                         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: isDesktop ? 60 : 20 }}
-                        showsVerticalScrollIndicator={false}
+                        showsVerticalScrollIndicator={Platform.OS === 'web'}
                     >
                         <View style={styles.formContainer}>
                         <Animated.View style={[styles.formWrapper, animatedStyle]}>
