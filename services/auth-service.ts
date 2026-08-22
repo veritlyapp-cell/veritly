@@ -185,19 +185,25 @@ export async function createCompanyUser(
         const user = userCredential.user;
 
         // Create company document in Firestore
+        // El DNI/RUC son opcionales: si se dejan vacíos llegan como `undefined`,
+        // y Firestore rechaza setDoc() con campos undefined explícitos
+        // (FirebaseError: invalid-argument). Se filtran antes de escribir.
+        const companyFields = {
+            name: companyDataInput.name, // Commercial Name (can be empty)
+            ...(companyDataInput.type === 'empresa' ? {
+                ruc: companyDataInput.ruc,
+                razonSocial: companyDataInput.razonSocial
+            } : {}),
+            ...(companyDataInput.type === 'independiente' ? { dni: companyDataInput.dni } : {}),
+            type: companyDataInput.type // Guardar el tipo para referencia
+        };
         const companyProfile: CompanyProfile = {
             uid: user.uid,
             email: user.email || email,
             role: 'empresa',
-            company: {
-                name: companyDataInput.name, // Commercial Name (can be empty)
-                ...(companyDataInput.type === 'empresa' ? {
-                    ruc: companyDataInput.ruc,
-                    razonSocial: companyDataInput.razonSocial
-                } : {}),
-                ...(companyDataInput.type === 'independiente' ? { dni: companyDataInput.dni } : {}),
-                type: companyDataInput.type // Guardar el tipo para referencia
-            } as any, // Cast to any to allow dynamic fields if interface is strict
+            company: Object.fromEntries(
+                Object.entries(companyFields).filter(([_, v]) => v !== undefined)
+            ) as any, // Cast to any to allow dynamic fields if interface is strict
             subscription: {
                 planId: 'beta_free',
                 plan: 'beta_free',
