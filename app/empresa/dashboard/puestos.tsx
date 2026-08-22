@@ -248,6 +248,28 @@ export default function CompanyJobs() {
         router.replace('/empresa/signin');
     };
 
+    // Devuelve el enlace corto propio de una vacante (veritlyapp.com/v/{slug}),
+    // generandolo la primera vez que se necesita. Se cachea en el doc de la
+    // vacante (shortSlug) para no volver a llamar a la funcion despues.
+    const getShortJobUrl = async (job: any): Promise<string> => {
+        if (job.shortSlug) return `https://veritlyapp.com/v/${job.shortSlug}`;
+        try {
+            const idToken = await auth.currentUser!.getIdToken();
+            const res = await fetch('/.netlify/functions/job-slug', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_or_create', idToken, jobId: job.id })
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error);
+            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, shortSlug: json.slug } : j));
+            return `https://veritlyapp.com/v/${json.slug}`;
+        } catch (e) {
+            console.warn('No se pudo generar el enlace corto, se usa el largo:', e);
+            return `https://veritlyapp.com/vacante/${job.id}`;
+        }
+    };
+
     const deleteJobLogic = async (jobId: string) => {
         try {
             await deleteDoc(doc(db, 'jobs', jobId));
@@ -361,7 +383,8 @@ export default function CompanyJobs() {
                                     );
                                     return;
                                 }
-                                await setStringAsync(`https://veritlyapp.com/vacante/${item.id}`);
+                                const shortUrl = await getShortJobUrl(item);
+                                await setStringAsync(shortUrl);
                                 Alert.alert("Copiado", "Enlace de vacante copiado al portapapeles.");
                             }}
                         >
@@ -373,15 +396,15 @@ export default function CompanyJobs() {
                     <TooltipWrapper title={item.isExternal ? "Compartir en LinkedIn" : "Habilita el link de postulación en Editar para compartir"}>
                         <TouchableOpacity
                             style={[styles.iconButton, { alignItems: 'center', minWidth: 50, backgroundColor: item.isExternal ? 'rgba(0, 119, 181, 0.1)' : '#F3F4F6', borderColor: item.isExternal ? 'rgba(0, 119, 181, 0.2)' : '#E5E7EB' }, !item.isExternal && { opacity: 0.5 }]}
-                            onPress={() => {
+                            onPress={async () => {
                                 if (!item.isExternal) {
                                     Alert.alert(
-                                        "Link no habilitado", 
+                                        "Link no habilitado",
                                         "Esta vacante es de uso interno. Para poder compartirla en LinkedIn y recibir postulantes, primero edita el puesto y activa la opción 'Habilitar Link de Postulación'."
                                     );
                                     return;
                                 }
-                                const shareUrl = `https://veritlyapp.com/vacante/${item.id}`;
+                                const shareUrl = await getShortJobUrl(item);
                                 const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
                                 if (Platform.OS === 'web') {
                                     window.open(linkedinUrl, '_blank');
