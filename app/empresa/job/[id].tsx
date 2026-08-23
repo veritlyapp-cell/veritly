@@ -102,7 +102,6 @@ export default function JobDetailScreen() {
         description: description as string || '',
         companyId: ''
     });
-    const [companyFeatures, setCompanyFeatures] = useState<string[]>([]);
     const [isEmailVerified, setIsEmailVerified] = useState(true);
     const [isProfileSkipped, setIsProfileSkipped] = useState(false);
 
@@ -197,35 +196,6 @@ export default function JobDetailScreen() {
             } catch (reloadErr) {
                 console.log("Error reloading user info in job details:", reloadErr);
                 setIsEmailVerified(currentUser.emailVerified);
-            }
-            let planId = (userData.subscription?.plan || 'beta_free').toLowerCase().replace(/\s+/g, '_');
-
-            // Aliases: normalizar IDs cortos a los IDs completos del plan
-            const PLAN_ALIASES: Record<string, string> = {
-                'free': 'beta_free',
-                'basic': 'beta_free',
-                'basico': 'beta_free',
-                'beta': 'beta_free',
-                'pro': 'plan_pro',
-                'gold': 'plan_gold',
-            };
-            planId = PLAN_ALIASES[planId] || planId;
-
-            // Mismo patrón que index.tsx: buscar por campo 'id' en config_plans
-            const plansRef = collection(db, 'config_plans');
-            const qPlan = query(plansRef, where('id', '==', planId));
-            const planSnap = await getDocs(qPlan);
-
-            if (!planSnap.empty) {
-                const planData = planSnap.docs[0].data();
-                const globalFeatures: string[] = planData.features || [];
-                const localFeatures: string[] = userData.subscription?.features || [];
-                const mergedFeatures = Array.from(new Set([...globalFeatures, ...localFeatures]));
-                setCompanyFeatures(mergedFeatures);
-            } else {
-                // Fallback: usar features locales del usuario si no hay plan global
-                const localFeatures: string[] = userData.subscription?.features || [];
-                setCompanyFeatures(localFeatures);
             }
         } catch (err) {
             console.error("Error cargando features del usuario actual:", err);
@@ -1206,30 +1176,31 @@ export default function JobDetailScreen() {
                         </View>
                     ) : (
                         <View style={{ flexDirection: width < 480 ? 'column' : 'row', gap: 10, flex: 1, width: '100%' }}>
-                            {companyFeatures.includes("Subida CVs (PDF/Word)") && (
-                                <TouchableOpacity 
-                                    onPress={handleSelectCVs} 
-                                    disabled={processing}
-                                    style={styles.rankingActionBtn}
+                            {/* Subir CVs y subir Excel estan disponibles en todos los planes: lo que
+                                realmente limita por plan es la cuota de analisis de IA (checkQuotaOrWarn),
+                                no la subida en si. Antes esto se ocultaba si el string exacto de la
+                                feature no estaba en config_plans.{plan}.features, lo cual rompia el boton
+                                en cualquier plan cuyo copy de marketing no incluyera ese texto literal. */}
+                            <TouchableOpacity
+                                onPress={handleSelectCVs}
+                                disabled={processing}
+                                style={styles.rankingActionBtn}
+                            >
+                                <LinearGradient
+                                    colors={['#3b82f6', '#2563eb']}
+                                    style={styles.rankingActionGradient}
                                 >
-                                    <LinearGradient
-                                        colors={['#3b82f6', '#2563eb']}
-                                        style={styles.rankingActionGradient}
-                                    >
-                                        <FileText size={18} color="white" />
-                                        <Text style={styles.rankingActionText}>Subir CVs (PDF/Word)</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            )}
-                            {companyFeatures.includes("Subida masiva por Excel") && (
-                                <TouchableOpacity 
-                                    onPress={() => setShowExcelModal(true)}
-                                    style={styles.rankingActionBtnSecondary}
-                                >
-                                    <Table size={18} color="#3b82f6" />
-                                    <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
-                                </TouchableOpacity>
-                            )}
+                                    <FileText size={18} color="white" />
+                                    <Text style={styles.rankingActionText}>Subir CVs (PDF/Word)</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => setShowExcelModal(true)}
+                                style={styles.rankingActionBtnSecondary}
+                            >
+                                <Table size={18} color="#3b82f6" />
+                                <Text style={styles.rankingActionTextSecondary}>Subir Excel</Text>
+                            </TouchableOpacity>
                         </View>
                     )}
                     <TouchableOpacity 
