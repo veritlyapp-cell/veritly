@@ -293,7 +293,7 @@ export default function VeritlyCompanyLandingPage() {
                                             <Check size={16} color="#10b981" />
                                             <Text style={styles.pricingFeatureText}>{plan.internalVacanciesLimit || 0} vacantes activas</Text>
                                         </View>
-                                        {(plan.features || []).slice(0, 3).map((f: string, i: number) => (
+                                        {(plan.features || []).filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((f: string, i: number) => (
                                             <View key={i} style={styles.pricingFeatureRow}>
                                                 <Check size={16} color="#10b981" />
                                                 <Text style={styles.pricingFeatureText}>{f}</Text>
