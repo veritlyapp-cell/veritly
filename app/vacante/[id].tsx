@@ -144,6 +144,23 @@ export default function ExternalApplication() {
     const [selectedCountry, setSelectedCountry] = useState<string>('');
     const [showCandidateCountryDropdown, setShowCandidateCountryDropdown] = useState(false);
 
+    // Compartido entre pasos (cerrada, oferta, exito) que ofrecen Racso al candidato
+    const handleOpenRacso = async () => {
+        try {
+            await addDoc(collection(db, 'racso_clicks'), {
+                jobId: id as string,
+                jobTitle: job?.jobTitle || 'Desconocido',
+                companyName: companyName || 'Desconocido',
+                platform: Platform.OS,
+                createdAt: new Date()
+            });
+        } catch (err) {
+            console.error("Error logging click to Racso:", err);
+        } finally {
+            Linking.openURL('https://racso.app/ingreso');
+        }
+    };
+
     // Sincronizar país inicial por defecto basado en los permitidos de la oferta
     useEffect(() => {
         if (job) {
@@ -767,23 +784,6 @@ export default function ExternalApplication() {
     }
 
     if (!job) {
-        const handleOpenRacso = async () => {
-            try {
-                // Log event to Firestore asynchronously
-                await addDoc(collection(db, 'racso_clicks'), {
-                    jobId: id as string,
-                    jobTitle: job?.jobTitle || 'Desconocido',
-                    companyName: companyName || 'Desconocido',
-                    platform: Platform.OS,
-                    createdAt: new Date()
-                });
-            } catch (err) {
-                console.error("Error logging click to Racso:", err);
-            } finally {
-                Linking.openURL('https://racso.app/ingreso'); // Redirección directa al ingreso de Racso
-            }
-        };
-
         const handleGoHome = () => {
             router.push('/');
         };
@@ -864,7 +864,15 @@ export default function ExternalApplication() {
                             <View style={styles.brandRow}>
                                 <Text style={styles.brandType}>{companyType === 'independiente' ? 'Independiente' : 'Empresa'}</Text>
                                 <Text style={styles.brandSeparator}>•</Text>
-                                <Text style={styles.brandTag}>Publica con <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly</Text></Text>
+                                <Text style={styles.brandTag}>
+                                    Publica con{' '}
+                                    <Text
+                                        style={{ color: '#f59e0b', fontWeight: 'bold', textDecorationLine: 'underline' }}
+                                        onPress={() => router.push('/')}
+                                    >
+                                        Veritly
+                                    </Text>
+                                </Text>
                             </View>
                         </View>
                     </View>
@@ -928,6 +936,20 @@ export default function ExternalApplication() {
                     )}
 
                     {/* Removed static CTA, now sticky below */}
+
+                    {/* Banner para reclutadores/empresas que lleguen a este mismo link publico
+                        (ej. otro reclutador que vio la vacante compartida) — distinto del banner
+                        de Racso que se muestra al candidato despues de postular. */}
+                    <TouchableOpacity style={styles.recruiterBanner} onPress={() => router.push('/')}>
+                        <View style={styles.recruiterBannerHeader}>
+                            <Zap size={14} color="#f59e0b" />
+                            <Text style={styles.recruiterBannerTag}>¿Reclutador Independiente, Consultora de Selección de Personal o Pequeña Empresa?</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={styles.recruiterBannerTitle}>Publica Gratis con Veritly</Text>
+                            <ChevronRight size={18} color="#3b82f6" />
+                        </View>
+                    </TouchableOpacity>
 
                     <View style={styles.footerPowered}>
                         <Zap size={12} color="#f59e0b" />
@@ -1517,22 +1539,27 @@ export default function ExternalApplication() {
                     )}
                 </TouchableOpacity>
 
-                {/* --- FOR RECRUITERS BANNER --- */}
-                <View style={styles.recruiterBanner}>
-                    <View style={styles.recruiterBannerHeader}>
-                        <Zap size={14} color="#f59e0b" />
-                        <Text style={styles.recruiterBannerTag}>¿Eres Reclutador o Empresa?</Text>
+                {/* --- RACSO BANNER (el candidato ya postuló, este es el momento de
+                     ofrecerle mejorar su CV/entrevista, no venderle Veritly a el) --- */}
+                <View style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                        <Image
+                            source={require('../../assets/images/racso-logo.png')}
+                            style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#E0E7FF' }}
+                        />
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', letterSpacing: -0.3 }}>Potencia tu CV con Racso</Text>
+                            <Text style={{ fontSize: 11, color: '#4F46E5', fontWeight: '800', letterSpacing: 0.5 }}>APP DE EMPLEABILIDAD</Text>
+                        </View>
                     </View>
-                    <Text style={styles.recruiterBannerTitle}>Sube CVs y analízalos en segundos con IA</Text>
-                    <Text style={styles.recruiterBannerBody}>
-                        No somos una bolsa de trabajo. Somos tu <Text style={{ fontWeight: 'bold', color: '#111827' }}>Mini ATS Inteligente</Text> para validar perfiles antes de contratar. Sube PDFs, Excels y elige con datos.
+                    <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20, marginBottom: 20 }}>
+                        Racso es tu copiloto de carrera: te ayuda a estructurar un CV de alto impacto, prepararte para entrevistas reales y acelerar tu contratación.
                     </Text>
-                    <TouchableOpacity 
-                        style={styles.recruiterBannerBtn}
-                        onPress={() => router.push('/')}
+                    <TouchableOpacity
+                        style={{ backgroundColor: '#4F46E5', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 }}
+                        onPress={handleOpenRacso}
                     >
-                        <Text style={styles.recruiterBannerBtnText}>Saber más de Veritly</Text>
-                        <ChevronRight size={16} color="#3b82f6" />
+                        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
                     </TouchableOpacity>
                 </View>
 
