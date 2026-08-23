@@ -20,62 +20,87 @@ export default function PrivacyScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Política de Privacidad - Veritly</Text>
-                <Text style={styles.date}>Última actualización: 16 de agosto de 2026</Text>
+                <Text style={styles.date}>Última actualización: 23 de agosto de 2026</Text>
 
                 <View style={styles.section}>
                     <Text style={styles.text}>
-                        Veritly, un producto de Relié Labs LLC (en adelante, "Veritly"), se compromete a proteger la privacidad de los usuarios que utilizan nuestra tecnología de emparejamiento inteligente (matching). Esta política explica cómo tratamos la información para conectar el talento con las vacantes ideales.
+                        Veritly, un producto de Relié Labs LLC (en adelante, "Veritly", "nosotros"), conecta a empresas y reclutadores (en adelante, "Reclutadores") con personas que buscan empleo (en adelante, "Candidatos") a través de una plataforma que usa inteligencia artificial para filtrar y comparar perfiles contra vacantes. Esta política explica qué datos recopilamos, cómo los usamos, dónde se almacenan, y qué derechos tienes sobre ellos.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>1. La Naturaleza de Veritly: Procesamiento de IA</Text>
+                    <Text style={styles.sectionTitle}>1. Qué datos recopilamos</Text>
                     <Text style={styles.text}>
-                        Veritly es una plataforma basada en Inteligencia Artificial diseñada para analizar perfiles profesionales y compararlos con requisitos de publicaciones de empleo. Al utilizar nuestro servicio, usted comprende que sus datos serán sometidos a procesos automatizados de análisis para determinar un Índice de Compatibilidad (Matching Score).
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Si eres Candidato:</Text> nombre, correo, teléfono, expectativa salarial, país, respuestas a preguntas filtro, y tu Currículum (CV) en PDF o Word que subes al postular.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Si eres Reclutador/Empresa:</Text> nombre, correo, teléfono, nombre de la empresa, RUC o DNI (cuando lo proporcionas), y datos de facturación de tu suscripción.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Datos de candidatos que un Reclutador carga a la plataforma:</Text> cuando un Reclutador sube CVs manualmente, importa una base de datos en Excel, o usa nuestra extensión de navegador para capturar perfiles públicos de LinkedIn, esa información (nombre, experiencia, habilidades, contacto) también queda registrada en Veritly bajo la cuenta de ese Reclutador.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Datos automáticos de navegación:</Text> usamos Google Analytics, Meta Pixel (para medir el resultado de nuestra publicidad en Facebook/Instagram), Microsoft Clarity (que puede grabar cómo interactúas con la página, sin capturar contraseñas ni campos sensibles) y Sentry (para detectar errores técnicos). Estas herramientas usan cookies o tecnologías similares.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>2. Datos Recopilados para el Matching</Text>
+                    <Text style={styles.sectionTitle}>2. Dónde se guarda tu CV y por cuánto tiempo</Text>
                     <Text style={styles.text}>
-                        Para que nuestro motor de IA funcione con precisión, recopilamos:
-                        {'\n\n'}• <Text style={{ fontWeight: 'bold' }}>Información del Candidato:</Text> Datos de CV, formación, experiencia, habilidades técnicas y blandas, y pretensiones laborales.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Datos de la Publicación:</Text> Requisitos del puesto, descripción de tareas, ubicación y beneficios ofrecidos por el empleador.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Metadatos de Interacción:</Text> Cómo y cuándo se postula a una vacante para optimizar futuras recomendaciones.
+                        Tu CV se almacena en nuestra infraestructura (Google Cloud / Firebase) de forma indefinida, mientras tu cuenta o tu postulación estén activas, o hasta que solicites su eliminación. Esto significa que <Text style={{ fontWeight: 'bold' }}>tu CV queda guardado en nuestros registros</Text> incluso después de que el proceso de selección al que postulaste haya terminado, para que puedas reutilizarlo en futuras postulaciones sin volver a subirlo. Puedes pedir que lo eliminemos en cualquier momento (ver sección 7).
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>3. Finalidad Específica del Tratamiento</Text>
+                    <Text style={styles.sectionTitle}>3. Cómo usamos tus datos</Text>
                     <Text style={styles.text}>
-                        Sus datos no solo se almacenan, sino que se transforman para:
-                        {'\n\n'}• <Text style={{ fontWeight: 'bold' }}>Cálculo de Afinidad:</Text> Comparar semánticamente el perfil del candidato con el perfil del puesto.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Ranking de Candidatos:</Text> Clasificar las postulaciones según su ajuste técnico para facilitar la revisión del reclutador.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Detección de Brechas (Gap Analysis):</Text> Identificar qué habilidades le faltan a un candidato para cumplir con una publicación específica.
+                        {'\n'}• Comparar tu perfil contra los requisitos de una vacante y calcular un Índice de Compatibilidad (Match Score), usando modelos de IA de Google (Gemini).
+                        {'\n'}• Permitir que el Reclutador dueño de la vacante a la que postulaste vea tu perfil, tu CV y tu Match Score para decidir si te contacta.
+                        {'\n'}• Enviarte notificaciones relacionadas con tu postulación o tu cuenta.
+                        {'\n'}• Medir el uso de la plataforma y el rendimiento de nuestra publicidad, de forma agregada.
+                        {'\n'}• Prevenir fraude y hacer cumplir nuestros Términos y Condiciones.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>4. Transparencia en Decisiones Automatizadas</Text>
+                    <Text style={styles.sectionTitle}>4. Con quién compartimos tus datos</Text>
                     <Text style={styles.text}>
-                        En Veritly creemos en la IA ética:
-                        {'\n\n'}• El Matching Score es una herramienta de apoyo para el reclutador humano.
-                        {'\n'}• Veritly no toma decisiones finales de contratación de forma autónoma; los resultados son recomendaciones basadas en datos objetivos.
-                        {'\n'}• El usuario puede solicitar una revisión humana de su perfil si considera que el procesamiento automatizado no refleja su idoneidad.
+                        No vendemos tus datos personales. Los compartimos únicamente con:
+                        {'\n\n'}• <Text style={{ fontWeight: 'bold' }}>El Reclutador/Empresa</Text> de cada vacante a la que postulas (o cuyo CV subió a la plataforma) — es quien decide a quién contactar o contratar.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Proveedores de infraestructura y servicios</Text> que procesan datos en nuestro nombre: Google Cloud/Firebase (hosting, base de datos, almacenamiento de archivos, autenticación), Google Gemini (análisis de IA), Stripe (procesamiento de pagos — Veritly nunca ve ni almacena el número completo de tu tarjeta), nuestro proveedor de envío de correo, y las herramientas de analítica y monitoreo listadas en la sección 1.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Racso</Text>, nuestro partner de coaching de carrera: si decides usar Racso desde un enlace dentro de Veritly, tu interacción con ese enlace queda registrada, pero no le transferimos automáticamente tu CV ni tus datos — el registro en Racso es una decisión tuya, directamente con ellos, sujeta a sus propios términos.
+                        {'\n'}• Autoridades, cuando la ley lo exija.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>5. Uso de Tecnologías de Terceros</Text>
+                    <Text style={styles.sectionTitle}>5. Responsabilidad del Reclutador sobre los datos que recibe</Text>
                     <Text style={styles.text}>
-                        Para realizar el análisis avanzado, Veritly utiliza servicios de procesamiento de lenguaje natural (NLP) de proveedores líderes como OpenAI, Anthropic o Google Cloud. Estos proveedores procesan la información de manera anonimizada o bajo estrictos acuerdos de confidencialidad y no utilizan sus datos para entrenar modelos públicos de IA.
+                        Una vez que un Reclutador accede al perfil o CV de un Candidato dentro de Veritly, ese Reclutador se convierte en responsable del tratamiento posterior de esos datos (por ejemplo, si los descarga, los contacta por fuera de la plataforma, o los usa en su propio proceso de selección). Veritly actúa como intermediario tecnológico y encargado del tratamiento mientras los datos están en la plataforma, pero <Text style={{ fontWeight: 'bold' }}>no controla ni se responsabiliza</Text> por lo que el Reclutador haga con esa información fuera de Veritly. Cada Reclutador es responsable de cumplir con la normativa de protección de datos de su país al usar la plataforma.
+                    </Text>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>6. Terceros y enlaces externos</Text>
+                    <Text style={styles.text}>
+                        Veritly puede incluir enlaces o promociones de terceros (como Racso). No somos responsables del contenido, las prácticas de privacidad, ni de ningún daño o pérdida derivado del uso de sitios o servicios de terceros a los que accedas a través de nuestra plataforma. Tampoco somos responsables por interrupciones, fallas de seguridad o incidentes que ocurran en la infraestructura de nuestros proveedores (Google Cloud, Stripe, u otros), aunque exigimos que cumplan estándares razonables de seguridad.
+                    </Text>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>7. Tus derechos</Text>
+                    <Text style={styles.text}>
+                        Puedes solicitar en cualquier momento: acceder a los datos que tenemos sobre ti, corregirlos, o pedir que los eliminemos de nuestros registros (incluyendo tu CV). Para ejercer estos derechos, escríbenos a <Text style={{ fontWeight: 'bold' }}>hola@veritlyapp.com</Text>. Responderemos en un plazo razonable conforme a la normativa aplicable.
+                    </Text>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>8. Transparencia en Decisiones Automatizadas</Text>
+                    <Text style={styles.text}>
+                        {'\n'}• El Match Score es una herramienta de apoyo para el Reclutador, generada por IA.
+                        {'\n'}• Veritly no toma decisiones finales de contratación de forma autónoma; los resultados son recomendaciones basadas en datos objetivos, y es el Reclutador quien decide.
+                        {'\n'}• Puedes solicitar una revisión humana de tu perfil si consideras que el resultado automatizado no refleja tu idoneidad.
                     </Text>
                 </View>
 
                 <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 30 }} />
 
                 <Text style={styles.title}>Términos y Condiciones de Uso - Veritly</Text>
-                <Text style={styles.date}>Última actualización: 16 de agosto de 2026</Text>
+                <Text style={styles.date}>Última actualización: 23 de agosto de 2026</Text>
 
                 <View style={styles.section}>
                     <Text style={styles.text}>
@@ -86,17 +111,17 @@ export default function PrivacyScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>1. Descripción del Servicio</Text>
                     <Text style={styles.text}>
-                        Veritly es una herramienta tecnológica basada en Inteligencia Artificial que facilita el emparejamiento (matching) entre perfiles profesionales de candidatos y requerimientos de puestos de trabajo publicados por empresas empleadoras.
+                        Veritly es una herramienta tecnológica basada en Inteligencia Artificial que facilita el emparejamiento (matching) entre perfiles profesionales de Candidatos y requerimientos de puestos de trabajo publicados por Reclutadores/Empresas. Veritly no es una bolsa de trabajo ni una agencia de empleo, y no participa en la relación laboral que eventualmente se genere entre Candidato y Reclutador.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>2. Naturaleza del "Matching Score"</Text>
+                    <Text style={styles.sectionTitle}>2. Naturaleza del "Match Score"</Text>
                     <Text style={styles.text}>
                         El Usuario reconoce y acepta que:
-                        {'\n\n'}• El Matching Score es un indicador estadístico y referencial generado por algoritmos de procesamiento de lenguaje natural.
-                        {'\n'}• Dicho puntaje representa una estimación de compatibilidad técnica y no constituye una calificación definitiva sobre la capacidad humana, ética o profesional del candidato.
-                        {'\n'}• Un puntaje alto no garantiza una entrevista ni una contratación, así como un puntaje bajo no impide que una empresa decida contactar al candidato por otros criterios.
+                        {'\n\n'}• El Match Score es un indicador estadístico y referencial generado por algoritmos de procesamiento de lenguaje natural.
+                        {'\n'}• Dicho puntaje representa una estimación de compatibilidad técnica y no constituye una calificación definitiva sobre la capacidad humana, ética o profesional del Candidato.
+                        {'\n'}• Un puntaje alto no garantiza una entrevista ni una contratación, así como un puntaje bajo no impide que un Reclutador decida contactar al Candidato por otros criterios.
                     </Text>
                 </View>
 
@@ -104,9 +129,11 @@ export default function PrivacyScreen() {
                     <Text style={styles.sectionTitle}>3. Exclusión de Responsabilidad</Text>
                     <Text style={styles.text}>
                         Relié, a través de Veritly, actúa únicamente como un intermediario tecnológico. En consecuencia:
-                        {'\n\n'}• <Text style={{ fontWeight: 'bold' }}>No garantizamos resultados:</Text> Relié no garantiza la obtención de empleo para los candidatos ni la cobertura de vacantes para los empleadores.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Decisiones de terceros:</Text> La decisión final de entrevistar, contratar o rechazar a un candidato es responsabilidad exclusiva del empleador. Relié no interviene en las negociaciones ni en los procesos de decisión humana.
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Veracidad de la información:</Text> El Usuario es el único responsable de la veracidad y exactitud de los datos subidos (CV, descripciones de puesto, etc.). Veritly no verifica la veracidad de la información proporcionada por los Usuarios.
+                        {'\n\n'}• <Text style={{ fontWeight: 'bold' }}>No garantizamos resultados:</Text> Relié no garantiza la obtención de empleo para los Candidatos ni la cobertura de vacantes para los Reclutadores.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Decisiones y conducta de terceros:</Text> la decisión final de entrevistar, contratar o rechazar a un Candidato es responsabilidad exclusiva del Reclutador. Relié no interviene en las negociaciones, en los procesos de decisión humana, ni es responsable por el trato, las ofertas laborales, o cualquier comunicación que ocurra entre Candidatos y Reclutadores dentro o fuera de la Plataforma.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Veracidad de la información:</Text> cada Usuario es el único responsable de la veracidad y exactitud de los datos que sube (CV, descripciones de puesto, requisitos, información de la empresa, etc.). Veritly no verifica la veracidad de la información proporcionada por los Usuarios, ni la legitimidad de las vacantes publicadas por los Reclutadores.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Terceros y proveedores:</Text> Relié no es responsable por fallas, interrupciones o pérdidas de datos causadas por proveedores externos (Google Cloud, Stripe, servicios de correo, u otros) fuera de nuestro control razonable, ni por el contenido o las prácticas de sitios de terceros enlazados desde la Plataforma (incluyendo Racso).
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Límite de responsabilidad:</Text> en la máxima medida permitida por la ley, la responsabilidad total de Relié frente a cualquier Usuario por el uso de la Plataforma se limita al monto efectivamente pagado por ese Usuario a Veritly en los últimos 12 meses, si lo hubiera.
                     </Text>
                 </View>
 
@@ -115,29 +142,38 @@ export default function PrivacyScreen() {
                     <Text style={styles.text}>
                         El Usuario se compromete a:
                         {'\n\n'}• No utilizar identidades falsas o suplantar a terceros.
-                        {'\n'}• No intentar vulnerar la seguridad de los algoritmos de Veritly.
-                        {'\n'}• No utilizar la Plataforma para fines ilícitos o que atenten contra la Ley de Protección de Datos Personales (Ley N° 29733).
+                        {'\n'}• No publicar vacantes falsas, engañosas, discriminatorias o que soliciten pagos a los Candidatos.
+                        {'\n'}• No intentar vulnerar la seguridad de los algoritmos o la infraestructura de Veritly.
+                        {'\n'}• No usar los datos de Candidatos obtenidos en la Plataforma para fines distintos a un proceso de selección legítimo.
+                        {'\n'}• No utilizar la Plataforma para fines ilícitos o que atenten contra la normativa de protección de datos personales de su país (en Perú, la Ley N° 29733).
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>5. Propiedad Intelectual</Text>
+                    <Text style={styles.sectionTitle}>5. Suscripciones y Pagos</Text>
                     <Text style={styles.text}>
-                        Todo el software, algoritmos, marcas (Relié, Liah, Veritly), logotipos y diseños asociados a la Plataforma son propiedad exclusiva de Relié Labs LLC. Queda prohibida su reproducción, ingeniería inversa o distribución sin autorización expresa por escrito.
+                        Los planes pagos se facturan mensual o anualmente según el ciclo elegido, y se procesan a través de Stripe. Los límites de uso (vacantes activas, análisis de IA, etc.) de cada plan están descritos en la página de precios vigente al momento de la contratación. No se realizan reembolsos por periodos parciales de uso, salvo que la ley aplicable indique lo contrario.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>6. Modificaciones del Servicio</Text>
+                    <Text style={styles.sectionTitle}>6. Propiedad Intelectual</Text>
                     <Text style={styles.text}>
-                        Relié se reserva el derecho de actualizar, modificar o suspender temporalmente funciones de la Plataforma (incluyendo el algoritmo de matching) para mejorar la precisión del servicio o realizar mantenimientos técnicos.
+                        Todo el software, algoritmos, marcas (Relié, Veritly), logotipos y diseños asociados a la Plataforma son propiedad exclusiva de Relié Labs LLC. Queda prohibida su reproducción, ingeniería inversa o distribución sin autorización expresa por escrito.
                     </Text>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>7. Ley Aplicable y Jurisdicción</Text>
+                    <Text style={styles.sectionTitle}>7. Modificaciones del Servicio y de estos Términos</Text>
                     <Text style={styles.text}>
-                        Estos términos se rigen por las leyes de la República del Perú. Cualquier controversia será resuelta ante los jueces y tribunales del distrito judicial de Lima, Perú.
+                        Relié se reserva el derecho de actualizar, modificar o suspender temporalmente funciones de la Plataforma (incluyendo el algoritmo de matching), así como de actualizar estos Términos y la Política de Privacidad. Los cambios relevantes se reflejarán con una nueva fecha de "Última actualización" en esta página.
+                    </Text>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>8. Ley Aplicable y Contacto</Text>
+                    <Text style={styles.text}>
+                        Estos términos se rigen por las leyes de la República del Perú. Para dudas legales, de privacidad, o para ejercer tus derechos sobre tus datos, contáctanos en <Text style={{ fontWeight: 'bold' }}>hola@veritlyapp.com</Text>.
                     </Text>
                 </View>
 
