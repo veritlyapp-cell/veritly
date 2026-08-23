@@ -327,7 +327,7 @@ export default function VeritlyLandingPage() {
                                     <View style={styles.planFeatures}>
                                         <FeatureItemLanding text={`${plan.aiAnalysisLimit || 0} análisis de IA por mes`} />
                                         <FeatureItemLanding text={`${plan.internalVacanciesLimit || 0} vacantes activas`} />
-                                        {(plan.features || []).slice(0, 2).map((f: string, i: number) => (
+                                        {(plan.features || []).filter((f: string) => !f.includes("Análisis") && !f.includes("Vacantes")).map((f: string, i: number) => (
                                             <FeatureItemLanding key={i} text={f} />
                                         ))}
                                     </View>
