@@ -44,9 +44,15 @@
   force = true
 
 # Redirect rules for SPA
+# Rutas dinamicas (/vacante/[id], /v/[slug], /e/[slug], etc.) no existen como
+# archivo estatico, asi que caen aca. Apunta a una pantalla de carga neutral
+# en vez de a index.html: si no, Netlify mostraba brevemente el HTML de la
+# landing principal (el que SI esta pre-generado) antes de que el JS cargara
+# y React corrigiera la pantalla a la ruta real -- se veia como que "primero
+# carga la landing y despues la oferta".
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/_shell.html"
   status = 200
 
 # Headers for better performance
