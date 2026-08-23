@@ -262,10 +262,16 @@ export default function CompanySignIn() {
                     >
                         <View style={styles.formContainer}>
                         <Animated.View style={[styles.formWrapper, animatedStyle]}>
-                            <Text style={styles.title}>{isRegistering ? "Registro de Empresa" : "Portal Empresas"}</Text>
+                            <Text style={styles.title}>
+                                {isRegistering
+                                    ? (userType === 'empresa' ? "Registro de Empresa" : "Regístrate como Reclutador")
+                                    : "Portal Empresas"}
+                            </Text>
                             <Text style={styles.subtitle}>
                                 {isRegistering
-                                    ? "Registra tu empresa y empieza a contratar con IA."
+                                    ? (userType === 'empresa'
+                                        ? "Registra tu empresa y empieza a contratar con IA."
+                                        : "Crea tu cuenta y empieza a contratar con IA.")
                                     : "Accede para gestionar tus vacantes y candidatos."}
                             </Text>
 
