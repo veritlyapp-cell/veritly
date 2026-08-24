@@ -56,22 +56,22 @@ type PageStep = 'offer' | 'auth' | 'apply' | 'success';
 type AuthMode = 'login' | 'register';
 
 const LATAM_COUNTRIES = [
-    { name: 'Perú', currency: 'S/' },
-    { name: 'Colombia', currency: 'COP$' },
-    { name: 'México', currency: 'MXN$' },
-    { name: 'Chile', currency: 'CLP$' },
-    { name: 'Argentina', currency: 'ARS$' },
-    { name: 'Ecuador', currency: 'USD$' },
-    { name: 'Bolivia', currency: 'Bs' },
-    { name: 'Uruguay', currency: 'UYU$' },
-    { name: 'Paraguay', currency: 'Gs' },
-    { name: 'Panamá', currency: 'USD$' },
-    { name: 'Costa Rica', currency: '₡' },
-    { name: 'República Dominicana', currency: 'DOP$' },
-    { name: 'El Salvador', currency: 'USD$' },
-    { name: 'Guatemala', currency: 'Q' },
-    { name: 'Honduras', currency: 'L' },
-    { name: 'Nicaragua', currency: 'C$' }
+    { name: 'Perú', currency: 'S/', dialCode: '+51' },
+    { name: 'Colombia', currency: 'COP$', dialCode: '+57' },
+    { name: 'México', currency: 'MXN$', dialCode: '+52' },
+    { name: 'Chile', currency: 'CLP$', dialCode: '+56' },
+    { name: 'Argentina', currency: 'ARS$', dialCode: '+54' },
+    { name: 'Ecuador', currency: 'USD$', dialCode: '+593' },
+    { name: 'Bolivia', currency: 'Bs', dialCode: '+591' },
+    { name: 'Uruguay', currency: 'UYU$', dialCode: '+598' },
+    { name: 'Paraguay', currency: 'Gs', dialCode: '+595' },
+    { name: 'Panamá', currency: 'USD$', dialCode: '+507' },
+    { name: 'Costa Rica', currency: '₡', dialCode: '+506' },
+    { name: 'República Dominicana', currency: 'DOP$', dialCode: '+1' },
+    { name: 'El Salvador', currency: 'USD$', dialCode: '+503' },
+    { name: 'Guatemala', currency: 'Q', dialCode: '+502' },
+    { name: 'Honduras', currency: 'L', dialCode: '+504' },
+    { name: 'Nicaragua', currency: 'C$', dialCode: '+505' }
 ];
 
 // Nombre completo de cada moneda, para que el candidato no confunda el
@@ -132,6 +132,8 @@ export default function ExternalApplication() {
     // Application form state
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
+    const [phoneCountryCode, setPhoneCountryCode] = useState('+51');
+    const [showPhoneCodeDropdown, setShowPhoneCodeDropdown] = useState(false);
     const [salaryExpectation, setSalaryExpectation] = useState('');
     const [file, setFile] = useState<any>(null);
     const [killerAnswers, setKillerAnswers] = useState<Record<number, string>>({});
@@ -179,6 +181,17 @@ export default function ExternalApplication() {
         }
     }, [job]);
 
+    // Solo autocompletar el codigo de pais del telefono a partir del pais de
+    // residencia mientras no haya un telefono ya cargado (de lo contrario
+    // pisaria el codigo guardado en el perfil del candidato, cargado en
+    // loadCandidateProfile).
+    useEffect(() => {
+        if (selectedCountry && !phone) {
+            const match = LATAM_COUNTRIES.find(c => c.name === selectedCountry);
+            if (match) setPhoneCountryCode(match.dialCode);
+        }
+    }, [selectedCountry]);
+
     // Listen to auth state
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -219,12 +232,14 @@ export default function ExternalApplication() {
             let foundCv2Label: string | null = null;
             let foundName: string | null = null;
             let foundPhone: string | null = null;
+            let foundPhoneCode: string | null = null;
 
             // 1. Extraer de users_candidatos (Nuevo)
             if (snapCandidato.exists()) {
                 const d = snapCandidato.data();
                 foundName = d.fullName || d.profile?.fullName || foundName;
                 foundPhone = d.phone || d.profile?.phone || foundPhone;
+                foundPhoneCode = d.phoneCountryCode || d.profile?.phoneCountryCode || foundPhoneCode;
                 foundCv = d.profile?.cv || d.profile?.cvUrl || d.cvUrl || d.cvBase64 || foundCv;
                 foundCvName = d.profile?.cvName || d.profile?.fileName || d.cvFileName || foundCvName;
                 foundCvLabel = d.profile?.cvLabel || foundCvLabel;
@@ -238,6 +253,7 @@ export default function ExternalApplication() {
                 const d = snapUser.data();
                 foundName = foundName || d.profile?.fullName || d.fullName;
                 foundPhone = foundPhone || d.profile?.phone || d.phone;
+                foundPhoneCode = foundPhoneCode || d.profile?.phoneCountryCode || d.phoneCountryCode;
                 // Buscar CV en todas sus posibles variantes
                 foundCv = foundCv || d.profile?.cvUrl || d.profile?.cv || d.profile?.cvBase64 || d.cvUrl || d.cv;
                 foundCvName = foundCvName || d.profile?.cvName || d.profile?.fileName || d.cvFileName;
@@ -249,6 +265,7 @@ export default function ExternalApplication() {
 
             if (foundName) setFullName(foundName);
             if (foundPhone) setPhone(foundPhone);
+            if (foundPhoneCode) setPhoneCountryCode(foundPhoneCode);
 
             if (foundCv) {
                 console.log("✅ CV detectado con éxito");
@@ -629,7 +646,7 @@ export default function ExternalApplication() {
                 const docRef = await addDoc(collection(db, 'jobs', id as string, 'candidates'), {
                     fullName: fullName.trim(),
                     email: (user?.email || authEmail).toLowerCase().trim(),
-                    phone: phone.trim(),
+                    phone: `${phoneCountryCode} ${phone.trim()}`,
                     country: selectedCountry,
                     salaryExpectation: expectationNumber,
                     cvUrl: cvUrl,
@@ -661,6 +678,21 @@ export default function ExternalApplication() {
                     await updateDoc(doc(db, 'jobs', id as string), { applicantsCount: increment(1) });
                 } catch (counterErr) {
                     console.warn('No se pudo incrementar applicantsCount:', counterErr);
+                }
+
+                // Guardar el telefono en el perfil del candidato (no opcional,
+                // a diferencia del CV): asi la proxima vez que postule a otra
+                // vacante ya no se lo volvemos a pedir. No debe bloquear el
+                // flujo si falla.
+                if (user?.uid) {
+                    try {
+                        await updateDoc(doc(db, 'users_candidatos', user.uid), {
+                            phone: phone.trim(),
+                            phoneCountryCode
+                        });
+                    } catch (phoneSyncErr) {
+                        console.warn('No se pudo guardar el teléfono en el perfil:', phoneSyncErr);
+                    }
                 }
 
                 // OPCIONAL: Guardar en el perfil del usuario si marcó el checkbox
@@ -1247,14 +1279,42 @@ export default function ExternalApplication() {
                     {formErrors.fullName && <Text style={styles.errorText}>{formErrors.fullName}</Text>}
 
                     <Text style={styles.label}>Teléfono / WhatsApp *</Text>
-                    <TextInput
-                        style={[styles.input, formErrors.phone && styles.inputError]}
-                        placeholder="Ej. +51 999 000 111"
-                        placeholderTextColor="#475569"
-                        keyboardType="phone-pad"
-                        value={phone}
-                        onChangeText={(txt) => { setPhone(txt); if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' }); }}
-                    />
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minWidth: 78 }}
+                            onPress={() => setShowPhoneCodeDropdown(!showPhoneCodeDropdown)}
+                        >
+                            <Text style={{ color: '#1E293B', fontWeight: '600', fontSize: 14 }}>{phoneCountryCode}</Text>
+                            <Text style={{ color: '#3b82f6', fontSize: 10, marginLeft: 4 }}>{showPhoneCodeDropdown ? '▲' : '▼'}</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                            style={[styles.input, { flex: 1 }, formErrors.phone && styles.inputError]}
+                            placeholder="999 000 111"
+                            placeholderTextColor="#475569"
+                            keyboardType="phone-pad"
+                            value={phone}
+                            onChangeText={(txt) => { setPhone(txt); if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' }); }}
+                        />
+                    </View>
+                    {showPhoneCodeDropdown && (
+                        <View style={{ maxHeight: 220, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, padding: 6, marginTop: 5 }}>
+                            <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
+                                {LATAM_COUNTRIES.map((c) => {
+                                    const isSelected = phoneCountryCode === c.dialCode;
+                                    return (
+                                        <TouchableOpacity
+                                            key={c.name}
+                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent' }}
+                                            onPress={() => { setPhoneCountryCode(c.dialCode); setShowPhoneCodeDropdown(false); }}
+                                        >
+                                            <Text style={{ color: isSelected ? '#3b82f6' : '#475569', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>{c.name}</Text>
+                                            <Text style={{ color: isSelected ? '#3b82f6' : '#94a3b8', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>{c.dialCode}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    )}
                     {formErrors.phone && <Text style={styles.errorText}>{formErrors.phone}</Text>}
 
                     <Text style={[styles.label, { marginTop: 15 }]}>País de Residencia actual *</Text>
