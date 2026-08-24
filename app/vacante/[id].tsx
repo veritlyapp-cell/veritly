@@ -293,11 +293,12 @@ export default function ExternalApplication() {
                 setCandidateRefCode(globalData.referralId || globalData.profile?.referralId || '');
 
                 // Verificación profunda: ¿Realmente existe la postulación en la vacante?
+                // (getDoc por uid, no query/list -- un candidato no tiene permiso
+                // para listar la subcolección, solo para leer su propio doc).
                 if (globalData.lastMatches && id && globalData.lastMatches[id as string]) {
-                    const jobCandRef = query(collection(db, 'jobs', id as string, 'candidates'), where('email', '==', (auth.currentUser?.email || '').toLowerCase()));
-                    const jobCandSnap = await getDocs(jobCandRef);
-                    
-                    if (!jobCandSnap.empty) {
+                    const jobCandSnap = await getDoc(doc(db, 'jobs', id as string, 'candidates', uid));
+
+                    if (jobCandSnap.exists()) {
                         console.log("✅ Confirmado: Postulación activa detectada.");
                         setMatchResult(globalData.lastMatches[id as string]);
                         setStep('success');
@@ -621,17 +622,18 @@ export default function ExternalApplication() {
             }
 
             // STEP 2: Duplicate Check (Safety Layer)
-            // Nota: por privacidad, las reglas de Firestore no dejan a un candidato
-            // listar la subcolección de candidatos de otros (solo la empresa dueña puede).
-            // Si el chequeo falla por permisos, no bloqueamos la postulación.
+            // El ID del documento del candidato es su propio uid (o, si por algun
+            // motivo no hay uid, su email normalizado) -- esto hace la postulacion
+            // idempotente por diseno: no se puede "crear otra" postulacion, solo
+            // sobreescribir la propia. La consulta anterior intentaba LISTAR la
+            // subcoleccion filtrando por email, algo que las reglas de Firestore
+            // no permiten a un candidato (solo a la empresa dueña), asi que el
+            // chequeo fallaba en silencio y nunca bloqueaba nada.
+            const candidateDocId = user?.uid || (user?.email || authEmail).toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
             setSubmitStatus('Verificando postulación previa...');
             try {
-                const existingQuery = query(
-                    collection(db, 'jobs', id as string, 'candidates'),
-                    where('email', '==', (user?.email || authEmail).toLowerCase().trim())
-                );
-                const existingSnap = await getDocs(existingQuery);
-                if (!existingSnap.empty) {
+                const existingSnap = await getDoc(doc(db, 'jobs', id as string, 'candidates', candidateDocId));
+                if (existingSnap.exists()) {
                     setSubmitError('Ya te has postulado a esta vacante anteriormente.');
                     setSubmitting(false);
                     return;
@@ -643,7 +645,8 @@ export default function ExternalApplication() {
             // STEP 3: Save to Firestore
             setSubmitStatus('Sincronizando perfiles...');
             try {
-                const docRef = await addDoc(collection(db, 'jobs', id as string, 'candidates'), {
+                const candidateRef = doc(db, 'jobs', id as string, 'candidates', candidateDocId);
+                await setDoc(candidateRef, {
                     fullName: fullName.trim(),
                     email: (user?.email || authEmail).toLowerCase().trim(),
                     phone: `${phoneCountryCode} ${phone.trim()}`,
@@ -668,7 +671,7 @@ export default function ExternalApplication() {
                 // la lista de candidatos del reclutador no tenga que
                 // descargar el archivo completo de cada postulante.
                 if (cvBase64) {
-                    await saveCandidateCvBase64(id as string, docRef.id, cvBase64);
+                    await saveCandidateCvBase64(id as string, candidateDocId, cvBase64);
                 }
                 setLastUploadedCv({ url: cvUrl ?? undefined, base64: cvBase64 ?? undefined, mimeType: file?.mimeType });
 
@@ -1210,8 +1213,28 @@ export default function ExternalApplication() {
                             )}
                         </View>
 
-                        <TouchableOpacity 
-                            style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155', shadowOpacity: 0, elevation: 0, marginTop: 40 }]} 
+                        {/* RACSO BANNER PERSISTENTE: visible siempre en esta pantalla,
+                            revele o no su Match Score -- quien no le da a "Revelar mi
+                            Score" igual deberia ver esta invitacion a Racso. */}
+                        <TouchableOpacity
+                            style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}
+                            onPress={() => handleOpenRacso('success_screen_banner')}
+                        >
+                            <Image
+                                source={require('../../assets/images/racso-logo.png')}
+                                style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#E0E7FF' }}
+                            />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827' }}>¿Quieres destacar aún más?</Text>
+                                <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 2, lineHeight: 17 }}>
+                                    Racso te prepara para tu próxima entrevista y mejora tu CV para futuras postulaciones.
+                                </Text>
+                            </View>
+                            <ChevronRight size={20} color="#4F46E5" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155', shadowOpacity: 0, elevation: 0, marginTop: 0 }]}
                             onPress={() => router.replace('/(tabs)')}
                         >
                             <Text style={{ color: '#94a3b8', fontWeight: 'bold' }}>IR A MI DASHBOARD</Text>
