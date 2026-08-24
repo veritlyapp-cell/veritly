@@ -144,14 +144,21 @@ export default function ExternalApplication() {
     const [selectedCountry, setSelectedCountry] = useState<string>('');
     const [showCandidateCountryDropdown, setShowCandidateCountryDropdown] = useState(false);
 
-    // Compartido entre pasos (cerrada, oferta, exito) que ofrecen Racso al candidato
-    const handleOpenRacso = async () => {
+    // Compartido entre los puntos de contacto que ofrecen Racso al candidato.
+    // `context` identifica el punto exacto para poder medir clics antes vs
+    // despues de la postulacion en el dashboard de admin:
+    // - 'vacante_cerrada': la oferta ya cerro, nunca pudo postular (antes)
+    // - 'formulario_postulacion': visible junto al boton de enviar, aun no postula (antes)
+    // - 'match_badge' / 'match_cta': aparecen solo despues de postular y revelar
+    //   su Match Score con IA (despues)
+    const handleOpenRacso = async (context: string) => {
         try {
             await addDoc(collection(db, 'racso_clicks'), {
                 jobId: id as string,
                 jobTitle: job?.jobTitle || 'Desconocido',
                 companyName: companyName || 'Desconocido',
                 platform: Platform.OS,
+                context,
                 createdAt: new Date()
             });
         } catch (err) {
@@ -822,9 +829,9 @@ export default function ExternalApplication() {
                             <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20, marginBottom: 20 }}>
                                 Racso es tu copiloto de carrera: te ayuda a estructurar un CV de alto impacto, prepararte para entrevistas reales y acelerar tu contratación.
                             </Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={{ backgroundColor: '#4F46E5', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 }}
-                                onPress={handleOpenRacso}
+                                onPress={() => handleOpenRacso('vacante_cerrada')}
                             >
                                 <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
                             </TouchableOpacity>
@@ -1126,7 +1133,7 @@ export default function ExternalApplication() {
                                     <CircularProgress percentage={matchResult.match} size={100} strokeWidth={8} />
                                     <Text style={{ color: 'white', fontSize: 28, fontWeight: '900', marginTop: 16 }}>{matchResult.match}% Match</Text>
                                     <TouchableOpacity
-                                        onPress={() => Linking.openURL('https://racso.app/ingreso')}
+                                        onPress={() => handleOpenRacso('match_badge')}
                                         style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0f', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12, marginTop: 8 }}
                                     >
                                         <Image source={require('../../assets/images/racso-logo.png')} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 6 }} />
@@ -1145,7 +1152,7 @@ export default function ExternalApplication() {
                                     {/* RACSO CALLOUT */}
                                     <TouchableOpacity
                                         style={{ backgroundColor: '#0f172a', padding: 16, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#4F46E5', width: '100%' }}
-                                        onPress={() => Linking.openURL('https://racso.app/ingreso')}
+                                        onPress={() => handleOpenRacso('match_cta')}
                                     >
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                             <Image source={require('../../assets/images/racso-logo.png')} style={{ width: 18, height: 18, borderRadius: 9 }} />
@@ -1557,7 +1564,7 @@ export default function ExternalApplication() {
                     </Text>
                     <TouchableOpacity
                         style={{ backgroundColor: '#4F46E5', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 }}
-                        onPress={handleOpenRacso}
+                        onPress={() => handleOpenRacso('formulario_postulacion')}
                     >
                         <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
                     </TouchableOpacity>

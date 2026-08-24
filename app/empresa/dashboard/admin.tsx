@@ -49,6 +49,9 @@ export default function EmpresaAdminDashboard() {
     const [totalB2CRegisteredWithMatch, setTotalB2CRegisteredWithMatch] = useState(0);
     const [totalB2CAnonWithMatch, setTotalB2CAnonWithMatch] = useState(0);
     const [totalRacsoClicks, setTotalRacsoClicks] = useState(0);
+    const [totalRacsoClicksAntes, setTotalRacsoClicksAntes] = useState(0);
+    const [totalRacsoClicksDespues, setTotalRacsoClicksDespues] = useState(0);
+    const [racsoClicksByDate, setRacsoClicksByDate] = useState<{ date: string; antes: number; despues: number; total: number }[]>([]);
     const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback' | 'b2c'>('cuentas');
     const [feedback, setFeedback] = useState<any[]>([]);
     
@@ -182,9 +185,41 @@ export default function EmpresaAdminDashboard() {
             } catch(e) {}
 
             // Fetch Racso clicks
+            // 'antes' = todavia no habia postulacion registrada (vacante_cerrada o
+            // formulario_postulacion, este ultimo aun no le da a enviar); 'despues'
+            // = aparece solo tras postular y revelar su Match Score (match_badge,
+            // match_cta). Ver comentario en handleOpenRacso de vacante/[id].tsx.
             try {
                 const clicksSnap = await getDocs(collection(db, 'racso_clicks'));
                 setTotalRacsoClicks(clicksSnap.size);
+
+                const ANTES_CONTEXTS = ['vacante_cerrada', 'formulario_postulacion'];
+                const byDate: Record<string, { label: string; antes: number; despues: number; total: number }> = {};
+                let antesCount = 0;
+                let despuesCount = 0;
+
+                clicksSnap.docs.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const context = data.context || 'sin_clasificar'; // clics viejos, antes de agregar el campo
+                    const isAntes = ANTES_CONTEXTS.includes(context);
+                    if (isAntes) antesCount++; else if (context !== 'sin_clasificar') despuesCount++;
+
+                    const rawDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                    const sortKey = isNaN(rawDate.getTime()) ? '0000-00-00' : rawDate.toISOString().slice(0, 10);
+                    const label = isNaN(rawDate.getTime()) ? 'Sin fecha' : rawDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    if (!byDate[sortKey]) byDate[sortKey] = { label, antes: 0, despues: 0, total: 0 };
+                    if (isAntes) byDate[sortKey].antes++; else if (context !== 'sin_clasificar') byDate[sortKey].despues++;
+                    byDate[sortKey].total++;
+                });
+
+                setTotalRacsoClicksAntes(antesCount);
+                setTotalRacsoClicksDespues(despuesCount);
+                setRacsoClicksByDate(
+                    Object.entries(byDate)
+                        .sort(([keyA], [keyB]) => (keyA < keyB ? 1 : -1))
+                        .map(([, counts]) => ({ date: counts.label, antes: counts.antes, despues: counts.despues, total: counts.total }))
+                );
             } catch (clicksError) {
                 console.error("Error fetching Racso clicks count:", clicksError);
             }
@@ -649,6 +684,62 @@ export default function EmpresaAdminDashboard() {
                                     <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalRacsoClicks}</Text>
                                     <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Redirecciones totales a la app</Text>
                                 </View>
+                            </View>
+
+                            {/* Racso: antes vs despues de postular */}
+                            <View style={{ marginTop: 25 }}>
+                                <Text style={styles.sectionTitle}>Clics a Racso: antes vs. después de postular</Text>
+                                <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginTop: 15, marginBottom: 20 }}>
+                                    <View style={[styles.metricCard, { backgroundColor: '#f59e0b', flex: 1, minWidth: 140, padding: 20 }]}>
+                                        <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Antes de postular</Text>
+                                        <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalRacsoClicksAntes}</Text>
+                                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Vacante cerrada o en el formulario, aún sin enviar</Text>
+                                    </View>
+                                    <View style={[styles.metricCard, { backgroundColor: '#10b981', flex: 1, minWidth: 140, padding: 20 }]}>
+                                        <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Después de postular</Text>
+                                        <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 6 }}>{totalRacsoClicksDespues}</Text>
+                                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Tras revelar su Match Score con IA</Text>
+                                    </View>
+                                </View>
+
+                                {/* Tabla por fecha */}
+                                <View style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+                                    <View style={{ flexDirection: 'row', backgroundColor: '#F9FAFB', paddingVertical: 10, paddingHorizontal: 14 }}>
+                                        <Text style={{ flex: 1.4, fontSize: 12, fontWeight: '700', color: COLORS.textSecondary }}>Fecha</Text>
+                                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textAlign: 'center' }}>Antes</Text>
+                                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textAlign: 'center' }}>Después</Text>
+                                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textAlign: 'center' }}>Total</Text>
+                                    </View>
+                                    {racsoClicksByDate.length === 0 ? (
+                                        <Text style={{ textAlign: 'center', padding: 20, color: COLORS.textTertiary, fontSize: 13 }}>
+                                            Aún no hay clics registrados.
+                                        </Text>
+                                    ) : (
+                                        racsoClicksByDate.map((row, idx) => (
+                                            <View
+                                                key={row.date}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    paddingVertical: 10,
+                                                    paddingHorizontal: 14,
+                                                    borderTopWidth: idx === 0 ? 0 : 1,
+                                                    borderTopColor: '#F1F5F9'
+                                                }}
+                                            >
+                                                <Text style={{ flex: 1.4, fontSize: 13, color: COLORS.textPrimary }}>{row.date}</Text>
+                                                <Text style={{ flex: 1, fontSize: 13, color: '#f59e0b', fontWeight: '600', textAlign: 'center' }}>{row.antes}</Text>
+                                                <Text style={{ flex: 1, fontSize: 13, color: '#10b981', fontWeight: '600', textAlign: 'center' }}>{row.despues}</Text>
+                                                <Text style={{ flex: 1, fontSize: 13, color: COLORS.textPrimary, fontWeight: '700', textAlign: 'center' }}>{row.total}</Text>
+                                            </View>
+                                        ))
+                                    )}
+                                </View>
+                                {totalRacsoClicks > totalRacsoClicksAntes + totalRacsoClicksDespues && (
+                                    <Text style={{ fontSize: 11, color: COLORS.textTertiary, marginTop: 8 }}>
+                                        Nota: {totalRacsoClicks - totalRacsoClicksAntes - totalRacsoClicksDespues} clic(s) son de antes de que empezáramos a
+                                        registrar el contexto (antes/después), por eso no aparecen en este desglose.
+                                    </Text>
+                                )}
                             </View>
                         </View>
                     ) : (
