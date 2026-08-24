@@ -9,7 +9,7 @@ import {
     signInWithPopup,
     signInAnonymously
 } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where, increment } from 'firebase/firestore';
 import { deductCredit } from '../../services/credits-service';
 import { saveAnalysisToCloud, saveCandidateCvBase64 } from '../../services/storage';
 import { getDownloadURL, ref, uploadString } from 'firebase/storage';
@@ -361,16 +361,12 @@ export default function ExternalApplication() {
                 console.warn('No se pudo cargar el branding de la empresa:', e);
             }
 
-            // Load applicant count (privado: solo la empresa dueña puede listar
-            // la subcolección de candidatos, así que para un visitante público
-            // esto siempre fallará por permisos; lo omitimos en silencio).
-            try {
-                const q = query(collection(db, 'jobs', jobId, 'candidates'));
-                const countSnap = await getDocs(q);
-                setApplicantCount(countSnap.size);
-            } catch (e) {
-                console.warn('No se pudo cargar el conteo de postulantes:', e);
-            }
+            // Contador de postulantes: NO se puede obtener leyendo la subcolección
+            // jobs/{id}/candidates (las reglas de Firestore la bloquean para
+            // visitantes públicos, solo la empresa dueña puede listarla) -- por
+            // eso se guarda de forma denormalizada en applicantsCount dentro del
+            // propio doc de la vacante, que sí es público (allow read: if true).
+            setApplicantCount(jobData?.applicantsCount || 0);
         } catch (e) {
             console.error('Error loading job:', e);
         } finally {
@@ -658,6 +654,14 @@ export default function ExternalApplication() {
                     await saveCandidateCvBase64(id as string, docRef.id, cvBase64);
                 }
                 setLastUploadedCv({ url: cvUrl ?? undefined, base64: cvBase64 ?? undefined, mimeType: file?.mimeType });
+
+                // Contador publico de postulantes (ver nota en loadJobDetails):
+                // no debe bloquear el flujo de postulacion si falla.
+                try {
+                    await updateDoc(doc(db, 'jobs', id as string), { applicantsCount: increment(1) });
+                } catch (counterErr) {
+                    console.warn('No se pudo incrementar applicantsCount:', counterErr);
+                }
 
                 // OPCIONAL: Guardar en el perfil del usuario si marcó el checkbox
                 if (saveToProfile && !useSavedCv && cvUrl) {
@@ -1107,7 +1111,7 @@ export default function ExternalApplication() {
                                     <Sparkles size={32} color="#f59e0b" style={{ marginBottom: 12 }} />
                                     <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>¿Quieres saber tu Match %?</Text>
                                     <Text style={{ color: '#94a3b8', textAlign: 'center', fontSize: 14, marginBottom: 20, lineHeight: 20 }}>
-                                        Nuestra IA puede decirte qué tanto encaja tu CV con este puesto antes que el reclutador te llame.
+                                        Racso te ayuda a revelar tu Match Score: qué tanto encaja tu CV con este puesto antes que el reclutador te llame.
                                     </Text>
                                     
                                     <TouchableOpacity 
@@ -1125,7 +1129,7 @@ export default function ExternalApplication() {
                                         )}
                                     </TouchableOpacity>
                                     <Text style={{ color: '#64748b', fontSize: 11, marginTop: 12 }}>
-                                        Costo: 1 crédito (Te quedan {userCredits})
+                                        Análisis realizado por Racso · Incluido en tu postulación
                                     </Text>
                                 </View>
                             ) : (
@@ -1146,7 +1150,7 @@ export default function ExternalApplication() {
                                     <View style={{ width: '100%', height: 1, backgroundColor: '#334155', marginVertical: 20 }} />
                                     
                                     <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 20 }}>
-                                        "Usaste 1 crédito de análisis. ¡Buen trabajo!"
+                                        "Análisis generado por Racso. ¡Buen trabajo!"
                                     </Text>
 
                                     {/* RACSO CALLOUT */}
@@ -1167,7 +1171,7 @@ export default function ExternalApplication() {
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
                                             <Sparkles size={16} color="#4F46E5" />
-                                            <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>REGISTRARME EN RACSO</Text>
+                                            <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>PROBAR RACSO</Text>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
@@ -1369,13 +1373,11 @@ export default function ExternalApplication() {
                     </View>
                     {formErrors.salary ? (
                         <Text style={styles.errorText}>{formErrors.salary}</Text>
-                    ) : (
+                    ) : job.currency === 'S/' ? (
                         <Text style={styles.helperText}>
-                            {job.currency === 'S/'
-                                ? 'Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).'
-                                : `Expectativa en ${CURRENCY_NAMES[job.currency] || 'la moneda'} (${job.currency || 'USD$'}), la moneda de pago de la vacante.`}
+                            Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).
                         </Text>
-                    )}
+                    ) : null}
                 </View>
 
                 {/* Killer Questions */}
