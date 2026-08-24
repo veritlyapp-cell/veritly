@@ -278,7 +278,10 @@ export default function MyApplications() {
                   </View>
                 </View>
                 {selectedHistory.link ? (
-                  <TouchableOpacity style={styles.linkButton} onPress={() => openLink(selectedHistory.link)}>
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => openLink(`${selectedHistory.link}${selectedHistory.link.includes('?') ? '&' : '?'}view=offer`)}
+                  >
                     <LinkIcon size={16} color="white" />
                     <Text style={{ color: 'white', fontWeight: 'bold' }}>ABRIR OFERTA</Text>
                   </TouchableOpacity>

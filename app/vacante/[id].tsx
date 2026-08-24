@@ -95,8 +95,13 @@ const CURRENCY_NAMES: Record<string, string> = {
 };
 
 export default function ExternalApplication() {
-    const { id } = useLocalSearchParams();
+    const { id, view } = useLocalSearchParams();
     const router = useRouter();
+    // Cuando el candidato entra desde "Abrir Oferta" en su propio dashboard
+    // (ya postulado), forzamos que vea la descripcion del puesto en vez de
+    // saltar directo a la pantalla de exito/match -- solo quiere revisar la
+    // oferta, no le interesa re-postular (igual esta bloqueado si lo intenta).
+    const forceOfferView = view === 'offer';
 
     // Page state
     const [step, setStep] = useState<PageStep>('offer');
@@ -301,7 +306,7 @@ export default function ExternalApplication() {
                     if (jobCandSnap.exists()) {
                         console.log("✅ Confirmado: Postulación activa detectada.");
                         setMatchResult(globalData.lastMatches[id as string]);
-                        setStep('success');
+                        if (!forceOfferView) setStep('success');
                     } else {
                         console.log("ℹ️ Match antiguo detectado pero candidato ya no existe en vacante. Permitiendo re-postulación.");
                         // Limpiar el match antiguo del perfil para no confundir
@@ -1134,9 +1139,9 @@ export default function ExternalApplication() {
                         <View style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: 'rgba(16, 185, 129, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                             <CheckCircle2 size={40} color="#10b981" />
                         </View>
-                        <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>¡Postulación Enviada!</Text>
-                        <Text style={{ color: '#94a3b8', textAlign: 'center', fontSize: 13, lineHeight: 19, marginBottom: 24 }}>
-                            Tu perfil fue registrado correctamente para <Text style={{ color: 'white', fontWeight: 'bold' }}>{job.jobTitle}</Text>.
+                        <Text style={{ color: '#111827', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>¡Postulación Enviada!</Text>
+                        <Text style={{ color: '#4B5563', textAlign: 'center', fontSize: 13, lineHeight: 19, marginBottom: 24 }}>
+                            Tu perfil fue registrado correctamente para <Text style={{ color: '#111827', fontWeight: 'bold' }}>{job.jobTitle}</Text>.
                         </Text>
 
                         {/* HOOK: AI MATCH REVEAL */}
@@ -1234,13 +1239,13 @@ export default function ExternalApplication() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155', shadowOpacity: 0, elevation: 0, marginTop: 0 }]}
+                            style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#E2E8F0', shadowOpacity: 0, elevation: 0, marginTop: 0 }]}
                             onPress={() => router.replace('/(tabs)')}
                         >
-                            <Text style={{ color: '#94a3b8', fontWeight: 'bold' }}>IR A MI DASHBOARD</Text>
+                            <Text style={{ color: '#6B7280', fontWeight: 'bold' }}>IR A MI DASHBOARD</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={{ marginTop: 24, padding: 10 }} onPress={() => setStep('offer')}>
-                            <Text style={{ color: '#475569', fontSize: 13, textDecorationLine: 'underline' }}>Volver a ver la descripción del puesto</Text>
+                            <Text style={{ color: '#6B7280', fontSize: 13, textDecorationLine: 'underline' }}>Volver a ver la descripción del puesto</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
