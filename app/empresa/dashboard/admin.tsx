@@ -661,7 +661,7 @@ export default function EmpresaAdminDashboard() {
                     <MetricsTabs />
                     
                     {activeTab === 'b2c' ? (
-                        <View style={styles.tableContainer}>
+                        <ScrollView style={styles.tableContainer} contentContainerStyle={{ paddingBottom: 50 }} showsVerticalScrollIndicator={true}>
                             <Text style={styles.sectionTitle}>Embudo B2C & Uso de IA</Text>
                             <View style={{ flexDirection: 'row', gap: 15, flexWrap: 'wrap', marginTop: 15 }}>
                                 <View style={[styles.metricCard, { backgroundColor: COLORS.primary, flex: 1, minWidth: 140, padding: 20 }]}>
@@ -741,7 +741,7 @@ export default function EmpresaAdminDashboard() {
                                     </Text>
                                 )}
                             </View>
-                        </View>
+                        </ScrollView>
                     ) : (
                         <View style={styles.tableContainer}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
