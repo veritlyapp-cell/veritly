@@ -52,7 +52,8 @@ export default function EmpresaAdminDashboard() {
     const [totalRacsoClicksAntes, setTotalRacsoClicksAntes] = useState(0);
     const [totalRacsoClicksDespues, setTotalRacsoClicksDespues] = useState(0);
     const [racsoClicksByDate, setRacsoClicksByDate] = useState<{ date: string; antes: number; despues: number; total: number }[]>([]);
-    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback' | 'b2c'>('cuentas');
+    const [activeTab, setActiveTab] = useState<'cuentas' | 'planes' | 'feedback' | 'b2c' | 'encuestas'>('cuentas');
+    const [surveys, setSurveys] = useState<any[]>([]);
     const [feedback, setFeedback] = useState<any[]>([]);
     
     // Edit Modal State (Cuentas)
@@ -184,6 +185,12 @@ export default function EmpresaAdminDashboard() {
                 setFeedback(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             } catch(e) {}
 
+            // Fetch Encuestas (enviadas manualmente a clientes puntuales, ver app/encuesta/[tipo].tsx)
+            try {
+                const surveysSnap = await getDocs(query(collection(db, 'surveys'), orderBy('createdAt', 'desc'), limit(100)));
+                setSurveys(surveysSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            } catch(e) {}
+
             // Fetch Racso clicks
             // 'antes' = todavia no habia postulacion registrada (vacante_cerrada o
             // formulario_postulacion, este ultimo aun no le da a enviar); 'despues'
@@ -275,11 +282,17 @@ export default function EmpresaAdminDashboard() {
                     >
                         <Text style={[styles.tabBtnText, activeTab === 'feedback' && styles.tabBtnTextActive]}>Sugerencias</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.tabBtn, activeTab === 'b2c' && styles.tabBtnActive]}
                         onPress={() => setActiveTab('b2c')}
                     >
                         <Text style={[styles.tabBtnText, activeTab === 'b2c' && styles.tabBtnTextActive]}>B2C IA</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tabBtn, activeTab === 'encuestas' && styles.tabBtnActive]}
+                        onPress={() => setActiveTab('encuestas')}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'encuestas' && styles.tabBtnTextActive]}>Encuestas</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -746,7 +759,7 @@ export default function EmpresaAdminDashboard() {
                         <View style={styles.tableContainer}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                                 <Text style={styles.sectionTitle}>
-                                    {activeTab === 'cuentas' ? 'Cuentas B2B' : (activeTab === 'planes' ? 'Planes del Sistema' : 'Sugerencias / Feedback')}
+                                    {activeTab === 'cuentas' ? 'Cuentas B2B' : (activeTab === 'planes' ? 'Planes del Sistema' : (activeTab === 'encuestas' ? 'Encuestas respondidas' : 'Sugerencias / Feedback'))}
                                 </Text>
                                 {activeTab === 'planes' && (
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -763,11 +776,38 @@ export default function EmpresaAdminDashboard() {
                             </View>
                             
                             <FlatList
-                                data={activeTab === 'cuentas' ? companies : (activeTab === 'planes' ? plans : feedback)}
+                                data={activeTab === 'cuentas' ? companies : (activeTab === 'planes' ? plans : (activeTab === 'encuestas' ? surveys : feedback))}
                                 keyExtractor={i => i.uid || i.id}
                                 renderItem={({ item }) => {
                                     if (activeTab === 'cuentas') return renderRow({ item });
                                     if (activeTab === 'planes') return renderPlanRow({ item });
+                                    if (activeTab === 'encuestas') {
+                                        return (
+                                            <View style={styles.feedbackCard}>
+                                                <View style={styles.feedbackHeader}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                        <Text style={{
+                                                            fontSize: 10, fontWeight: '800', color: 'white', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                                                            backgroundColor: item.tipo === 'activo' ? COLORS.success : '#f59e0b',
+                                                        }}>
+                                                            {item.tipo === 'activo' ? 'USA VERITLY' : 'NO LO USÓ'}
+                                                        </Text>
+                                                        <Text style={styles.feedbackEmail}>{item.nombre || item.email || 'Anónimo'}</Text>
+                                                    </View>
+                                                    <Text style={styles.feedbackDate}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'}</Text>
+                                                </View>
+                                                {item.email ? <Text style={[styles.feedbackMessage, { fontSize: 12, color: COLORS.textTertiary, marginBottom: 6 }]}>{item.email}</Text> : null}
+                                                {typeof item.nps === 'number' && (
+                                                    <Text style={[styles.feedbackMessage, { fontWeight: '700', marginBottom: 4 }]}>NPS: {item.nps} / 10</Text>
+                                                )}
+                                                {Object.entries(item.respuestas || {}).filter(([, v]) => !!v).map(([key, value]) => (
+                                                    <Text key={key} style={[styles.feedbackMessage, { marginTop: 4 }]}>
+                                                        <Text style={{ fontWeight: '700' }}>{key}: </Text>{String(value)}
+                                                    </Text>
+                                                ))}
+                                            </View>
+                                        );
+                                    }
                                     return (
                                         <View style={styles.feedbackCard}>
                                             <View style={styles.feedbackHeader}>
