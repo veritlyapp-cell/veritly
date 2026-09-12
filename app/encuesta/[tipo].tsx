@@ -2,8 +2,11 @@ import { addDoc, collection } from 'firebase/firestore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../../config/firebase';
+
+const VeritlyLogo = require('../../assets/images/veritly3.png');
+const BRAND_PRIMARY = '#4F46E5';
 
 // Encuesta corta enviada manualmente (WhatsApp/email) a clientes puntuales --
 // no es un formulario abierto en la navegacion del sitio. 'activo' = ya publico
@@ -68,7 +71,8 @@ export default function EncuestaScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.thanksWrap}>
-                    <CheckCircle2 color="#10B981" size={56} />
+                    <Image source={VeritlyLogo} style={[styles.thanksLogo, { tintColor: BRAND_PRIMARY }]} resizeMode="contain" />
+                    <CheckCircle2 color="#10B981" size={48} style={{ marginTop: 20 }} />
                     <Text style={styles.thanksTitle}>¡Gracias por tu tiempo!</Text>
                     <Text style={styles.thanksSubtitle}>Tu respuesta nos ayuda muchísimo a mejorar Veritly.</Text>
                 </View>
@@ -81,13 +85,17 @@ export default function EncuestaScreen() {
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft color="#111827" size={24} />
+                    <ArrowLeft color="#111827" size={22} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Encuesta rápida</Text>
+                <Image source={VeritlyLogo} style={[styles.headerLogo, { tintColor: BRAND_PRIMARY }]} resizeMode="contain" />
+                <Text style={styles.headerBrand}>Veritly</Text>
             </View>
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>ENCUESTA VERITLY</Text>
+                    </View>
                     <Text style={styles.title}>
                         {tipo === 'activo' ? 'Nos encantaría saber tu experiencia' : 'Nos encantaría saber qué pasó'}
                     </Text>
@@ -157,8 +165,18 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F1F5F9',
     },
     backButton: { padding: 5, marginRight: 10 },
-    headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
+    headerLogo: { width: 22, height: 22, marginRight: 6 },
+    headerBrand: { fontSize: 16, fontWeight: '800', color: '#111827', letterSpacing: -0.3 },
     content: { padding: 20, paddingBottom: 60, maxWidth: 560, width: '100%', alignSelf: 'center' },
+    badge: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        marginBottom: 14,
+    },
+    badgeText: { fontSize: 11, fontWeight: '800', color: BRAND_PRIMARY, letterSpacing: 0.4 },
     title: { fontSize: 22, fontWeight: 'bold', color: '#111827', marginBottom: 6 },
     intro: { fontSize: 13, color: '#6B7280', marginBottom: 24, lineHeight: 19 },
     field: { marginBottom: 18 },
@@ -185,11 +203,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#F9FAFB',
     },
-    npsBtnActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+    npsBtnActive: { backgroundColor: BRAND_PRIMARY, borderColor: BRAND_PRIMARY },
     npsBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
     npsBtnTextActive: { color: 'white' },
     submitBtn: {
-        backgroundColor: '#4F46E5',
+        backgroundColor: BRAND_PRIMARY,
         borderRadius: 14,
         paddingVertical: 16,
         alignItems: 'center',
@@ -197,6 +215,7 @@ const styles = StyleSheet.create({
     },
     submitBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
     thanksWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+    thanksLogo: { width: 44, height: 44 },
     thanksTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginTop: 16 },
     thanksSubtitle: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' },
 });
