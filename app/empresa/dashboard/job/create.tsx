@@ -9,6 +9,7 @@ import { auth, db } from '../../../../config/firebase';
 import { extractTextFromDocument } from '../../../../utils/gemini';
 import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
 import { getEffectiveCompanyId } from '../../../../services/auth-service';
+import { getSalaryRange } from '../../../../utils/salaryRange';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -106,6 +107,7 @@ export default function CreateJob() {
         salaryBudget: '',
         salaryTolerance: '10', // Default 10%
         salaryToleranceDown: '10', // Default 10%
+        salaryToleranceMode: 'percent', // 'percent' | 'amount'
         isSalaryPublic: false,
         discardBySalary: false,
         isExternal: false,
@@ -235,8 +237,10 @@ export default function CreateJob() {
                 setJobData({
                     ...data,
                     salaryBudget: data.salaryBudget?.toString() || '',
-                    salaryTolerance: data.salaryTolerance?.toString() || '10',
-                    salaryToleranceDown: data.salaryToleranceDown?.toString() || '10',
+                    // En modo monto, 0 es un valor valido (no se reemplaza por el 10% por defecto)
+                    salaryToleranceMode: data.salaryToleranceMode === 'amount' ? 'amount' : 'percent',
+                    salaryTolerance: data.salaryToleranceMode === 'amount' ? String(data.salaryTolerance ?? 0) : (data.salaryTolerance?.toString() || '10'),
+                    salaryToleranceDown: data.salaryToleranceMode === 'amount' ? String(data.salaryToleranceDown ?? 0) : (data.salaryToleranceDown?.toString() || '10'),
                     isSalaryPublic: data.isSalaryPublic || false,
                     discardBySalary: data.discardBySalary || false,
                     isExternal: data.isExternal || false,
@@ -439,6 +443,7 @@ export default function CreateJob() {
                 salaryBudget: jobData.discardBySalary ? (Number(jobData.salaryBudget) || 0) : 0,
                 salaryTolerance: Number(jobData.salaryTolerance) || 0,
                 salaryToleranceDown: Number(jobData.salaryToleranceDown) || 0,
+                salaryToleranceMode: jobData.salaryToleranceMode === 'amount' ? 'amount' : 'percent',
                 isSalaryPublic: !!jobData.isSalaryPublic,
                 discardBySalary: !!jobData.discardBySalary,
                 killerQuestions: cleanedQuestions,
@@ -971,38 +976,57 @@ export default function CreateJob() {
                                                     <Text style={{ color: 'white', fontSize: 13 }}>Mostrar rango de sueldo al candidato (Público)</Text>
                                                 </TouchableOpacity>
 
+                                                <View style={{ marginBottom: 15 }}>
+                                                    <Text style={styles.label}>PRESUPUESTO ({jobData.currency || 'S/'})</Text>
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="Ej. 3500"
+                                                        placeholderTextColor="#475569"
+                                                        keyboardType="numeric"
+                                                        value={jobData?.salaryBudget}
+                                                        onChangeText={(t) => setJobData({ ...jobData, salaryBudget: t })}
+                                                    />
+                                                </View>
+
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>Tolerancia en:</Text>
+                                                    <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 20, padding: 3 }}>
+                                                        <TouchableOpacity
+                                                            style={[styles.answerToggle, jobData.salaryToleranceMode !== 'amount' && styles.answerToggleActive]}
+                                                            onPress={() => setJobData({ ...jobData, salaryToleranceMode: 'percent' })}
+                                                        >
+                                                            <Text style={[styles.answerToggleText, jobData.salaryToleranceMode !== 'amount' && styles.answerToggleTextActive]}>PORCENTAJE (%)</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            style={[styles.answerToggle, jobData.salaryToleranceMode === 'amount' && styles.answerToggleActive]}
+                                                            onPress={() => setJobData({ ...jobData, salaryToleranceMode: 'amount' })}
+                                                        >
+                                                            <Text style={[styles.answerToggleText, jobData.salaryToleranceMode === 'amount' && styles.answerToggleTextActive]}>MONTO ({jobData.currency || 'S/'})</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+
                                                 <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
-                                                    <View style={{ flex: 2 }}>
-                                                        <Text style={styles.label}>PRESUPUESTO ({jobData.currency || 'S/'})</Text>
-                                                        <TextInput
-                                                            style={styles.input}
-                                                            placeholder="Ej. 3500"
-                                                            placeholderTextColor="#475569"
-                                                            keyboardType="numeric"
-                                                            value={jobData?.salaryBudget}
-                                                            onChangeText={(t) => setJobData({ ...jobData, salaryBudget: t })}
-                                                        />
-                                                    </View>
                                                     <View style={{ flex: 1 }}>
-                                                        <Text style={styles.label}>TOLERANCIA ARRIBA (%)</Text>
+                                                        <Text style={styles.label}>TOLERANCIA ABAJO ({jobData.salaryToleranceMode === 'amount' ? (jobData.currency || 'S/') : '%'})</Text>
                                                         <TextInput
                                                             style={styles.input}
-                                                            placeholder="10"
-                                                            placeholderTextColor="#475569"
-                                                            keyboardType="numeric"
-                                                            value={jobData?.salaryTolerance}
-                                                            onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
-                                                        />
-                                                    </View>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={styles.label}>TOLERANCIA ABAJO (%)</Text>
-                                                        <TextInput
-                                                            style={styles.input}
-                                                            placeholder="10"
+                                                            placeholder={jobData.salaryToleranceMode === 'amount' ? 'Ej. 300' : '10'}
                                                             placeholderTextColor="#475569"
                                                             keyboardType="numeric"
                                                             value={jobData?.salaryToleranceDown}
                                                             onChangeText={(t) => setJobData({ ...jobData, salaryToleranceDown: t })}
+                                                        />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.label}>TOLERANCIA ARRIBA ({jobData.salaryToleranceMode === 'amount' ? (jobData.currency || 'S/') : '%'})</Text>
+                                                        <TextInput
+                                                            style={styles.input}
+                                                            placeholder={jobData.salaryToleranceMode === 'amount' ? 'Ej. 300' : '10'}
+                                                            placeholderTextColor="#475569"
+                                                            keyboardType="numeric"
+                                                            value={jobData?.salaryTolerance}
+                                                            onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
                                                         />
                                                     </View>
                                                 </View>
@@ -1010,7 +1034,10 @@ export default function CreateJob() {
                                                  {Number(jobData?.salaryBudget) > 0 && (
                                                     <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 8 }}>
                                                         <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>
-                                                            Rango aceptado: {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
+                                                            {(() => {
+                                                                const r = getSalaryRange(jobData);
+                                                                return r ? `Rango aceptado: ${jobData.currency || 'S/'} ${Math.round(r.min).toLocaleString()} - ${jobData.currency || 'S/'} ${Math.round(r.max).toLocaleString()}` : '';
+                                                            })()}
                                                         </Text>
                                                         <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
                                                             Candidatos fuera de este rango serán descartados automáticamente.

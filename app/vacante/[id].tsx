@@ -49,6 +49,7 @@ import {
     Linking
 } from 'react-native';
 import { showAlert } from '../../utils/ui';
+import { getSalaryRange } from '../../utils/salaryRange';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -548,10 +549,8 @@ export default function ExternalApplication() {
             }
 
             // Salary filter
-            const budget = Number(job.salaryBudget) || 0;
-            const maxBudget = budget > 0 ? budget * (1 + (Number(job.salaryTolerance) || 10) / 100) : Infinity;
-            const minBudget = budget > 0 ? budget * (1 - (Number(job.salaryToleranceDown) || 10) / 100) : 0;
-            const isSalaryRejected = budget > 0 && (expectationNumber > maxBudget || expectationNumber < minBudget);
+            const salaryRange = getSalaryRange(job);
+            const isSalaryRejected = !!salaryRange && (expectationNumber > salaryRange.max || expectationNumber < salaryRange.min);
 
             // Country filter
             let isCountryRejected = false;
@@ -974,7 +973,7 @@ export default function ExternalApplication() {
                             <View style={styles.infoRow}>
                                 <DollarSign size={16} color="#10b981" />
                                 <Text style={[styles.infoText, { color: '#10b981' }]}>
-                                    Rango salarial: {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
+                                    Rango salarial: {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.max).toLocaleString()}
                                 </Text>
                             </View>
                         )}
@@ -1464,7 +1463,7 @@ export default function ExternalApplication() {
                         <View style={styles.salaryRangeHint}>
                             <DollarSign size={14} color="#38bdf8" />
                             <Text style={styles.salaryRangeText}>
-                                Rango esperado: {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 - (job.salaryToleranceDown || 10) / 100)).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryBudget * (1 + (job.salaryTolerance || 10) / 100)).toLocaleString()}
+                                Rango esperado: {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.max).toLocaleString()}
                             </Text>
                         </View>
                     )}
