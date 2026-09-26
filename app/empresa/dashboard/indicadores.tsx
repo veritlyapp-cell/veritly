@@ -36,6 +36,7 @@ import {
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../../config/firebase';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
+import { getMaxReasonableSalary } from '../../../utils/salaryRange';
 import { useFocusEffect } from 'expo-router';
 
 const TooltipWrapper = Platform.OS === 'web' 
@@ -49,6 +50,7 @@ interface RawCandidate {
     jobTitle: string;
     jobStatus: string;
     jobSalaryBudget: number;
+    jobCurrency: string;
     name: string;
     matchScore: number;
     salaryExpectation: number;
@@ -239,6 +241,7 @@ export default function IndicadoresDashboard() {
                         jobTitle: job.jobTitle,
                         jobStatus: job.status,
                         jobSalaryBudget: (job as any).salaryBudget || 0,
+                        jobCurrency: (job as any).currency || 'S/',
                         name: raw.name || raw.fullName || 'Anónimo',
                         matchScore: raw.matchScore || 0,
                         salaryExpectation: Number(raw.salaryExpectation) || 0,
@@ -348,7 +351,7 @@ export default function IndicadoresDashboard() {
             if (st === 'rejected' || st === 'rejected_salary') jm.rejected++;
             // Ignoramos valores fuera de rango razonable (datos mal ingresados) para
             // que un outlier no distorsione el promedio mostrado.
-            if (c.salaryExpectation > 0 && c.salaryExpectation <= 500000) {
+            if (c.salaryExpectation > 0 && c.salaryExpectation <= getMaxReasonableSalary(c.jobCurrency)) {
                 jm.salaryExpSum += c.salaryExpectation;
                 jm.salaryExpCount++;
                 if (c.salaryExpectation < jm.salaryExpMin) jm.salaryExpMin = c.salaryExpectation;

@@ -8,6 +8,32 @@
 
 export type SalaryToleranceMode = 'percent' | 'amount';
 
+// Tope mensual "razonable" por moneda, solo para detectar errores de tipeo
+// (ceros de mas). Es equivalente a ~USD 150,000 al cambio aproximado de cada
+// moneda: no se puede usar el mismo numero para todas (COP, CLP, ARS, PYG
+// manejan millones de forma normal). Se deja holgado a proposito.
+const MAX_MONTHLY_SALARY: Record<string, number> = {
+    'S/': 500000,
+    'USD$': 150000,
+    '€': 150000,
+    'COP$': 600000000,
+    'MXN$': 2700000,
+    'CLP$': 140000000,
+    'ARS$': 250000000,
+    'Bs': 1500000,
+    'UYU$': 6000000,
+    'Gs': 1125000000,
+    '₡': 76500000,
+    'DOP$': 9000000,
+    'Q': 1155000,
+    'L': 3750000,
+    'C$': 5550000,
+};
+
+export function getMaxReasonableSalary(currency?: string): number {
+    return MAX_MONTHLY_SALARY[currency || 'S/'] ?? 150000;
+}
+
 export function getSalaryRange(job: any): { min: number; max: number } | null {
     const budget = Number(job?.salaryBudget) || 0;
     if (budget <= 0) return null;

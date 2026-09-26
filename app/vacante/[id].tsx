@@ -49,7 +49,7 @@ import {
     Linking
 } from 'react-native';
 import { showAlert } from '../../utils/ui';
-import { getSalaryRange } from '../../utils/salaryRange';
+import { getMaxReasonableSalary, getSalaryRange } from '../../utils/salaryRange';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -498,7 +498,7 @@ export default function ExternalApplication() {
         
         const expectationNumber = Number(salaryExpectation);
         const dynamicCurrency = job?.currency || 'S/';
-        const maxExpectation = dynamicCurrency === 'S/' ? 500000 : 150000;
+        const maxExpectation = getMaxReasonableSalary(dynamicCurrency);
         if (!salaryExpectation.trim()) {
             errors.salary = 'La expectativa salarial es obligatoria.';
             hasErrors = true;
