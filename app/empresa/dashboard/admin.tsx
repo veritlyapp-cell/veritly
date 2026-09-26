@@ -39,6 +39,8 @@ export default function EmpresaAdminDashboard() {
     const [companies, setCompanies] = useState<CompanyProfile[]>([]);
     const [plans, setPlans] = useState<any[]>([]);
     const [candidatesCounts, setCandidatesCounts] = useState<Record<string, number>>({});
+    // Analisis de IA por empresa y por mes ('YYYY-MM'), para ver uso actual e historico
+    const [aiUsageByCompany, setAiUsageByCompany] = useState<Record<string, Record<string, number>>>({});
     const [totalJobsCounts, setTotalJobsCounts] = useState<Record<string, number>>({});
     const [publicJobsCounts, setPublicJobsCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
@@ -136,6 +138,7 @@ export default function EmpresaAdminDashboard() {
             setPublicJobsCounts(publicJobsMap);
 
             const counts: Record<string, number> = {};
+            const aiUsage: Record<string, Record<string, number>> = {};
             try {
                 const candidatesSnap = await getDocs(query(collectionGroup(db, 'candidates')));
                 candidatesSnap.docs.forEach(doc => {
@@ -144,9 +147,21 @@ export default function EmpresaAdminDashboard() {
                     const companyId = candData.companyId || jobCompanyMap[jobId] || '';
                     if (companyId) {
                         counts[companyId] = (counts[companyId] || 0) + 1;
+
+                        // Mismo criterio que la cuota real de la empresa: analisis con
+                        // matchScore > 0, contados en el mes de su fecha de analisis.
+                        if (candData.matchScore > 0 && candData.analyzedAt) {
+                            const d = candData.analyzedAt?.toDate ? candData.analyzedAt.toDate() : new Date(candData.analyzedAt);
+                            if (!isNaN(d.getTime())) {
+                                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                aiUsage[companyId] = aiUsage[companyId] || {};
+                                aiUsage[companyId][key] = (aiUsage[companyId][key] || 0) + 1;
+                            }
+                        }
                     }
                 });
                 setCandidatesCounts(counts);
+                setAiUsageByCompany(aiUsage);
             } catch (groupError) {
                 console.error("Error fetching collectionGroup candidates:", groupError);
             }
@@ -585,6 +600,20 @@ export default function EmpresaAdminDashboard() {
 
     const renderRow = ({ item }: { item: CompanyProfile }) => {
         const isIndependiente = (item.company as any)?.type === 'independiente';
+
+        // Uso de IA: mes actual (es lo que cuenta contra el limite y se "reinicia"
+        // solo al cambiar de mes) + historico de los ultimos 6 meses.
+        const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const usage = aiUsageByCompany[item.uid] || {};
+        const now = new Date();
+        const history: { label: string; count: number }[] = [];
+        for (let i = 0; i < 6; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            history.push({ label: MONTHS[d.getMonth()], count: usage[key] || 0 });
+        }
+        const usedThisMonth = history[0].count;
+
         return (
             <View style={styles.tableRow}>
                 <View style={{ flex: 1.5 }}>
@@ -596,9 +625,12 @@ export default function EmpresaAdminDashboard() {
 
                 <View style={{ flex: 1.2 }}>
                     <Text style={styles.cellValue}>{item.subscription?.plan?.toUpperCase() || 'BETA'}</Text>
-                    <Text style={styles.cellSub}>Créditos IA: {candidatesCounts[item.uid] || 0} / {item.subscription?.aiAnalysisLimit || 200}</Text>
+                    <Text style={styles.cellSub}>Análisis IA este mes: {usedThisMonth} / {item.subscription?.aiAnalysisLimit || 200}</Text>
                     <Text style={styles.cellSub}>Links de Pub: {publicJobsCounts[item.uid] || 0} / {item.subscription?.publicVacanciesLimit || 5}</Text>
-                    <Text style={styles.cellSub}>Postulantes: {candidatesCounts[item.uid] || 0}</Text>
+                    <Text style={styles.cellSub}>Postulantes (total): {candidatesCounts[item.uid] || 0}</Text>
+                    <Text style={[styles.cellSub, { marginTop: 2 }]}>
+                        Historial IA: {history.map(h => `${h.label} ${h.count}`).join(' · ')}
+                    </Text>
                 </View>
                 
                 <View style={styles.actionsColumn}>
