@@ -242,7 +242,9 @@ export default function CreateJob() {
                     salaryTolerance: data.salaryToleranceMode === 'amount' ? String(data.salaryTolerance ?? 0) : (data.salaryTolerance?.toString() || '10'),
                     salaryToleranceDown: data.salaryToleranceMode === 'amount' ? String(data.salaryToleranceDown ?? 0) : (data.salaryToleranceDown?.toString() || '10'),
                     isSalaryPublic: data.isSalaryPublic || false,
-                    discardBySalary: data.discardBySalary || false,
+                    // Vacantes anteriores al checkbox: si ya tenian presupuesto, el filtro
+                    // estaba activo, asi que se muestra marcado (y no se pierde al guardar).
+                    discardBySalary: data.discardBySalary ?? (Number(data.salaryBudget) > 0),
                     isExternal: data.isExternal || false,
                     showOnLandingPage: data.showOnLandingPage || false,
                     employmentType: data.employmentType || 'tiempo_completo',

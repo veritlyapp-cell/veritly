@@ -502,10 +502,10 @@ export default function ExternalApplication() {
         if (!salaryExpectation.trim()) {
             errors.salary = 'La expectativa salarial es obligatoria.';
             hasErrors = true;
-        } else if (isNaN(expectationNumber) || (dynamicCurrency === 'S/' && expectationNumber < 1130) || (dynamicCurrency !== 'S/' && expectationNumber <= 0)) {
-            errors.salary = dynamicCurrency === 'S/'
-                ? 'La expectativa mínima es S/ 1,130 (Sueldo Mínimo Vital).'
-                : `La expectativa salarial debe ser mayor a 0 ${dynamicCurrency}.`;
+        } else if (isNaN(expectationNumber) || expectationNumber <= 0) {
+            // Sin sueldo minimo fijo: hay vacantes part time, freelance y practicas
+            // donde la expectativa puede estar por debajo del minimo vital.
+            errors.salary = `La expectativa salarial debe ser mayor a 0 ${dynamicCurrency}.`;
             hasErrors = true;
         } else if (expectationNumber > maxExpectation) {
             errors.salary = `Revisa el monto ingresado (máximo ${dynamicCurrency} ${maxExpectation.toLocaleString()}). Si es correcto, contáctanos.`;
@@ -1488,10 +1488,6 @@ export default function ExternalApplication() {
                     </View>
                     {formErrors.salary ? (
                         <Text style={styles.errorText}>{formErrors.salary}</Text>
-                    ) : job.currency === 'S/' ? (
-                        <Text style={styles.helperText}>
-                            Mínimo S/ 1,130 (Sueldo Mínimo Vital en Perú).
-                        </Text>
                     ) : null}
                 </View>
 
