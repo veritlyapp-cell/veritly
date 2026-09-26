@@ -100,8 +100,12 @@ export default function CreateJob() {
         salaryTolerance: '10', // Default 10%
         salaryToleranceDown: '10', // Default 10%
         isSalaryPublic: false,
+        discardBySalary: false,
         isExternal: false,
         showOnLandingPage: false,
+        employmentType: 'tiempo_completo',
+        isConfidential: false,
+        confidentialLabel: '',
         killerQuestions: [],
         allowedCountries: ['Perú'],
         currency: 'S/'
@@ -227,8 +231,12 @@ export default function CreateJob() {
                     salaryTolerance: data.salaryTolerance?.toString() || '10',
                     salaryToleranceDown: data.salaryToleranceDown?.toString() || '10',
                     isSalaryPublic: data.isSalaryPublic || false,
+                    discardBySalary: data.discardBySalary || false,
                     isExternal: data.isExternal || false,
                     showOnLandingPage: data.showOnLandingPage || false,
+                    employmentType: data.employmentType || 'tiempo_completo',
+                    isConfidential: data.isConfidential || false,
+                    confidentialLabel: data.confidentialLabel || '',
                     killerQuestions: data.killerQuestions || [],
                     allowedCountries: data.allowedCountries || ['Perú'],
                     currency: data.currency || 'S/'
@@ -388,13 +396,22 @@ export default function CreateJob() {
             // Convierte salario y tolerancia a números antes de guardar
             const finalData = {
                 ...jobData,
-                salaryBudget: Number(jobData.salaryBudget) || 0,
+                // Si no activó "Descartar por sueldo", el presupuesto se guarda en 0 --
+                // esto es lo que ya desactiva el filtro automático en la pagina publica
+                // (vacante/[id].tsx solo descarta si salaryBudget > 0), sin duplicar la logica ahi.
+                salaryBudget: jobData.discardBySalary ? (Number(jobData.salaryBudget) || 0) : 0,
                 salaryTolerance: Number(jobData.salaryTolerance) || 0,
                 salaryToleranceDown: Number(jobData.salaryToleranceDown) || 0,
                 isSalaryPublic: !!jobData.isSalaryPublic,
+                discardBySalary: !!jobData.discardBySalary,
                 killerQuestions: (jobData.killerQuestions || []).filter((q: any) => q.question?.trim().length > 0),
                 isExternal: !!jobData.isExternal,
-                showOnLandingPage: !!jobData.showOnLandingPage,
+                // Una vacante confidencial no puede aparecer en la pagina publica de
+                // empleos de la empresa (esa pagina ya revela de quien es).
+                showOnLandingPage: !!jobData.showOnLandingPage && !jobData.isConfidential,
+                employmentType: jobData.employmentType || 'tiempo_completo',
+                isConfidential: !!jobData.isConfidential,
+                confidentialLabel: jobData.confidentialLabel?.trim() || '',
                 originalText: rawText,
                 optimizedText: optimizedDescription,
                 companyId,
@@ -630,6 +647,66 @@ export default function CreateJob() {
                                                 </View>
                                             </TouchableOpacity>
 
+                                            {/* --- MODALIDAD DE CONTRATACIÓN --- */}
+                                            <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
+                                                <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 10 }}>Modalidad de Contratación</Text>
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                    {[
+                                                        { value: 'tiempo_completo', label: 'Tiempo Completo' },
+                                                        { value: 'medio_tiempo', label: 'Medio Tiempo' },
+                                                        { value: 'honorarios', label: 'Freelance / Honorarios' },
+                                                        { value: 'practicas', label: 'Prácticas' },
+                                                    ].map((opt) => {
+                                                        const isSelected = (jobData.employmentType || 'tiempo_completo') === opt.value;
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={opt.value}
+                                                                style={{
+                                                                    paddingVertical: 8,
+                                                                    paddingHorizontal: 14,
+                                                                    borderRadius: 20,
+                                                                    borderWidth: 1,
+                                                                    borderColor: isSelected ? '#3b82f6' : '#334155',
+                                                                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                                                                }}
+                                                                onPress={() => setJobData({ ...jobData, employmentType: opt.value })}
+                                                            >
+                                                                <Text style={{ color: isSelected ? '#3b82f6' : '#94a3b8', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                                                    {opt.label}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            </View>
+
+                                            {/* --- VACANTE CONFIDENCIAL --- */}
+                                            <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
+                                                <TouchableOpacity
+                                                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: jobData.isConfidential ? 12 : 0 }}
+                                                    onPress={() => setJobData({ ...jobData, isConfidential: !jobData.isConfidential, showOnLandingPage: jobData.isConfidential ? jobData.showOnLandingPage : false })}
+                                                >
+                                                    <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#f59e0b', backgroundColor: jobData.isConfidential ? '#f59e0b' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                                                        {jobData.isConfidential && <Check size={14} color="white" />}
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Publicar como Vacante Confidencial</Text>
+                                                        <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
+                                                            El candidato no verá el nombre ni el logo de tu empresa. No aparecerá en tu Página de Empleos.
+                                                        </Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                                {jobData.isConfidential && (
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder='Ej. "Nuestro partner está buscando un Jefe de Atracción de Talento..."'
+                                                        placeholderTextColor="#475569"
+                                                        value={jobData?.confidentialLabel}
+                                                        onChangeText={(t) => setJobData({ ...jobData, confidentialLabel: t })}
+                                                    />
+                                                )}
+                                            </View>
+
                                             {/* --- FILTRO POR PAÍSES --- */}
                                             <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -830,65 +907,84 @@ export default function CreateJob() {
                                                 <DollarSign color="#10b981" size={18} />
                                                 <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>Filtro Salarial Automático</Text>
                                             </View>
-                                            <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 15 }}>
-                                                Los candidatos cuya expectativa supere el presupuesto + tolerancia, serán movidos a "Descartados" automáticamente sin consumir créditos de IA.
-                                            </Text>
 
-                                            <TouchableOpacity 
-                                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
-                                                onPress={() => setJobData({ ...jobData, isSalaryPublic: !jobData.isSalaryPublic })}
+                                            <TouchableOpacity
+                                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: jobData.discardBySalary ? 15 : 5 }}
+                                                onPress={() => setJobData({ ...jobData, discardBySalary: !jobData.discardBySalary })}
                                             >
-                                                <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#3b82f6', backgroundColor: jobData.isSalaryPublic ? '#3b82f6' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                                                    {jobData.isSalaryPublic && <Check size={14} color="white" />}
+                                                <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#10b981', backgroundColor: jobData.discardBySalary ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                                                    {jobData.discardBySalary && <Check size={14} color="white" />}
                                                 </View>
-                                                <Text style={{ color: 'white', fontSize: 13 }}>Mostrar rango de sueldo al candidato (Público)</Text>
+                                                <Text style={{ color: 'white', fontSize: 13 }}>¿Descartar automáticamente por sueldo?</Text>
                                             </TouchableOpacity>
 
-                                            <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
-                                                <View style={{ flex: 2 }}>
-                                                    <Text style={styles.label}>PRESUPUESTO ({jobData.currency || 'S/'})</Text>
-                                                    <TextInput
-                                                        style={styles.input}
-                                                        placeholder="Ej. 3500"
-                                                        placeholderTextColor="#475569"
-                                                        keyboardType="numeric"
-                                                        value={jobData?.salaryBudget}
-                                                        onChangeText={(t) => setJobData({ ...jobData, salaryBudget: t })}
-                                                    />
+                                            {jobData.discardBySalary ? (
+                                            <>
+                                                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 15 }}>
+                                                    Los candidatos cuya expectativa supere el presupuesto + tolerancia, serán movidos a "Descartados" automáticamente sin consumir créditos de IA.
+                                                </Text>
+
+                                                <TouchableOpacity
+                                                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+                                                    onPress={() => setJobData({ ...jobData, isSalaryPublic: !jobData.isSalaryPublic })}
+                                                >
+                                                    <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#3b82f6', backgroundColor: jobData.isSalaryPublic ? '#3b82f6' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                                                        {jobData.isSalaryPublic && <Check size={14} color="white" />}
+                                                    </View>
+                                                    <Text style={{ color: 'white', fontSize: 13 }}>Mostrar rango de sueldo al candidato (Público)</Text>
+                                                </TouchableOpacity>
+
+                                                <View style={{ flexDirection: 'row', gap: 15, marginBottom: 15 }}>
+                                                    <View style={{ flex: 2 }}>
+                                                        <Text style={styles.label}>PRESUPUESTO ({jobData.currency || 'S/'})</Text>
+                                                        <TextInput
+                                                            style={styles.input}
+                                                            placeholder="Ej. 3500"
+                                                            placeholderTextColor="#475569"
+                                                            keyboardType="numeric"
+                                                            value={jobData?.salaryBudget}
+                                                            onChangeText={(t) => setJobData({ ...jobData, salaryBudget: t })}
+                                                        />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.label}>TOLERANCIA ARRIBA (%)</Text>
+                                                        <TextInput
+                                                            style={styles.input}
+                                                            placeholder="10"
+                                                            placeholderTextColor="#475569"
+                                                            keyboardType="numeric"
+                                                            value={jobData?.salaryTolerance}
+                                                            onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
+                                                        />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.label}>TOLERANCIA ABAJO (%)</Text>
+                                                        <TextInput
+                                                            style={styles.input}
+                                                            placeholder="10"
+                                                            placeholderTextColor="#475569"
+                                                            keyboardType="numeric"
+                                                            value={jobData?.salaryToleranceDown}
+                                                            onChangeText={(t) => setJobData({ ...jobData, salaryToleranceDown: t })}
+                                                        />
+                                                    </View>
                                                 </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.label}>TOLERANCIA ARRIBA (%)</Text>
-                                                    <TextInput
-                                                        style={styles.input}
-                                                        placeholder="10"
-                                                        placeholderTextColor="#475569"
-                                                        keyboardType="numeric"
-                                                        value={jobData?.salaryTolerance}
-                                                        onChangeText={(t) => setJobData({ ...jobData, salaryTolerance: t })}
-                                                    />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.label}>TOLERANCIA ABAJO (%)</Text>
-                                                    <TextInput
-                                                        style={styles.input}
-                                                        placeholder="10"
-                                                        placeholderTextColor="#475569"
-                                                        keyboardType="numeric"
-                                                        value={jobData?.salaryToleranceDown}
-                                                        onChangeText={(t) => setJobData({ ...jobData, salaryToleranceDown: t })}
-                                                    />
-                                                </View>
-                                            </View>
-                                            
-                                             {Number(jobData?.salaryBudget) > 0 && (
-                                                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 8 }}>
-                                                    <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>
-                                                        Rango aceptado: {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
-                                                    </Text>
-                                                    <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
-                                                        Candidatos fuera de este rango serán descartados automáticamente.
-                                                    </Text>
-                                                </View>
+
+                                                 {Number(jobData?.salaryBudget) > 0 && (
+                                                    <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 10, borderRadius: 8 }}>
+                                                        <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>
+                                                            Rango aceptado: {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 - Number(jobData.salaryToleranceDown || 0) / 100)).toLocaleString()} - {jobData.currency || 'S/'} {Math.round(Number(jobData.salaryBudget) * (1 + Number(jobData.salaryTolerance || 0) / 100)).toLocaleString()}
+                                                        </Text>
+                                                        <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
+                                                            Candidatos fuera de este rango serán descartados automáticamente.
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </>
+                                            ) : (
+                                                <Text style={{ color: '#64748b', fontSize: 12, marginBottom: 5 }}>
+                                                    Sin filtro: se pedirá la expectativa salarial pero nadie será descartado por eso.
+                                                </Text>
                                             )}
 
                                             {/* --- KILLER QUESTIONS --- */}

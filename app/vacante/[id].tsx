@@ -368,20 +368,29 @@ export default function ExternalApplication() {
             const jobData = jobDoc.data();
             setJob(jobData);
 
-            // Load company info for branding (no debe bloquear el resto si falla)
-            try {
-                const empSnap = await getDoc(doc(db, 'users_empresas', jobData.companyId));
-                const data = empSnap.exists() ? empSnap.data() : null;
-                setCompanyName(
-                    data?.company?.name ||
-                    data?.nombreComercial ||
-                    data?.aiContext?.nombre ||
-                    'Empresa'
-                );
-                setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
-                setCompanyType(data?.company?.type || 'empresa');
-            } catch (e) {
-                console.warn('No se pudo cargar el branding de la empresa:', e);
+            // Vacante confidencial: no se revela nombre ni logo real de la empresa
+            // (se usa para procesos donde el reclutador no quiere identificarse,
+            // ej. buscando su propio reemplazo antes de anunciarlo internamente).
+            if (jobData.isConfidential) {
+                setCompanyName(jobData.confidentialLabel?.trim() || 'Empresa Confidencial');
+                setCompanyLogo('');
+                setCompanyType('empresa');
+            } else {
+                // Load company info for branding (no debe bloquear el resto si falla)
+                try {
+                    const empSnap = await getDoc(doc(db, 'users_empresas', jobData.companyId));
+                    const data = empSnap.exists() ? empSnap.data() : null;
+                    setCompanyName(
+                        data?.company?.name ||
+                        data?.nombreComercial ||
+                        data?.aiContext?.nombre ||
+                        'Empresa'
+                    );
+                    setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
+                    setCompanyType(data?.company?.type || 'empresa');
+                } catch (e) {
+                    console.warn('No se pudo cargar el branding de la empresa:', e);
+                }
             }
 
             // Contador de postulantes: NO se puede obtener leyendo la subcolección
@@ -940,6 +949,19 @@ export default function ExternalApplication() {
                             <View style={styles.infoRow}>
                                 <Clock size={16} color="#94a3b8" />
                                 <Text style={styles.infoText}>Experiencia: {job.requiredExperience}</Text>
+                            </View>
+                        )}
+                        {job.employmentType && (
+                            <View style={styles.infoRow}>
+                                <Briefcase size={16} color="#94a3b8" />
+                                <Text style={styles.infoText}>
+                                    {({
+                                        tiempo_completo: 'Tiempo Completo',
+                                        medio_tiempo: 'Medio Tiempo',
+                                        honorarios: 'Freelance / Honorarios',
+                                        practicas: 'Prácticas',
+                                    } as Record<string, string>)[job.employmentType] || 'Tiempo Completo'}
+                                </Text>
                             </View>
                         )}
                         {job.isSalaryPublic && job.salaryBudget > 0 && (
