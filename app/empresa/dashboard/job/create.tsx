@@ -40,6 +40,13 @@ const Alert = {
     }
 };
 
+// Plantillas rapidas para preguntas filtro cerradas (opciones + cuales aprueban).
+const KILLER_PRESETS = [
+    { label: 'Años de experiencia', options: ['Menos de 1 año', '1 a 3 años', '3 a 5 años', 'Más de 5 años'] },
+    { label: 'Nivel de inglés', options: ['Básico', 'Intermedio', 'Avanzado', 'Bilingüe / Nativo'] },
+    { label: 'Disponibilidad', options: ['Inmediata', 'En 2 semanas', 'En 1 mes', 'Más de 1 mes'] },
+];
+
 const LATAM_COUNTRIES = [
     { name: 'Perú', currency: 'S/' },
     { name: 'Colombia', currency: 'COP$' },
@@ -387,8 +394,38 @@ export default function CreateJob() {
         setStep(2);
     };
 
+    const updateKillerQuestion = (idx: number, patch: any) => {
+        const newQs = [...(jobData?.killerQuestions || [])];
+        newQs[idx] = { ...newQs[idx], ...patch };
+        setJobData({ ...jobData, killerQuestions: newQs });
+    };
+
     const handleSave = async () => {
         if (!auth.currentUser || !jobData) return;
+
+        // Preguntas cerradas: limpia opciones vacias (reajustando cuales son las
+        // correctas) y exige al menos 2 opciones y 1 respuesta que apruebe.
+        const cleanedQuestions = (jobData.killerQuestions || [])
+            .filter((q: any) => q.question?.trim().length > 0)
+            .map((q: any) => {
+                if (q.type !== 'choice') return q;
+                const kept = (q.options || [])
+                    .map((o: string, i: number) => ({ text: (o || '').trim(), correct: (q.correctOptions || []).includes(i) }))
+                    .filter((o: any) => o.text);
+                return {
+                    ...q,
+                    options: kept.map((o: any) => o.text),
+                    correctOptions: kept.map((o: any, i: number) => (o.correct ? i : -1)).filter((i: number) => i >= 0),
+                };
+            });
+        const invalidChoice = cleanedQuestions.find((q: any) => q.type === 'choice' && (q.options.length < 2 || q.correctOptions.length < 1));
+        if (invalidChoice) {
+            return Alert.alert(
+                "Revisa tus preguntas filtro",
+                `La pregunta "${invalidChoice.question}" necesita al menos 2 opciones y marcar con ✓ al menos una respuesta que apruebe.`
+            );
+        }
+
         console.log("💾 Iniciando guardado de puesto...");
         setLoading(true);
         try {
@@ -404,7 +441,7 @@ export default function CreateJob() {
                 salaryToleranceDown: Number(jobData.salaryToleranceDown) || 0,
                 isSalaryPublic: !!jobData.isSalaryPublic,
                 discardBySalary: !!jobData.discardBySalary,
-                killerQuestions: (jobData.killerQuestions || []).filter((q: any) => q.question?.trim().length > 0),
+                killerQuestions: cleanedQuestions,
                 isExternal: !!jobData.isExternal,
                 // Una vacante confidencial no puede aparecer en la pagina publica de
                 // empleos de la empresa (esa pagina ya revela de quien es).
@@ -1035,6 +1072,86 @@ export default function CreateJob() {
                                                                 </TouchableOpacity>
                                                             </View>
 
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                                                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>Tipo de pregunta:</Text>
+                                                                <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 20, padding: 3 }}>
+                                                                    <TouchableOpacity
+                                                                        style={[styles.answerToggle, q.type !== 'choice' && styles.answerToggleActive]}
+                                                                        onPress={() => updateKillerQuestion(idx, { type: 'yesno', expectedAnswer: q.expectedAnswer || 'si' })}
+                                                                    >
+                                                                        <Text style={[styles.answerToggleText, q.type !== 'choice' && styles.answerToggleTextActive]}>SÍ / NO</Text>
+                                                                    </TouchableOpacity>
+                                                                    <TouchableOpacity
+                                                                        style={[styles.answerToggle, q.type === 'choice' && styles.answerToggleActive]}
+                                                                        onPress={() => updateKillerQuestion(idx, { type: 'choice', options: q.options?.length ? q.options : ['', ''], correctOptions: q.correctOptions || [] })}
+                                                                    >
+                                                                        <Text style={[styles.answerToggleText, q.type === 'choice' && styles.answerToggleTextActive]}>OPCIONES</Text>
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            </View>
+
+                                                            {q.type === 'choice' ? (
+                                                                <View>
+                                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                                                                        <Text style={{ color: '#64748b', fontSize: 11, marginRight: 4, alignSelf: 'center' }}>Plantillas:</Text>
+                                                                        {KILLER_PRESETS.map((p) => (
+                                                                            <TouchableOpacity
+                                                                                key={p.label}
+                                                                                style={{ paddingVertical: 4, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: '#334155' }}
+                                                                                onPress={() => updateKillerQuestion(idx, { options: [...p.options], correctOptions: [] })}
+                                                                            >
+                                                                                <Text style={{ color: '#94a3b8', fontSize: 11 }}>{p.label}</Text>
+                                                                            </TouchableOpacity>
+                                                                        ))}
+                                                                    </View>
+                                                                    <Text style={{ color: '#94a3b8', fontSize: 11, marginBottom: 8 }}>
+                                                                        Marca con ✓ las respuestas que APRUEBAN. Quien elija otra opción será descartado.
+                                                                    </Text>
+                                                                    {(q.options || []).map((opt: string, oi: number) => {
+                                                                        const isCorrect = (q.correctOptions || []).includes(oi);
+                                                                        return (
+                                                                            <View key={oi} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                                                <TouchableOpacity
+                                                                                    style={{ width: 26, height: 26, borderRadius: 6, borderWidth: 1, borderColor: '#10b981', backgroundColor: isCorrect ? '#10b981' : 'transparent', justifyContent: 'center', alignItems: 'center' }}
+                                                                                    onPress={() => {
+                                                                                        const cur = q.correctOptions || [];
+                                                                                        updateKillerQuestion(idx, { correctOptions: isCorrect ? cur.filter((i: number) => i !== oi) : [...cur, oi] });
+                                                                                    }}
+                                                                                >
+                                                                                    {isCorrect && <Check size={16} color="white" />}
+                                                                                </TouchableOpacity>
+                                                                                <TextInput
+                                                                                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                                                                    placeholder={`Opción ${oi + 1}`}
+                                                                                    placeholderTextColor="#475569"
+                                                                                    value={opt}
+                                                                                    onChangeText={(t) => {
+                                                                                        const opts = [...(q.options || [])];
+                                                                                        opts[oi] = t;
+                                                                                        updateKillerQuestion(idx, { options: opts });
+                                                                                    }}
+                                                                                />
+                                                                                {(q.options || []).length > 2 && (
+                                                                                    <TouchableOpacity
+                                                                                        onPress={() => {
+                                                                                            const opts = (q.options || []).filter((_: string, i: number) => i !== oi);
+                                                                                            const corr = (q.correctOptions || []).filter((i: number) => i !== oi).map((i: number) => (i > oi ? i - 1 : i));
+                                                                                            updateKillerQuestion(idx, { options: opts, correctOptions: corr });
+                                                                                        }}
+                                                                                    >
+                                                                                        <Trash2 size={16} color="#ef4444" />
+                                                                                    </TouchableOpacity>
+                                                                                )}
+                                                                            </View>
+                                                                        );
+                                                                    })}
+                                                                    {(q.options || []).length < 6 && (
+                                                                        <TouchableOpacity onPress={() => updateKillerQuestion(idx, { options: [...(q.options || []), ''] })}>
+                                                                            <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: 'bold' }}>+ Agregar opción</Text>
+                                                                        </TouchableOpacity>
+                                                                    )}
+                                                                </View>
+                                                            ) : (
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                                                 <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>Respuesta que APRUEBA:</Text>
                                                                 <View style={{ flexDirection: 'row', backgroundColor: '#1e293b', borderRadius: 20, padding: 3 }}>
@@ -1060,6 +1177,7 @@ export default function CreateJob() {
                                                                     </TouchableOpacity>
                                                                 </View>
                                                             </View>
+                                                            )}
                                                         </View>
                                                     );
                                                 })}

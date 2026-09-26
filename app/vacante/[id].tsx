@@ -567,9 +567,15 @@ export default function ExternalApplication() {
             const questions = job.killerQuestions || [];
             if (questions.length > 0) {
                 questions.forEach((q: any, idx: number) => {
-                    const ans = killerAnswers[idx] || 'no';
-                    const expected = q.expectedAnswer || 'si';
-                    if (ans !== expected) {
+                    let passes: boolean;
+                    if (q.type === 'choice') {
+                        // Pregunta cerrada: aprueba si la opcion elegida es una de las marcadas como correctas
+                        const acceptable = (q.options || []).filter((_: string, i: number) => (q.correctOptions || []).includes(i));
+                        passes = acceptable.includes(killerAnswers[idx]);
+                    } else {
+                        passes = (killerAnswers[idx] || 'no') === (q.expectedAnswer || 'si');
+                    }
+                    if (!passes) {
                         isKillerRejected = true;
                         failureReason = 'No cumple con requisitos críticos (Killer Questions).';
                     }
@@ -1498,6 +1504,22 @@ export default function ExternalApplication() {
                         {activeKillerQuestions.map((q: any, idx: number) => (
                             <View key={idx} style={styles.killerCard}>
                                 <Text style={styles.killerQuestion}>{q.question}</Text>
+                                {q.type === 'choice' ? (
+                                    <View style={{ gap: 8 }}>
+                                        {(q.options || []).map((opt: string, oi: number) => {
+                                            const selected = killerAnswers[idx] === opt;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={oi}
+                                                    style={[styles.killerBtn, { flex: undefined, alignItems: 'flex-start', paddingHorizontal: 14 }, selected && styles.killerBtnActive]}
+                                                    onPress={() => setKillerAnswers({ ...killerAnswers, [idx]: opt })}
+                                                >
+                                                    <Text style={[styles.killerBtnText, { fontSize: 14, textAlign: 'left' }, selected && styles.killerBtnTextActive]}>{opt}</Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                ) : (
                                 <View style={styles.killerBtnsRow}>
                                     <TouchableOpacity
                                         style={[styles.killerBtn, killerAnswers[idx] === 'si' && styles.killerBtnActive]}
@@ -1512,6 +1534,7 @@ export default function ExternalApplication() {
                                         <Text style={[styles.killerBtnText, killerAnswers[idx] === 'no' && styles.killerBtnTextActive]}>NO</Text>
                                     </TouchableOpacity>
                                 </View>
+                                )}
                             </View>
                         ))}
                     </View>
