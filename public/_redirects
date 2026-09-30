@@ -1,1 +1,15 @@
+# Netlify aplica este archivo ANTES que las reglas de netlify.toml.
+#
+# Rutas dinamicas: Expo pre-genera un HTML por cada una (vacante/[id].html, etc.,
+# con el bundle de la app). Sin estas reglas caian al index.html y se veia la
+# landing un instante antes de la pagina real. Netlify guarda esos archivos con
+# los corchetes codificados (%5B / %5D).
+/vacante/*         /vacante/%5Bid%5D.html         200
+/v/*               /v/%5Bslug%5D.html             200
+/e/*               /e/%5Bslug%5D.html             200
+/empresa/job/*     /empresa/job/%5Bid%5D.html     200
+/empresa/invite/*  /empresa/invite/%5Bcode%5D.html  200
+/encuesta/*        /encuesta/%5Btipo%5D.html      200
+
+# Todo lo demas sin archivo estatico: SPA fallback
 /*  /index.html  200

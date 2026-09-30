@@ -43,42 +43,12 @@
   status = 200
   force = true
 
-# Rutas dinamicas: Expo pre-genera un HTML por cada una (vacante/[id].html,
-# etc., con el bundle de la app incluido). Antes caian al index.html de abajo y
-# se veia la landing un instante antes de la oferta; ahora cada una usa su
-# propia pagina. Netlify sirve esos archivos con los corchetes codificados.
-[[redirects]]
-  from = "/vacante/*"
-  to = "/vacante/%5Bid%5D.html"
-  status = 200
-
-[[redirects]]
-  from = "/v/*"
-  to = "/v/%5Bslug%5D.html"
-  status = 200
-
-[[redirects]]
-  from = "/e/*"
-  to = "/e/%5Bslug%5D.html"
-  status = 200
-
-[[redirects]]
-  from = "/empresa/job/*"
-  to = "/empresa/job/%5Bid%5D.html"
-  status = 200
-
-[[redirects]]
-  from = "/empresa/invite/*"
-  to = "/empresa/invite/%5Bcode%5D.html"
-  status = 200
-
-[[redirects]]
-  from = "/encuesta/*"
-  to = "/encuesta/%5Btipo%5D.html"
-  status = 200
-
+# IMPORTANTE: las reglas de rutas dinamicas y el SPA fallback que realmente
+# aplican estan en public/_redirects, que Netlify evalua ANTES que este archivo.
+# (Por eso /api/* de arriba nunca llega a usarse: la app llama a
+# /.netlify/functions/* directo.)
+#
 # Redirect rules for SPA
-# Todo lo demas sin archivo estatico se sirve con index.html (SPA fallback).
 # NOTA: se intento reemplazar esto por una pantalla de carga neutral
 # (_shell.html) para evitar el flash de la landing, pero esa pagina no
 # incluia el <script> del bundle de la app, dejando el spinner girando
