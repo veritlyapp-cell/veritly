@@ -1,0 +1,31 @@
+name: Prueba de humo (produccion)
+
+# Despues de cada push a main espera a que Netlify publique ese commit y
+# revisa que lo critico funcione (ver scripts/smoke.mjs). Si falla, GitHub
+# manda un correo a quien hizo el push.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 13 * * *' # todos los dias 8:00 Lima: detecta cambios externos (modelos, Storage, etc.)
+
+concurrency:
+  group: smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Prueba de humo
+        env:
+          SMOKE_EXPECT_COMMIT: ${{ github.event_name == 'push' && github.sha || '' }}
+          SMOKE_JOB_ID: ${{ vars.SMOKE_JOB_ID }}
+          SMOKE_CV_URL: ${{ secrets.SMOKE_CV_URL }}
+        run: node scripts/smoke.mjs
