@@ -76,3 +76,11 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# El bundle JS/CSS de Expo lleva el hash del contenido en el nombre
+# (entry-<hash>.js): cada deploy genera un archivo nuevo, asi que se puede
+# cachear para siempre. Antes se revalidaba en cada visita (max-age=0).
+[[headers]]
+  for = "/_expo/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

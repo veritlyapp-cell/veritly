@@ -215,6 +215,7 @@ export const getJobCandidates = async (jobId: string) => {
                 pros: raw.pros || [],
                 cons: raw.cons || [],
                 keywordsValidation: raw.keywordsValidation,
+                killerAnswers: raw.killerAnswers || null,
                 originalFileUrl: cvUrl,
                 cvUrl: cvUrl,
                 cvBase64: cvBase64,

@@ -47,8 +47,28 @@ const fetchWithFallback = async (body: any) => {
     throw lastError;
 };
 
+const CV_FILE_URL = 'https://www.veritlyapp.com/.netlify/functions/cv-file';
+
+// Los CVs en Firebase Storage no se pueden leer con fetch() desde el navegador
+// (el bucket no tiene CORS para descargas), asi que se descargan via servidor.
+const isFirebaseStorageUrl = (uri: string) =>
+    typeof uri === 'string' && uri.startsWith('https://firebasestorage.googleapis.com/');
+
+const fetchStorageFileViaServer = async (url: string): Promise<{ base64: string; contentType: string }> => {
+    const res = await fetch(CV_FILE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.base64) {
+        throw new Error(data.error || `No se pudo descargar el CV (HTTP ${res.status})`);
+    }
+    return { base64: data.base64, contentType: data.contentType || '' };
+};
+
 // Helpers de Archivos
-const blobToBase64 = (blob: Blob): Promise<string> => {
+const blobToBase64 =(blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(blob);
@@ -98,6 +118,13 @@ const getBase64 = async (uri: string, webFile?: any): Promise<string> => {
 // 1. LEER DOCUMENTO (PDF, DOCX, TXT)
 export const extractTextFromDocument = async (fileUri: string, mimeType: string = 'application/pdf', webFile?: any) => {
     try {
+        if (isFirebaseStorageUrl(fileUri) && !(webFile instanceof Blob)) {
+            const { base64, contentType } = await fetchStorageFileViaServer(fileUri);
+            fileUri = base64;
+            // El tipo guardado en Storage es mas confiable que el default 'application/pdf'
+            if (contentType && contentType !== 'application/octet-stream') mimeType = contentType;
+        }
+
         // DOCX Auto-detection: check if URI is base64 and starts with DOCX/ZIP signature
         const isDocx = (typeof mimeType === 'string' && (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword'))) ||
                        (fileUri && (fileUri.startsWith('UEsDBBQ') || fileUri.startsWith('AQAAIAQAABMAA') || fileUri.startsWith('0M8R4KGx')));

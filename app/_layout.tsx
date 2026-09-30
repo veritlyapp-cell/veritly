@@ -11,6 +11,20 @@ import CookieBanner from '../components/CookieBanner';
 export default function RootLayout() {
   const [showCookieBanner, setShowCookieBanner] = useState(false);
 
+  // La pestaña del navegador siempre dice "Veritly". React Navigation pone como
+  // titulo el nombre de cada ruta (o la URL), y en el panel de empresa el titulo
+  // de cada pantalla ya se usa para el encabezado visible, asi que se fija aca.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const APP_TITLE = 'Veritly';
+    document.title = APP_TITLE;
+    const observer = new MutationObserver(() => {
+      if (document.title !== APP_TITLE) document.title = APP_TITLE;
+    });
+    observer.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     // Sentry es monitoreo tecnico de errores, no publicidad/analitica de
     // terceros -- no depende del consentimiento de cookies.

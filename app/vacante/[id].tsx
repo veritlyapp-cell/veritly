@@ -50,6 +50,7 @@ import {
 } from 'react-native';
 import { showAlert } from '../../utils/ui';
 import { getMaxReasonableSalary, getSalaryRange } from '../../utils/salaryRange';
+import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -563,23 +564,12 @@ export default function ExternalApplication() {
             }
 
             let isKillerRejected = false;
-            const questions = job.killerQuestions || [];
-            if (questions.length > 0) {
-                questions.forEach((q: any, idx: number) => {
-                    let passes: boolean;
-                    if (q.type === 'choice') {
-                        // Pregunta cerrada: aprueba si la opcion elegida es una de las marcadas como correctas
-                        const acceptable = (q.options || []).filter((_: string, i: number) => (q.correctOptions || []).includes(i));
-                        passes = acceptable.includes(killerAnswers[idx]);
-                    } else {
-                        passes = (killerAnswers[idx] || 'no') === (q.expectedAnswer || 'si');
-                    }
-                    if (!passes) {
-                        isKillerRejected = true;
-                        failureReason = 'No cumple con requisitos críticos (Killer Questions).';
-                    }
-                });
-            }
+            getActiveKillerQuestions(job).forEach((q: any, idx: number) => {
+                if (!passesKillerQuestion(q, killerAnswers[idx])) {
+                    isKillerRejected = true;
+                    failureReason = 'No cumple con requisitos críticos (Killer Questions).';
+                }
+            });
 
             const isRejected = isSalaryRejected || isKillerRejected || isCountryRejected;
 
@@ -753,30 +743,25 @@ export default function ExternalApplication() {
         try {
             const { analyzeWithGemini, extractTextFromDocument } = await import('../../utils/gemini');
             
-            let textToAnalyze = "";
+            // Sin el contenido del CV no se calcula un match: analizar solo nombre/
+            // telefono/email daba scores bajisimos y engañosos (y gastaba un credito).
+            const CV_UNREADABLE = "No pudimos leer tu CV, así que no calculamos el match (no se descontó ningún crédito). Intenta de nuevo en unos segundos o sube tu CV en PDF.";
             const cvSource = useSavedCv ? savedCv?.url : (lastUploadedCv?.base64 || lastUploadedCv?.url);
-            if (cvSource) {
-                try {
-                    textToAnalyze = await extractTextFromDocument(
-                        cvSource, 
-                        lastUploadedCv?.mimeType || 'application/pdf'
-                    );
-                    
-                    if (textToAnalyze && textToAnalyze.length < 50) {
-                        console.warn("Extracción de CV muy corta, posible PDF escaneado sin OCR o error de lectura.");
-                    }
-                } catch (extractErr) {
-                    console.error("Extract error:", extractErr);
-                    // Fallback a info básica si falla la extracción del documento
-                    textToAnalyze = `Nombre: ${fullName}. Teléfono: ${phone}. Email: ${user.email}`;
-                    showAlert("Aviso", "No pudimos leer el detalle de tu CV (posible formato incompatible o muy corto). El análisis se basará en tu información básica.");
-                }
-            } else {
-                textToAnalyze = `Nombre: ${fullName}. Teléfono: ${phone}. Email: ${user.email}`;
+            if (!cvSource) throw new Error(CV_UNREADABLE);
+
+            let textToAnalyze = "";
+            try {
+                textToAnalyze = await extractTextFromDocument(
+                    cvSource,
+                    lastUploadedCv?.mimeType || 'application/pdf'
+                );
+            } catch (extractErr) {
+                console.error("Extract error:", extractErr);
+                throw new Error(CV_UNREADABLE);
             }
 
-            if (!textToAnalyze || textToAnalyze.length < 10) {
-                throw new Error("No hay contenido suficiente para analizar.");
+            if (!textToAnalyze || textToAnalyze.trim().length < 50) {
+                throw new Error(CV_UNREADABLE);
             }
 
             // Realizar análisis enfocado en candidato

@@ -41,6 +41,7 @@ import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
+import { formatKillerAnswer, getActiveKillerQuestions, passesKillerQuestion } from '../../../utils/killerQuestions';
 
 const TooltipWrapper = Platform.OS === 'web' 
   ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
@@ -102,6 +103,7 @@ export default function JobDetailScreen() {
         description: description as string || '',
         companyId: ''
     });
+    const [killerQuestions, setKillerQuestions] = useState<any[]>([]);
     const [isEmailVerified, setIsEmailVerified] = useState(true);
     const [isProfileSkipped, setIsProfileSkipped] = useState(false);
 
@@ -219,6 +221,7 @@ export default function JobDetailScreen() {
             if (jobDoc.exists()) {
                 const jobData = jobDoc.data();
                 const compId = jobData.companyId || '';
+                setKillerQuestions(getActiveKillerQuestions(jobData));
 
                 if (!jobDetails.description) {
                     setJobDetails({
@@ -1752,6 +1755,25 @@ export default function JobDetailScreen() {
                                     </>
                                 )}
                             </View>
+
+                            {/* Respuestas a las preguntas filtro de la postulacion */}
+                            {killerQuestions.length > 0 && (selectedCandidate as any).killerAnswers && (
+                                <View style={styles.aiCard}>
+                                    <Text style={styles.aiCardTitle}>📋 Respuestas del Cuestionario</Text>
+                                    {killerQuestions.map((q: any, idx: number) => {
+                                        const answer = (selectedCandidate as any).killerAnswers?.[idx];
+                                        const ok = passesKillerQuestion(q, answer);
+                                        return (
+                                            <View key={idx} style={{ marginTop: 12 }}>
+                                                <Text style={{ color: '#94a3b8', fontSize: 13 }}>{q.question}</Text>
+                                                <Text style={{ color: ok ? '#10b981' : '#ef4444', fontSize: 14, fontWeight: 'bold', marginTop: 3 }}>
+                                                    {ok ? '✓' : '✗'} {formatKillerAnswer(q, answer)}
+                                                </Text>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            )}
 
                             {/* Status Buttons */}
                             <Text style={styles.sectionTitle}>Estado del Proceso</Text>
