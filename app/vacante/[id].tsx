@@ -51,6 +51,7 @@ import {
 import { showAlert } from '../../utils/ui';
 import { getMaxReasonableSalary, getSalaryRange } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
+import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -575,6 +576,26 @@ export default function ExternalApplication() {
 
             let cvUrl = useSavedCv ? savedCv?.url : null;
             let cvBase64 = null;
+            // Perfiles antiguos guardan el CV en base64, no como link. Se sube a
+            // Storage como una postulacion normal, para que el reclutador tenga
+            // un link real (antes el base64 quedaba en cvUrl y la vista previa
+            // salia en blanco). Si falla, va al doc privado del CV.
+            if (cvUrl && !/^https?:\/\//i.test(cvUrl)) {
+                const savedBase64 = cvUrl;
+                cvUrl = null;
+                setSubmitStatus('Preparando tu CV guardado...');
+                try {
+                    const mimeType = detectCvMimeType(savedBase64);
+                    const safeName = (fullName || 'candidato').replace(/[^a-zA-Z0-9]/g, '_');
+                    const companyPath = job.companyId ? `company_${job.companyId}` : 'company_anon';
+                    const fileRef = ref(storage, `cvs/${companyPath}/job_${id}/${Date.now()}_${safeName}`);
+                    const snap = await uploadString(fileRef, rawBase64(savedBase64), 'base64', { contentType: mimeType });
+                    cvUrl = await getDownloadURL(snap.ref);
+                } catch (e) {
+                    console.warn('No se pudo subir el CV guardado a Storage, se guarda en base64:', e);
+                    cvBase64 = rawBase64(savedBase64);
+                }
+            }
 
             if (file && !useSavedCv) {
                 setSubmitStatus('Procesando archivo...');

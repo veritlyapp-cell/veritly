@@ -39,6 +39,7 @@ import {
 } from '../../../services/storage';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { HYDRATION_GATE } from '../../../utils/hydrationGate';
+import { base64ToBytes, base64ToBlobUrl, detectCvMimeType, getCandidateCvSource, isWordMimeType, openBase64Cv, rawBase64 } from '../../../utils/cvSource';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
@@ -99,6 +100,8 @@ export default function JobDetailScreen() {
     const [isActionModalVisible, setIsActionModalVisible] = useState(false);
     const [wordPreviewHtml, setWordPreviewHtml] = useState<string | null>(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+    // URL blob: del PDF cuando el CV solo existe en base64 (sin link a Storage)
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || '',
@@ -128,10 +131,12 @@ export default function JobDetailScreen() {
     // privado si no. Nunca se debe pegar el resultado de vuelta en el objeto
     // `candidate`/`selectedCandidate` en memoria (se re-escribiria en
     // Firestore la proxima vez que ese candidato se guarde).
+    // Ojo: en registros de perfiles antiguos el base64 puede venir dentro de
+    // cvUrl/originalFileUrl (ver utils/cvSource.ts).
     const resolveCandidateCv = async (candidate: CandidateAnalysis): Promise<string | undefined> => {
-        const inline = (candidate as any).cvBase64;
-        if (inline) return inline;
-        if (candidate.originalFileUrl || (candidate as any).cvUrl) return undefined; // hay URL, no hace falta base64
+        const { url, base64 } = getCandidateCvSource(candidate);
+        if (base64) return base64;
+        if (url) return undefined; // hay URL, no hace falta base64
         return (await getCandidateCvBase64(id as string, candidate.id)) || undefined;
     };
 
@@ -725,47 +730,50 @@ export default function JobDetailScreen() {
     };
 
     useEffect(() => {
-        const convertWordToHtml = async () => {
-            if (!selectedCandidate) {
-                setWordPreviewHtml(null);
-                setResolvedCv(null);
+        let cancelled = false;
+        let blobUrl: string | null = null;
+        const preparePreview = async () => {
+            setWordPreviewHtml(null);
+            setPdfPreviewUrl(null);
+            setResolvedCv(null);
+            if (!selectedCandidate) return;
+
+            const base64 = await resolveCandidateCv(selectedCandidate);
+            if (cancelled || !base64) return;
+            if (selectedCandidate.id) {
+                setResolvedCv({ candidateId: selectedCandidate.id, base64 });
+            }
+            // Si hay link a Storage el iframe usa ese link; el base64 solo se
+            // prepara para mostrar cuando es la unica copia del CV.
+            if (getCandidateCvSource(selectedCandidate).url) return;
+
+            const mimeType = detectCvMimeType(base64, (selectedCandidate as any).cvMimeType);
+            if (!isWordMimeType(mimeType)) {
+                if (Platform.OS === 'web') {
+                    blobUrl = base64ToBlobUrl(base64, mimeType);
+                    setPdfPreviewUrl(blobUrl);
+                }
                 return;
             }
 
-            setResolvedCv(null);
-            const base64 = await resolveCandidateCv(selectedCandidate);
-            if (base64 && selectedCandidate.id) {
-                setResolvedCv({ candidateId: selectedCandidate.id, base64 });
-            }
-            // Detección de Word por header
-            const isWord = base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'));
-            
-            if (isWord) {
-                setIsPreviewLoading(true);
-                try {
-                    const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
-                    const byteCharacters = atob(rawBase64);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    
-                    const mammothModule = await import('mammoth');
-                    const mammothInstance = mammothModule.default || mammothModule;
-                    const result = await mammothInstance.convertToHtml({ arrayBuffer: byteArray.buffer });
-                    setWordPreviewHtml(result.value);
-                } catch (e) {
-                    console.error("Error previsualizando Word:", e);
-                    setWordPreviewHtml("<p style='color: #64748b; text-align: center; padding: 20px;'>No se pudo generar la vista previa visual de este documento Word. Puedes descargarlo para verlo completo.</p>");
-                } finally {
-                    setIsPreviewLoading(false);
-                }
-            } else {
-                setWordPreviewHtml(null);
+            setIsPreviewLoading(true);
+            try {
+                const mammothModule = await import('mammoth');
+                const mammothInstance = mammothModule.default || mammothModule;
+                const result = await mammothInstance.convertToHtml({ arrayBuffer: base64ToBytes(base64).buffer as ArrayBuffer });
+                if (!cancelled) setWordPreviewHtml(result.value);
+            } catch (e) {
+                console.error("Error previsualizando Word:", e);
+                if (!cancelled) setWordPreviewHtml("<p style='color: #64748b; text-align: center; padding: 20px;'>No se pudo generar la vista previa visual de este documento Word. Puedes descargarlo para verlo completo.</p>");
+            } finally {
+                if (!cancelled) setIsPreviewLoading(false);
             }
         };
-        convertWordToHtml();
+        preparePreview();
+        return () => {
+            cancelled = true;
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+        };
     }, [selectedCandidate]);
 
     useEffect(() => {
@@ -996,52 +1004,6 @@ export default function JobDetailScreen() {
             setProcessingStatus('');
         }
     }
-
-    const viewCandidateCV = async (cvUrl?: string, cvBase64?: string, candidateName?: string, cvMimeType?: string) => {
-        const url = cvUrl;
-        const base64 = cvBase64;
-        let mimeType = cvMimeType || 'application/pdf';
-
-        if (!url && !base64) return showAlert("Sin CV", "Este candidato no tiene un currículum adjunto.");
-
-        // Auto-sanación para base64
-        if (base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'))) {
-            if (mimeType === 'application/pdf' || mimeType === 'application/octet-stream') {
-                mimeType = base64.includes('0M8R4KGx') ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-            }
-        }
-
-        try {
-            if (url) {
-                if (Platform.OS === 'web') {
-                    window.open(url, '_blank');
-                } else {
-                    await Linking.openURL(url);
-                }
-            } else if (base64) {
-                const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
-                const dataUri = `data:${mimeType};base64,${rawBase64}`;
-
-                if (Platform.OS === 'web') {
-                    if (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword')) {
-                        const link = document.createElement('a');
-                        link.href = dataUri;
-                        link.download = `${candidateName || 'CV'}${mimeType.includes('wordprocessingml') ? '.docx' : '.doc'}`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    } else {
-                        window.open(dataUri, '_blank');
-                    }
-                } else {
-                    await Linking.openURL(dataUri);
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            showAlert("Error", "No se pudo abrir el currículum.");
-        }
-    };
 
     const openEmail = (email?: string) => {
         if (!email) return showAlert("Sin email", "No hay email disponible.");
@@ -1824,9 +1786,11 @@ export default function JobDetailScreen() {
 
                             {/* CV Preview OR Profile Text (Web Only) */}
                             {Platform.OS === 'web' && (() => {
-                                // El CV en base64 puede vivir inline (formato viejo) o en el
-                                // sub-documento privado, resuelto de forma perezosa arriba.
-                                const effectiveCvBase64 = (selectedCandidate as any).cvBase64 ||
+                                // El CV puede ser un link a Storage o base64 (inline, dentro de
+                                // cvUrl en registros antiguos, o en el sub-documento privado,
+                                // resuelto de forma perezosa arriba). Ver utils/cvSource.ts.
+                                const cvSource = getCandidateCvSource(selectedCandidate);
+                                const effectiveCvBase64 = cvSource.base64 ||
                                     (resolvedCv?.candidateId === selectedCandidate.id ? resolvedCv.base64 : '');
                                 return (
                                 <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
@@ -1836,19 +1800,16 @@ export default function JobDetailScreen() {
                                             <Text style={{ marginTop: 15, color: '#475569', fontSize: 14, fontWeight: '500' }}>El documento se está asegurando en la nube...</Text>
                                             <Text style={{ marginTop: 5, color: '#94a3b8', fontSize: 12 }}>Esto puede tomar unos segundos dependiendo del tamaño.</Text>
                                         </View>
-                                    ) : (selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || effectiveCvBase64) ? (
+                                    ) : (cvSource.url || effectiveCvBase64) ? (
                                         <>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                                 <FileText size={18} color="#38bdf8" />
-                                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Vista Previa del CV</Text>
+                                                <Text style={{ color: '#0F172A', fontWeight: 'bold', fontSize: 16 }}>Vista Previa del CV</Text>
                                             </View>
                                             <View style={{ height: 600, backgroundColor: '#F8FAFC', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' }}>
                                                 {(() => {
-                                                    const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url || '';
-                                                    const base64 = effectiveCvBase64 || '';
+                                                    const url = cvSource.url || '';
 
-                                                    if (!url && !base64) return null;
-                                                    
                                                     if (isPreviewLoading) {
                                                         return (
                                                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -1873,14 +1834,15 @@ export default function JobDetailScreen() {
                                                     if (url) {
                                                         const isWord = url.toLowerCase().includes('.doc') || url.toLowerCase().includes('.docx');
                                                         // Usar Google Docs Viewer para Word URLs
-                                                        iframeSrc = isWord 
-                                                            ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true` 
+                                                        iframeSrc = isWord
+                                                            ? `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
                                                             : url;
-                                                    } else if (base64) {
-                                                        // Para base64, si no es Word (manejado arriba), asumimos PDF
-                                                        iframeSrc = base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`;
+                                                    } else if (pdfPreviewUrl) {
+                                                        // Solo base64: se muestra como blob: (ver efecto preparePreview)
+                                                        iframeSrc = pdfPreviewUrl;
                                                     }
-                                                    
+                                                    if (!iframeSrc) return null;
+
                                                     return (
                                                         <iframe 
                                                             key={selectedCandidate.id} 
@@ -1914,20 +1876,10 @@ export default function JobDetailScreen() {
                                 <TouchableOpacity
                                     style={styles.cvBigButton}
                                     onPress={async () => {
-                                        const url = selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url;
-                                        const base64 = (selectedCandidate as any).cvBase64 ||
+                                        const { url } = getCandidateCvSource(selectedCandidate);
+                                        const base64 = url ? undefined :
                                             (resolvedCv?.candidateId === selectedCandidate.id ? resolvedCv.base64 : undefined) ||
-                                            (!url ? await resolveCandidateCv(selectedCandidate) : undefined);
-                                        let mimeType = (selectedCandidate as any).cvMimeType || (selectedCandidate as any).cv_mime_type;
-                                        
-                                        // Auto-sanación: Si el base64 tiene el header de un DOCX o DOC
-                                        if (base64 && (base64.includes('UEsDBBQ') || base64.includes('AQAAIAQAABMAA') || base64.includes('0M8R4KGx'))) {
-                                            if (!mimeType || mimeType === 'application/pdf' || mimeType === 'application/octet-stream') {
-                                                mimeType = base64.includes('0M8R4KGx') ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                                            }
-                                        } else if (!mimeType) {
-                                            mimeType = 'application/pdf';
-                                        }
+                                            await resolveCandidateCv(selectedCandidate);
 
                                         if (!url && !base64) {
                                             return showAlert("CV no disponible", "Este candidato no tiene un archivo adjunto. Puede ser de LinkedIn, Excel, o el archivo aún no terminó de sincronizarse.");
@@ -1940,23 +1892,12 @@ export default function JobDetailScreen() {
                                                 Linking.openURL(url);
                                             }
                                         } else if (base64) {
-                                            const rawBase64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
-                                            const dataUri = `data:${mimeType};base64,${rawBase64}`;
-                                            
+                                            const mimeType = detectCvMimeType(base64, (selectedCandidate as any).cvMimeType || (selectedCandidate as any).cv_mime_type);
                                             if (Platform.OS === 'web') {
-                                                // Para Word, forzamos descarga ya que el navegador no puede previsualizarlo nativamente
-                                                if (mimeType.includes('word') || mimeType.includes('officedocument') || mimeType.includes('msword')) {
-                                                    const link = document.createElement('a');
-                                                    link.href = dataUri;
-                                                    link.download = `${selectedCandidate.name || 'CV'}${mimeType.includes('wordprocessingml') ? '.docx' : '.doc'}`;
-                                                    document.body.appendChild(link);
-                                                    link.click();
-                                                    document.body.removeChild(link);
-                                                } else {
-                                                    window.open(dataUri, '_blank');
-                                                }
+                                                // PDF se abre en otra pestaña; Word se descarga
+                                                openBase64Cv(base64, mimeType, selectedCandidate.name || 'CV');
                                             } else {
-                                                Linking.openURL(dataUri);
+                                                Linking.openURL(`data:${mimeType};base64,${rawBase64(base64)}`);
                                             }
                                         }
                                     }}
@@ -1964,7 +1905,7 @@ export default function JobDetailScreen() {
                                     <FileText size={40} color="white" />
                                     <View>
                                         <Text style={styles.cvBigTitle}>Ver Documento Original</Text>
-                                        <Text style={styles.cvBigSub}>{(selectedCandidate.originalFileUrl || (selectedCandidate as any).cvUrl || (selectedCandidate as any).cv_url) ? 'Haga clic para descargar/abrir' : 'Solo datos capturados (LinkedIn/Excel)'}</Text>
+                                        <Text style={styles.cvBigSub}>{(getCandidateCvSource(selectedCandidate).url || getCandidateCvSource(selectedCandidate).base64 || (resolvedCv?.candidateId === selectedCandidate.id)) ? 'Haga clic para descargar/abrir' : 'Solo datos capturados (LinkedIn/Excel)'}</Text>
 
                                     </View>
                                 </TouchableOpacity>
