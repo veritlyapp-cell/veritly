@@ -746,7 +746,20 @@ export default function ExternalApplication() {
             // Sin el contenido del CV no se calcula un match: analizar solo nombre/
             // telefono/email daba scores bajisimos y engañosos (y gastaba un credito).
             const CV_UNREADABLE = "No pudimos leer tu CV, así que no calculamos el match (no se descontó ningún crédito). Intenta de nuevo en unos segundos o sube tu CV en PDF.";
-            const cvSource = useSavedCv ? savedCv?.url : (lastUploadedCv?.base64 || lastUploadedCv?.url);
+            // El match se hace con el CV que el candidato envio a ESTA vacante:
+            // 1) el recien subido en esta sesion, 2) el guardado en su postulacion
+            // (si volvio a la pagina despues de postular ya no esta en memoria),
+            // 3) recien ahi el CV de su perfil.
+            let cvSource: string | undefined = lastUploadedCv?.base64 || lastUploadedCv?.url;
+            if (!cvSource) {
+                try {
+                    const appSnap = await getDoc(doc(db, 'jobs', id as string, 'candidates', user.uid));
+                    cvSource = appSnap.data()?.cvUrl || appSnap.data()?.originalFileUrl || undefined;
+                } catch (appErr) {
+                    console.warn('No se pudo leer la postulación para obtener el CV:', appErr);
+                }
+            }
+            if (!cvSource) cvSource = savedCv?.url;
             if (!cvSource) throw new Error(CV_UNREADABLE);
 
             let textToAnalyze = "";
@@ -1201,9 +1214,18 @@ export default function ExternalApplication() {
                                     
                                     <View style={{ width: '100%', height: 1, backgroundColor: '#334155', marginVertical: 20 }} />
                                     
-                                    <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 20 }}>
+                                    <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 8 }}>
                                         "Análisis generado por Racso. ¡Buen trabajo!"
                                     </Text>
+                                    {/* Permite corregir matches calculados sin leer el CV (bug anterior)
+                                        o volver a calcular tras actualizar el CV. Usa 1 credito, como el primero. */}
+                                    <TouchableOpacity onPress={handleRevealMatch} disabled={revealingMatch} style={{ marginBottom: 20, padding: 6 }}>
+                                        {revealingMatch ? (
+                                            <ActivityIndicator color="#94a3b8" size="small" />
+                                        ) : (
+                                            <Text style={{ color: '#64748b', fontSize: 12, textDecorationLine: 'underline' }}>Recalcular mi match con mi CV</Text>
+                                        )}
+                                    </TouchableOpacity>
 
                                     {/* RACSO CALLOUT */}
                                     <TouchableOpacity

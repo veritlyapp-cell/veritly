@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { initGA } from '../utils/ga';
 import { initFbPixel } from '../utils/fbPixel';
-import { initSentry } from '../utils/sentry';
 import { initClarity } from '../utils/clarity';
 import { getConsent } from '../utils/cookieConsent';
 import CookieBanner from '../components/CookieBanner';
@@ -27,8 +26,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Sentry es monitoreo tecnico de errores, no publicidad/analitica de
-    // terceros -- no depende del consentimiento de cookies.
-    initSentry();
+    // terceros -- no depende del consentimiento de cookies. Se carga con import
+    // dinamico para que sus ~900 KB no bloqueen la primera carga de la pagina.
+    import('../utils/sentry')
+      .then(({ initSentry }) => initSentry())
+      .catch((e) => console.warn('No se pudo cargar Sentry:', e));
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const consent = getConsent();
