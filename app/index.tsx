@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, MapPin, Sparkles, Users, Zap, FileText } from 'lucide-react-native';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { HYDRATION_GATE } from '../utils/hydrationGate';
 import React, { useRef, useState, useEffect } from 'react';
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
 
@@ -139,7 +140,7 @@ export default function VeritlyLandingPage() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} {...HYDRATION_GATE}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
             <ScrollView 

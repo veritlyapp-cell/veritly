@@ -38,6 +38,7 @@ import {
     updateCandidateStatus
 } from '../../../services/storage';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
+import { HYDRATION_GATE } from '../../../utils/hydrationGate';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
@@ -1059,7 +1060,7 @@ export default function JobDetailScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} {...HYDRATION_GATE}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
             {/* Header */}

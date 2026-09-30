@@ -9,6 +9,7 @@ import { auth } from '../../config/firebase';
 import { checkEmailAvailability, createCompanyUser } from '../../services/auth-service';
 import { trackDailyLogin, trackUserLogin } from '../../utils/analytics';
 import { setUserId, trackLogin } from '../../utils/ga';
+import { HYDRATION_GATE } from '../../utils/hydrationGate';
 
 const LocalLogo = require('../../assets/images/veritly3.png');
 const HeroImage = require('../../assets/images/friendly_hero.png');
@@ -232,7 +233,7 @@ export default function CompanySignIn() {
     /* Social Login Removed */
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} {...HYDRATION_GATE}>
             {/* Mobile-only Header */}
             {!isDesktop && (
                 <AppHeader 

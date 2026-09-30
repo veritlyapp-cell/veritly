@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
 import { getEffectiveMembership } from '../../../services/auth-service';
+import { HYDRATION_GATE } from '../../../utils/hydrationGate';
 
 // Light Tech Theme Colors
 const COLORS = {
@@ -418,7 +419,7 @@ export default function CompanyDashboard() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} {...HYDRATION_GATE}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
             
             {/* Header */}

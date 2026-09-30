@@ -6,6 +6,8 @@ import { initFbPixel } from '../utils/fbPixel';
 import { initClarity } from '../utils/clarity';
 import { getConsent } from '../utils/cookieConsent';
 import CookieBanner from '../components/CookieBanner';
+import Head from 'expo-router/head';
+import { releaseHydrationGate } from '../utils/hydrationGate';
 
 export default function RootLayout() {
   const [showCookieBanner, setShowCookieBanner] = useState(false);
@@ -15,6 +17,7 @@ export default function RootLayout() {
   // de cada pantalla ya se usa para el encabezado visible, asi que se fija aca.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    releaseHydrationGate();
     const APP_TITLE = 'Veritly';
     document.title = APP_TITLE;
     const observer = new MutationObserver(() => {
@@ -51,6 +54,11 @@ export default function RootLayout() {
 
   return (
     <>
+      {/* Titulo en el HTML pre-generado: sin esto la pestaña mostraba la URL
+          hasta que cargaba la app */}
+      <Head>
+        <title>Veritly</title>
+      </Head>
       <Stack screenOptions={{ headerShown: false }}>
         {/* MODO AUTOMÁTICO:
             Al no listar las pantallas una por una, Expo detectará
