@@ -216,7 +216,6 @@ export const getJobCandidates = async (jobId: string) => {
                 cons: raw.cons || [],
                 keywordsValidation: raw.keywordsValidation,
                 killerAnswers: raw.killerAnswers || null,
-                lastEmailAt: raw.lastEmailAt || null, // ultimo correo enviado desde Veritly (candidate-email.ts)
                 originalFileUrl: cvUrl,
                 cvUrl: cvUrl,
                 cvBase64: cvBase64,
