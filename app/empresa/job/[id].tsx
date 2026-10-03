@@ -28,6 +28,7 @@ import {
     useWindowDimensions
 } from 'react-native';
 
+import CandidateEmailComposer from '../../../components/CandidateEmailComposer';
 import CircularProgress from '../../../components/CircularProgress';
 import { auth, db, storage } from '../../../config/firebase';
 import {
@@ -97,6 +98,8 @@ export default function JobDetailScreen() {
     const [excelKeywords, setExcelKeywords] = useState('');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    // Candidatos a los que se les esta escribiendo un correo (null = editor cerrado)
+    const [emailTargetIds, setEmailTargetIds] = useState<string[] | null>(null);
     const [isActionModalVisible, setIsActionModalVisible] = useState(false);
     const [wordPreviewHtml, setWordPreviewHtml] = useState<string | null>(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -105,7 +108,8 @@ export default function JobDetailScreen() {
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || '',
-        companyId: ''
+        companyId: '',
+        confidentialLabel: '' // alias de la vacante confidencial; vacio si no lo es
     });
     const [killerQuestions, setKillerQuestions] = useState<any[]>([]);
     const [isEmailVerified, setIsEmailVerified] = useState(true);
@@ -233,7 +237,8 @@ export default function JobDetailScreen() {
                     setJobDetails({
                         title: jobData.jobTitle || 'Vacante',
                         description: jobData.optimizedText || jobData.originalText || '',
-                        companyId: compId
+                        companyId: compId,
+                        confidentialLabel: jobData.isConfidential ? (jobData.confidentialLabel?.trim() || 'Empresa Confidencial') : ''
                     });
                 }
             } else if (!jobDetails.description) {
@@ -1005,10 +1010,6 @@ export default function JobDetailScreen() {
         }
     }
 
-    const openEmail = (email?: string) => {
-        if (!email) return showAlert("Sin email", "No hay email disponible.");
-        Linking.openURL(`mailto:${email}`);
-    };
 
     const openWhatsApp = (phone?: string) => {
         if (!phone) return showAlert("Sin teléfono", "No hay teléfono disponible.");
@@ -1467,7 +1468,15 @@ export default function JobDetailScreen() {
                                                         </Text>
                                                     </View>
                                                 </View>
-                                                <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    {(candidate as any).lastEmailAt ? (
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                            <Mail size={12} color="#3b82f6" />
+                                                            <Text style={{ fontSize: 11, color: '#3b82f6', fontWeight: '600' }}>Correo enviado</Text>
+                                                        </View>
+                                                    ) : <View />}
+                                                    <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
+                                                </View>
                                             </TouchableOpacity>
                                         );
                                     })}
@@ -1524,6 +1533,10 @@ export default function JobDetailScreen() {
                                 </TouchableOpacity>
                             </>
                         )}
+                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setEmailTargetIds([...selectedIds])}>
+                            <Mail size={16} color="white" />
+                            <Text style={styles.bulkBtnText}>Enviar correo</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#64748b' }]} onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }}>
                             <X size={16} color="white" />
                             <Text style={styles.bulkBtnText}>Cancelar</Text>
@@ -1922,7 +1935,9 @@ export default function JobDetailScreen() {
 
                                 <TouchableOpacity
                                     style={[styles.contactButton, { backgroundColor: '#3b82f6' }]}
-                                    onPress={() => openEmail(selectedCandidate.email || undefined)}
+                                    onPress={() => selectedCandidate.email
+                                        ? setEmailTargetIds([selectedCandidate.id])
+                                        : showAlert("Sin email", "No hay email disponible.")}
                                 >
                                     <Mail size={22} color="white" />
                                     <Text style={styles.contactButtonText}>Email</Text>
@@ -1993,6 +2008,25 @@ export default function JobDetailScreen() {
                     </View>
                 </View>
             </Modal>
+
+            <CandidateEmailComposer
+                visible={!!emailTargetIds}
+                onClose={() => setEmailTargetIds(null)}
+                jobId={id as string}
+                jobTitle={jobDetails.title || ''}
+                companyLabel={jobDetails.confidentialLabel || undefined}
+                recipients={(candidates || [])
+                    .filter(c => emailTargetIds?.includes(c.id))
+                    .map(c => ({ id: c.id, name: c.name, email: c.email }))}
+                onSent={(sentIds) => {
+                    const sentAt = new Date().toISOString();
+                    setCandidates(prev => (prev || []).map(c => sentIds.includes(c.id) ? { ...c, lastEmailAt: sentAt } as any : c));
+                    if (isSelectionMode) {
+                        setIsSelectionMode(false);
+                        setSelectedIds([]);
+                    }
+                }}
+            />
         </SafeAreaView>
     );
 }

@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import crypto from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './_firebaseAdmin';
-import { verifyIdToken } from './_verifyAuth';
+import { isCompanyMember, verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
@@ -22,13 +22,6 @@ async function isCompanyAdmin(uid: string, companyId: string): Promise<boolean> 
     if (!snap.exists) return false;
     const d = snap.data() as TeamMember;
     return d.companyId === companyId && d.role === 'admin';
-}
-
-async function isCompanyMember(uid: string, companyId: string): Promise<boolean> {
-    if (uid === companyId) return true;
-    const snap = await adminDb.collection('team_members').doc(uid).get();
-    if (!snap.exists) return false;
-    return (snap.data() as TeamMember).companyId === companyId;
 }
 
 async function getSeatLimits(companyId: string): Promise<{ maxAdmins: number; maxRecruiters: number }> {

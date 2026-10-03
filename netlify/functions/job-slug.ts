@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { adminDb } from './_firebaseAdmin';
-import { verifyIdToken } from './_verifyAuth';
+import { isCompanyMember, verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
 
 // Enlaces cortos propios para vacantes (veritlyapp.com/v/{slug}) en vez del
@@ -23,13 +23,6 @@ function slugify(text: string): string {
 
 function randomSuffix(): string {
     return Math.random().toString(36).slice(2, 6);
-}
-
-async function isCompanyMember(uid: string, companyId: string): Promise<boolean> {
-    if (uid === companyId) return true;
-    const snap = await adminDb.collection('team_members').doc(uid).get();
-    if (!snap.exists) return false;
-    return snap.data()?.companyId === companyId;
 }
 
 export const handler: Handler = async (event) => {
