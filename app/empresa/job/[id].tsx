@@ -28,6 +28,7 @@ import {
     useWindowDimensions
 } from 'react-native';
 
+import BccEmailComposer from '../../../components/BccEmailComposer';
 import CircularProgress from '../../../components/CircularProgress';
 import { auth, db, storage } from '../../../config/firebase';
 import {
@@ -97,6 +98,7 @@ export default function JobDetailScreen() {
     const [excelKeywords, setExcelKeywords] = useState('');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [showBccComposer, setShowBccComposer] = useState(false);
     const [isActionModalVisible, setIsActionModalVisible] = useState(false);
     const [wordPreviewHtml, setWordPreviewHtml] = useState<string | null>(null);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -1524,6 +1526,10 @@ export default function JobDetailScreen() {
                                 </TouchableOpacity>
                             </>
                         )}
+                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setShowBccComposer(true)}>
+                            <Mail size={16} color="white" />
+                            <Text style={styles.bulkBtnText}>Correo (CCO)</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#64748b' }]} onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }}>
                             <X size={16} color="white" />
                             <Text style={styles.bulkBtnText}>Cancelar</Text>
@@ -1993,6 +1999,20 @@ export default function JobDetailScreen() {
                     </View>
                 </View>
             </Modal>
+
+            {showBccComposer && (() => {
+                const selected = (candidates || []).filter(c => selectedIds.includes(c.id));
+                const emails = [...new Set(selected.map(c => (c.email || '').trim()).filter(e => e.includes('@')))];
+                return (
+                    <BccEmailComposer
+                        visible
+                        onClose={() => setShowBccComposer(false)}
+                        jobTitle={jobDetails.title || ''}
+                        emails={emails}
+                        missingEmail={selected.filter(c => !(c.email || '').includes('@')).length}
+                    />
+                );
+            })()}
         </SafeAreaView>
     );
 }
