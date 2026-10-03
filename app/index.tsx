@@ -3,35 +3,12 @@ import { Briefcase, Calendar, CheckCircle, ChevronDown, ChevronRight, Clock, Map
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { HYDRATION_GATE } from '../utils/hydrationGate';
+import { useLocalPricing } from '../utils/localPricing';
 import React, { useRef, useState, useEffect } from 'react';
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, Platform, Linking, LayoutChangeEvent } from 'react-native';
 
 const LocalLogo = require('../assets/images/veritly3.png');
 const HeroLaptop = require('../assets/images/b2b_hero_dashboard.png');
-
-// Precios base en config_plans están en Soles (PEN); detectamos el país del
-// visitante y convertimos con el tipo de cambio para mostrar su moneda local.
-const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
-    PE: { currency: 'PEN', symbol: 'S/' },
-    CO: { currency: 'COP', symbol: '$' },
-    EC: { currency: 'USD', symbol: '$' },
-    BO: { currency: 'BOB', symbol: 'Bs' },
-    CL: { currency: 'CLP', symbol: '$' },
-    PY: { currency: 'PYG', symbol: '₲' },
-    MX: { currency: 'MXN', symbol: '$' },
-    AR: { currency: 'ARS', symbol: '$' },
-};
-
-const formatCurrencyValue = (val: number, currency: string) => {
-    if (currency === 'PEN') return val.toString();
-    if (currency === 'USD') return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
-    const rounded = Math.round(val);
-    try {
-        return rounded.toLocaleString('es-ES');
-    } catch (e) {
-        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    }
-};
 
 // Light Tech Theme Colors
 const COLORS = {
@@ -55,17 +32,8 @@ export default function VeritlyLandingPage() {
 
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
     const [plansLoading, setPlansLoading] = useState(true);
-    const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
-    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
-        USD: 0.27,
-        COP: 1100,
-        CLP: 250,
-        BOB: 1.85,
-        PYG: 2000,
-        MXN: 4.9,
-        ARS: 260,
-        PEN: 1.0,
-    });
+    // Precios en la moneda del visitante (ver utils/localPricing.ts)
+    const { formatPrice: getDisplayPrice } = useLocalPricing();
 
     const scrollRef = useRef<ScrollView>(null);
     const [sectionPositions, setSectionPositions] = useState({
@@ -89,43 +57,7 @@ export default function VeritlyLandingPage() {
             }
         };
         fetchPlans();
-
-        const detectLocation = async () => {
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                const country = data.country_code || 'PE';
-                const mapping = CURRENCY_MAP[country] || { currency: 'USD', symbol: '$' };
-                setLocationInfo({ country, currency: mapping.currency, symbol: mapping.symbol });
-            } catch (error) {
-                console.error("Error detectando ubicación:", error);
-                setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
-            }
-        };
-        detectLocation();
-
-        const fetchExchangeRates = async () => {
-            try {
-                const response = await fetch('https://open.er-api.com/v6/latest/PEN');
-                const data = await response.json();
-                if (data && data.result === 'success' && data.rates) {
-                    setExchangeRates(prev => ({ ...prev, ...data.rates }));
-                }
-            } catch (e) {
-                console.error("Error fetching exchange rates:", e);
-            }
-        };
-        fetchExchangeRates();
     }, []);
-
-    const getDisplayPrice = (priceInSoles: number) => {
-        let displayPrice = priceInSoles;
-        if (locationInfo.currency !== 'PEN') {
-            const rate = exchangeRates[locationInfo.currency] || (locationInfo.currency === 'USD' ? 0.27 : 1.0);
-            displayPrice = priceInSoles * rate;
-        }
-        return `${locationInfo.symbol} ${formatCurrencyValue(displayPrice, locationInfo.currency)}`;
-    };
 
     const scrollToSection = (section: 'howItWorks' | 'pricing') => {
         const position = sectionPositions[section];

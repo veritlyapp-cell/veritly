@@ -6,44 +6,17 @@ import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
-
-const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
-    PE: { currency: 'PEN', symbol: 'S/' },
-    CO: { currency: 'COP', symbol: '$' },
-    EC: { currency: 'USD', symbol: '$' },
-    BO: { currency: 'BOB', symbol: 'Bs' },
-    CL: { currency: 'CLP', symbol: '$' },
-    PY: { currency: 'PYG', symbol: '₲' },
-};
-
-const formatCurrencyValue = (val: number, currency: string) => {
-    if (currency === 'PEN') return val.toString();
-    if (currency === 'USD') return val % 1 === 0 ? val.toFixed(0) : val.toFixed(2);
-    const rounded = Math.round(val);
-    try {
-        return rounded.toLocaleString('es-ES');
-    } catch (e) {
-        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    }
-};
+import { useLocalPricing } from '../../../utils/localPricing';
 
 export default function PricingScreen() {
     const router = useRouter();
 
     const [loading, setLoading] = useState(false);
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-    const [locationInfo, setLocationInfo] = useState({ country: 'PE', currency: 'PEN', symbol: 'S/' });
-    const [priceLoading, setPriceLoading] = useState(true);
+    // Precios en la moneda del visitante (ver utils/localPricing.ts)
+    const { formatPrice, locationReady } = useLocalPricing();
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
     const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
-    const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
-        USD: 0.27,
-        COP: 1100,
-        CLP: 250,
-        BOB: 1.85,
-        PYG: 2000,
-        PEN: 1.0,
-    });
 
     // Cargar el plan actual de la empresa (vive en Firestore, no en el
     // usuario de Firebase Auth)
@@ -63,42 +36,7 @@ export default function PricingScreen() {
         loadCurrentPlan();
     }, []);
 
-    // Detect Location & Currency
     useEffect(() => {
-        const detectLocation = async () => {
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                const country = data.country_code || 'PE';
-                const mapping = CURRENCY_MAP[country] || { currency: 'USD', symbol: '$' };
-                setLocationInfo({ country, currency: mapping.currency, symbol: mapping.symbol });
-            } catch (error) {
-                console.error("Error detectando ubicación:", error);
-                // Default to Peru if fails
-                setLocationInfo({ country: 'PE', currency: 'PEN', symbol: 'S/' });
-            } finally {
-                setPriceLoading(false);
-            }
-        };
-        detectLocation();
-
-        // Fetch Exchange Rates from PEN
-        const fetchExchangeRates = async () => {
-            try {
-                const response = await fetch('https://open.er-api.com/v6/latest/PEN');
-                const data = await response.json();
-                if (data && data.result === 'success' && data.rates) {
-                    setExchangeRates(prev => ({
-                        ...prev,
-                        ...data.rates
-                    }));
-                }
-            } catch (e) {
-                console.error("Error fetching exchange rates:", e);
-            }
-        };
-        fetchExchangeRates();
-
         // Fetch System Plans from config_plans
         const fetchPlans = async () => {
             try {
@@ -198,7 +136,7 @@ export default function PricingScreen() {
             </View>
 
             <View style={styles.cardsContainer}>
-                {systemPlans.length === 0 && !priceLoading && (
+                {systemPlans.length === 0 && locationReady && (
                     <ActivityIndicator color="#4F46E5" />
                 )}
                 
@@ -208,12 +146,6 @@ export default function PricingScreen() {
                     const isComingSoon = plan.isComingSoon;
                     
                     const priceInSoles = billingPeriod === 'monthly' ? (plan.priceMonthly || 0) : (plan.priceAnnual || 0);
-                    let displayPrice = priceInSoles;
-                    if (locationInfo.currency !== 'PEN') {
-                        const rate = exchangeRates[locationInfo.currency] || (locationInfo.currency === 'USD' ? 0.27 : 1.0);
-                        displayPrice = priceInSoles * rate;
-                    }
-                    const formattedPrice = formatCurrencyValue(displayPrice, locationInfo.currency);
                     const isCurrentPlan = currentPlanName === plan.name;
 
                     return (
@@ -232,7 +164,7 @@ export default function PricingScreen() {
                             <Text style={[styles.planName, isRecommended && { color: '#4F46E5' }]}>{plan.name}</Text>
                             <View style={styles.priceRow}>
                                 <Text style={styles.planPrice}>
-                                    {locationInfo.symbol} {formattedPrice}
+                                    {formatPrice(priceInSoles)}
                                 </Text>
                                 <Text style={styles.planPriceUnit}>{billingPeriod === 'monthly' ? '/ mes' : '/ año'}</Text>
                             </View>
