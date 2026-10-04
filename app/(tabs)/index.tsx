@@ -110,10 +110,18 @@ export default function MyApplications() {
         seen = (snap.exists() && snap.data().seenApplicationStatus) || {};
       } catch { /* sin estado previo: se toma como primera visita */ }
 
-      // Novedad = el estado cambio desde la ultima visita. Una postulacion que
-      // se ve por primera vez "En revision" no es novedad.
+      // Novedad = el estado cambio desde la ultima visita. La primera vez que se
+      // ve una postulacion (ej. candidatos antiguos) solo cuenta si avanzo
+      // (entrevista, oferta, seleccionado) o cambio en los ultimos 14 dias, para
+      // no llenar el aviso de procesos cerrados hace meses.
+      const recent = (iso: string | null) => !!iso && Date.now() - new Date(iso).getTime() < 14 * 24 * 3600 * 1000;
       setNewsJobIds(apps
-        .filter(a => seen[a.jobId] !== a.status.label && !(seen[a.jobId] === undefined && a.status.key === 'review'))
+        .filter(a => {
+          if (seen[a.jobId] === undefined) {
+            return ['interview', 'offer', 'hired'].includes(a.status.key) || (a.status.key !== 'review' && recent(a.updatedAt));
+          }
+          return seen[a.jobId] !== a.status.label;
+        })
         .map(a => a.jobId));
 
       const current = Object.fromEntries(apps.map(a => [a.jobId, a.status.label]));

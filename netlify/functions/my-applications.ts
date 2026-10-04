@@ -27,10 +27,13 @@ function publicStatus(c: DocumentData, jobOpen: boolean): PublicStatus {
     if (status === 'offer') return { key: 'offer', label: 'Oferta' };
     if (status === 'interview') return { key: 'interview', label: 'Entrevista' };
     if (status === 'rejected' || status === 'rejected_salary') {
-        // Descartes automaticos al postular (sueldo, preguntas filtro) no tienen
-        // statusUpdatedAt: no se anuncian al instante, se muestran "En revision"
-        // hasta que la vacante cierra. Un descarte hecho por el reclutador si.
-        if (c.statusUpdatedAt || !jobOpen) return { key: 'closed', label: 'Proceso finalizado' };
+        // Los descartes automaticos al postular (sueldo, pais, preguntas filtro)
+        // guardan failureReason y no tienen statusUpdatedAt: no se anuncian al
+        // instante, se muestran "En revision" hasta que la vacante cierra. Un
+        // descarte del reclutador si se muestra: statusUpdatedAt (desde oct-2026)
+        // o, en registros anteriores, un descartado sin failureReason.
+        const byRecruiter = !!c.statusUpdatedAt || !c.failureReason;
+        if (byRecruiter || !jobOpen) return { key: 'closed', label: 'Proceso finalizado' };
         return { key: 'review', label: 'En revisión' };
     }
     return jobOpen ? { key: 'review', label: 'En revisión' } : { key: 'closed', label: 'Proceso finalizado' };
