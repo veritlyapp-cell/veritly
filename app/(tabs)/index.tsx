@@ -1,19 +1,43 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ban, CheckCircle2, History, Lightbulb, Link as LinkIcon, MessageCircleQuestion, Clock, Sparkles, Trash2, X, XCircle, Zap } from 'lucide-react-native';
+import { Ban, Bell, CheckCircle2, History, Lightbulb, Link as LinkIcon, MessageCircleQuestion, Clock, Sparkles, Trash2, X, XCircle, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { generateCareerAdvice } from '../../utils/gemini';
 
 // --- IMPORTACIONES DE NUBE (CRUCIAL PARA SINCRONIZAR) ---
 import AppHeader from '../../components/AppHeader';
-import { auth } from '../../config/firebase';
+import { auth, db } from '../../config/firebase';
 import { getHistoryFromCloud, updateHistoryInCloud } from '../../services/storage';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+
+// Postulacion a una vacante de Veritly, tal como la devuelve my-applications.ts
+type VeritlyApplication = {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  appliedAt: string | null;
+  updatedAt: string | null;
+  jobOpen: boolean;
+  status: { key: 'review' | 'interview' | 'offer' | 'hired' | 'closed'; label: string };
+};
+
+const APP_STATUS_COLORS: Record<VeritlyApplication['status']['key'], string> = {
+  review: '#3b82f6',
+  interview: '#8b5cf6',
+  offer: '#f59e0b',
+  hired: '#10b981',
+  closed: '#64748b',
+};
 
 export default function MyApplications() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<any>(null);
   const [careerAdvice, setCareerAdvice] = useState<string>('');
+  // Postulaciones reales a vacantes de Veritly y cuales cambiaron de estado
+  // desde la ultima visita (la "notificacion" dentro de la app, sin correos)
+  const [applications, setApplications] = useState<VeritlyApplication[]>([]);
+  const [newsJobIds, setNewsJobIds] = useState<string[]>([]);
 
   // Estado de autenticación
   const [authChecking, setAuthChecking] = useState(true);
@@ -51,13 +75,53 @@ export default function MyApplications() {
 
     setLoading(true);
     try {
-      const cloudHistory = await getHistoryFromCloud(currentUser.uid);
+      const [cloudHistory] = await Promise.all([
+        getHistoryFromCloud(currentUser.uid),
+        loadApplications(currentUser.uid),
+      ]);
       setHistory(cloudHistory);
       updateCoachAdvice(cloudHistory);
     } catch (e) {
       console.error("❌ Error cargando historial nube", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Estado visto por ultima vez de cada postulacion, en users_candidatos (asi
+  // las novedades se marcan como vistas en cualquier dispositivo)
+  const loadApplications = async (uid: string) => {
+    try {
+      const idToken = await auth.currentUser!.getIdToken();
+      const res = await fetch('/.netlify/functions/my-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudieron cargar las postulaciones');
+      const apps: VeritlyApplication[] = data.applications || [];
+      setApplications(apps);
+
+      const profileRef = doc(db, 'users_candidatos', uid);
+      let seen: Record<string, string> = {};
+      try {
+        const snap = await getDoc(profileRef);
+        seen = (snap.exists() && snap.data().seenApplicationStatus) || {};
+      } catch { /* sin estado previo: se toma como primera visita */ }
+
+      // Novedad = el estado cambio desde la ultima visita. Una postulacion que
+      // se ve por primera vez "En revision" no es novedad.
+      setNewsJobIds(apps
+        .filter(a => seen[a.jobId] !== a.status.label && !(seen[a.jobId] === undefined && a.status.key === 'review'))
+        .map(a => a.jobId));
+
+      const current = Object.fromEntries(apps.map(a => [a.jobId, a.status.label]));
+      if (JSON.stringify(current) !== JSON.stringify(seen)) {
+        updateDoc(profileRef, { seenApplicationStatus: current }).catch(() => {});
+      }
+    } catch (e) {
+      console.error("❌ Error cargando postulaciones de Veritly", e);
     }
   };
 
@@ -196,9 +260,51 @@ export default function MyApplications() {
             </View>
           )}
 
-          {loading && history.length === 0 ? (
+          {newsJobIds.length > 0 && (
+            <View style={styles.newsBanner}>
+              <Bell size={18} color="#fbbf24" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.newsTitle}>
+                  {newsJobIds.length === 1 ? 'Tienes 1 novedad' : `Tienes ${newsJobIds.length} novedades`} en tus postulaciones
+                </Text>
+                {applications.filter(a => newsJobIds.includes(a.jobId)).map(a => (
+                  <Text key={a.jobId} style={styles.newsItem}>• {a.jobTitle}: {a.status.label}</Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {applications.length > 0 && (
+            <>
+              <Text style={styles.sectionLabel}>Postulaciones en Veritly</Text>
+              {applications.map(app => (
+                <TouchableOpacity
+                  key={app.jobId}
+                  style={styles.historyItem}
+                  disabled={!app.jobOpen}
+                  onPress={() => router.push(`/vacante/${app.jobId}` as any)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[styles.historyRole, { flex: 0, flexShrink: 1 }]} numberOfLines={1}>{app.jobTitle}</Text>
+                      {newsJobIds.includes(app.jobId) && <Text style={styles.newBadge}>Nuevo</Text>}
+                    </View>
+                    <Text style={styles.historyCompany} numberOfLines={1}>
+                      {app.company}{app.appliedAt ? `  ·  Postulaste el ${new Date(app.appliedAt).toLocaleDateString()}` : ''}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: APP_STATUS_COLORS[app.status.key] }]}>
+                    <Text style={styles.statusText}>{app.status.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {history.length > 0 && <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Análisis guardados</Text>}
+            </>
+          )}
+
+          {loading && history.length === 0 && applications.length === 0 ? (
             <ActivityIndicator size="large" color="#38bdf8" style={{ marginVertical: 30 }} />
-          ) : history.length === 0 ? (
+          ) : history.length === 0 && applications.length > 0 ? null : history.length === 0 ? (
             <View style={styles.emptyBox}>
               <History size={32} color="#334155" style={{ marginBottom: 10 }} />
               <Text style={{ color: '#64748b', textAlign: 'center' }}>
@@ -324,6 +430,11 @@ const styles = StyleSheet.create({
   historyRole: { color: 'white', fontWeight: 'bold', fontSize: 14, flex: 1 },
   historyCompany: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   historyMatch: { fontSize: 18, fontWeight: 'bold', marginRight: 10 },
+  newsBanner: { flexDirection: 'row', gap: 10, backgroundColor: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.4)', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
+  newsTitle: { color: '#fde68a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
+  newsItem: { color: '#fef3c7', fontSize: 13, lineHeight: 20 },
+  sectionLabel: { color: '#94a3b8', fontSize: 12, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
+  newBadge: { backgroundColor: '#fbbf24', color: '#0f172a', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   emptyBox: { backgroundColor: '#1e293b', borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#334155', marginBottom: 10 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '85%' },

@@ -516,7 +516,7 @@ export default function JobDetailScreen() {
             const batch = writeBatch(db);
             selectedIds.forEach(cid => {
                 const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
-                batch.set(docRef, { recruitmentStatus: 'screening' }, { merge: true });
+                batch.set(docRef, { recruitmentStatus: 'screening', statusUpdatedAt: serverTimestamp() }, { merge: true });
             });
             await batch.commit();
 
@@ -542,7 +542,7 @@ export default function JobDetailScreen() {
             const batch = writeBatch(db);
             idsToMove.forEach(cid => {
                 const docRef = doc(db, 'jobs', id as string, 'candidates', cid);
-                batch.set(docRef, { recruitmentStatus: newStatus }, { merge: true });
+                batch.set(docRef, { recruitmentStatus: newStatus, statusUpdatedAt: serverTimestamp() }, { merge: true });
             });
             await batch.commit();
 

@@ -7,6 +7,7 @@ import {
     getDoc,
     getDocs,
     query,
+    serverTimestamp,
     setDoc,
     updateDoc,
     where
@@ -245,7 +246,9 @@ export const getJobCandidates = async (jobId: string) => {
 export const updateCandidateStatus = async (jobId: string, candidateId: string, newStatus: RecruitmentStatus) => {
     try {
         const candidateRef = doc(db, "jobs", jobId, "candidates", candidateId);
-        await updateDoc(candidateRef, { recruitmentStatus: newStatus });
+        // statusUpdatedAt: el candidato ve en "Mis Postulaciones" que hubo una
+        // novedad (ver netlify/functions/my-applications.ts)
+        await updateDoc(candidateRef, { recruitmentStatus: newStatus, statusUpdatedAt: serverTimestamp() });
     } catch (e) {
         console.error("Error actualizando status: ", e);
         throw e;
