@@ -186,16 +186,19 @@ async function checkGemini() {
         empty.res.status === 400 ? ok('gemini-proxy responde y tiene la key') : fail(`gemini-proxy devolvio HTTP ${empty.res.status}`);
 
         // Una llamada minima por modelo (fracciones de centavo): detecta modelos dados de baja.
+        // 429 y 5xx son de Google y pasajeros: se reintentan y, si siguen, son
+        // aviso (no falla). Un 4xx (ej. 404 modelo dado de baja) si es falla.
+        const transient = (s) => s === 429 || s >= 500;
         for (const model of modelsInCode()) {
             let r;
-            for (let attempt = 0; attempt < 2; attempt++) {
+            for (let attempt = 0; attempt < 3; attempt++) {
                 r = await call({ model, contents: [{ role: 'user', parts: [{ text: 'Responde solo: OK' }] }] });
-                if (r.res.status !== 503 && r.res.status !== 429) break;
-                await sleep(5000);
+                if (!transient(r.res.status)) break;
+                await sleep(5000 * (attempt + 1));
             }
             const s = r.res.status;
             if (s === 200) ok(`modelo ${model}`);
-            else if (s === 503 || s === 429) warn(`modelo ${model}: saturado (HTTP ${s}), no se pudo confirmar`);
+            else if (transient(s)) warn(`modelo ${model}: error temporal de Google (HTTP ${s}), no se pudo confirmar`);
             else fail(`modelo ${model}: HTTP ${s} ${r.text.slice(0, 150)}`);
         }
     } catch (e) {
@@ -302,7 +305,19 @@ async function checkBrowser() {
 
         const evaluate = async (expr) => (await send('Runtime.evaluate', { expression: expr, returnByValue: true })).result.value;
 
+        // Una pagina que falla se prueba otra vez antes de reportarla: una red
+        // lenta en el runner de GitHub no debe mandar una falsa alarma.
         for (const c of BROWSER_CHECKS) {
+            let problems = await checkPage(c);
+            if (problems.length) {
+                const firstTry = problems;
+                problems = await checkPage(c);
+                if (!problems.length) warn(`${c.label}: falló al primer intento (${firstTry.join(' | ')}), pasó al reintentar`);
+            }
+            problems.length ? fail(`${c.label}: ${problems.join(' | ')}`) : ok(c.label);
+        }
+
+        async function checkPage(c) {
             errors = [];
             sentryOk = false;
             await send('Emulation.setDeviceMetricsOverride', { width: c.width, height: 900, deviceScaleFactor: 1, mobile: c.width < 768 });
@@ -329,7 +344,7 @@ async function checkBrowser() {
             if (state.title !== 'Veritly') problems.push(`titulo "${state.title}"`);
             if (c.vacancy && (!state.text || state.text.includes('Cargando oferta'))) problems.push('la vacante no termino de cargar');
             if (c.vacancy && /no encontrada|no existe/i.test(state.text || '')) warn(`la vacante ${JOB_ID} ya no existe: usa SMOKE_JOB_ID con una vigente`);
-            problems.length ? fail(`${c.label}: ${problems.join(' | ')}`) : ok(c.label);
+            return problems;
         }
     } catch (e) {
         fail(`navegador: ${e.message}`);
@@ -350,6 +365,13 @@ if (failures.length === 0) {
 }
 
 console.log('');
+// En GitHub Actions cada problema queda como anotacion de la ejecucion: se ve
+// en la pagina del run y en el correo de falla, sin abrir los logs.
+if (process.env.GITHUB_ACTIONS) {
+    const clean = (s) => s.replace(/\r?\n/g, ' ');
+    warnings.forEach((w) => console.log(`::warning::${clean(w)}`));
+    failures.forEach((f) => console.log(`::error::${clean(f)}`));
+}
 if (failures.length) {
     console.log(`✗ ${failures.length} problema(s):`);
     failures.forEach((f) => console.log(`  - ${f}`));
