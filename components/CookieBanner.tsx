@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { initFbPixel } from '../utils/fbPixel';
@@ -14,7 +14,12 @@ interface Props {
 // navegador). Bloquea GA / Meta Pixel / Clarity hasta que el usuario decida.
 export default function CookieBanner({ onResolved }: Props) {
     const router = useRouter();
+    const pathname = usePathname();
     if (Platform.OS !== 'web') return null;
+
+    // En la pagina de una vacante el boton "Postular ahora" esta fijo abajo:
+    // ahi el aviso va arriba para no taparlo (llega mucho trafico de anuncios).
+    const onTop = /^\/(vacante|v)\//.test(pathname || '');
 
     const handleAccept = () => {
         setConsent('accepted');
@@ -30,7 +35,7 @@ export default function CookieBanner({ onResolved }: Props) {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, onTop && styles.containerTop]}>
             <View style={styles.content}>
                 <Text style={styles.text}>
                     Usamos cookies propias y de terceros (Google Analytics, Meta Pixel, Microsoft Clarity) para entender cómo usas Veritly y mejorar tu experiencia.{' '}
@@ -58,22 +63,26 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         backgroundColor: '#111827',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         zIndex: 9999,
         elevation: 20,
+    },
+    containerTop: {
+        top: 0,
+        bottom: 'auto' as any, // undefined no anula el bottom: 0 en web: el aviso cubria toda la pantalla
     },
     content: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 14,
+        gap: 10,
     },
     text: {
         color: '#E5E7EB',
-        fontSize: 13,
-        lineHeight: 19,
+        fontSize: 12,
+        lineHeight: 17,
         flexGrow: 1,
         flexBasis: 280,
         maxWidth: 720,
@@ -88,8 +97,8 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     rejectBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 18,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 10,
         borderWidth: 1,
         borderColor: '#4B5563',
@@ -100,8 +109,8 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     acceptBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 18,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 10,
         backgroundColor: '#4F46E5',
     },

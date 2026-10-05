@@ -16,6 +16,7 @@ import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 import {
     ArrowLeft,
     ArrowRight,
+    Award,
     Briefcase,
     Check,
     CheckCircle2,
@@ -23,7 +24,7 @@ import {
     Clock,
     DollarSign,
     FileText,
-    LogIn,
+    Lock,
     Mail,
     MapPin,
     Send,
@@ -971,13 +972,13 @@ export default function ExternalApplication() {
 
                         {job.requiredExperience && (
                             <View style={styles.infoRow}>
-                                <Clock size={16} color="#94a3b8" />
+                                <Award size={16} color="#6366f1" style={styles.infoIcon} />
                                 <Text style={styles.infoText}>Experiencia: {job.requiredExperience}</Text>
                             </View>
                         )}
                         {job.employmentType && (
                             <View style={styles.infoRow}>
-                                <Briefcase size={16} color="#94a3b8" />
+                                <Clock size={16} color="#6366f1" style={styles.infoIcon} />
                                 <Text style={styles.infoText}>
                                     {({
                                         tiempo_completo: 'Tiempo Completo',
@@ -990,8 +991,8 @@ export default function ExternalApplication() {
                         )}
                         {job.isSalaryPublic && job.salaryBudget > 0 && (
                             <View style={styles.infoRow}>
-                                <DollarSign size={16} color="#10b981" />
-                                <Text style={[styles.infoText, { color: '#10b981' }]}>
+                                <DollarSign size={16} color="#059669" style={styles.infoIcon} />
+                                <Text style={[styles.infoText, { color: '#059669', fontWeight: '700' }]}>
                                     Rango salarial: {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.max).toLocaleString()}
                                 </Text>
                             </View>
@@ -1119,7 +1120,7 @@ export default function ExternalApplication() {
                                 <TextInput
                                     style={styles.authInput}
                                     placeholder="Nombre completo"
-                                    placeholderTextColor="#475569"
+                                    placeholderTextColor="#9CA3AF"
                                     value={authName}
                                     onChangeText={setAuthName}
                                 />
@@ -1130,7 +1131,7 @@ export default function ExternalApplication() {
                             <TextInput
                                 style={styles.authInput}
                                 placeholder="Correo electrónico"
-                                placeholderTextColor="#475569"
+                                placeholderTextColor="#9CA3AF"
                                 autoCapitalize="none"
                                 keyboardType="email-address"
                                 value={authEmail}
@@ -1138,11 +1139,11 @@ export default function ExternalApplication() {
                             />
                         </View>
                         <View style={styles.inputWrap}>
-                            <LogIn size={18} color="#64748b" style={styles.inputIcon} />
+                            <Lock size={18} color="#64748b" style={styles.inputIcon} />
                             <TextInput
                                 style={styles.authInput}
                                 placeholder="Contraseña (mínimo 6 caracteres)"
-                                placeholderTextColor="#475569"
+                                placeholderTextColor="#9CA3AF"
                                 secureTextEntry
                                 value={authPassword}
                                 onChangeText={setAuthPassword}
@@ -1297,7 +1298,7 @@ export default function ExternalApplication() {
                             style={[styles.applyBtn, { width: '100%', backgroundColor: 'transparent', borderWidth: 1, borderColor: '#E2E8F0', shadowOpacity: 0, elevation: 0, marginTop: 0 }]}
                             onPress={() => router.replace('/(tabs)')}
                         >
-                            <Text style={{ color: '#6B7280', fontWeight: 'bold' }}>IR A MI DASHBOARD</Text>
+                            <Text style={{ color: '#4B5563', fontWeight: 'bold' }}>VER MIS POSTULACIONES</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={{ marginTop: 24, padding: 10 }} onPress={() => setStep('offer')}>
                             <Text style={{ color: '#6B7280', fontSize: 13, textDecorationLine: 'underline' }}>Volver a ver la descripción del puesto</Text>
@@ -1314,7 +1315,7 @@ export default function ExternalApplication() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
             <ScrollView key={`scroll-${step}`} contentContainerStyle={styles.scrollContent}>
 
                 {/* Header */}
@@ -1355,25 +1356,27 @@ export default function ExternalApplication() {
                     <TextInput
                         style={[styles.input, formErrors.fullName && styles.inputError]}
                         placeholder="Tu nombre y apellidos"
-                        placeholderTextColor="#475569"
+                        placeholderTextColor="#9CA3AF"
                         value={fullName}
                         onChangeText={(txt) => { setFullName(txt); if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: '' }); }}
                     />
                     {formErrors.fullName && <Text style={styles.errorText}>{formErrors.fullName}</Text>}
 
                     <Text style={styles.label}>Teléfono / WhatsApp *</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {/* El margen va en la fila (no en el input) para que el selector
+                        de codigo tenga la misma altura que el campo */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                         <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, minWidth: 78 }}
+                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, minWidth: 78 }}
                             onPress={() => setShowPhoneCodeDropdown(!showPhoneCodeDropdown)}
                         >
                             <Text style={{ color: '#1E293B', fontWeight: '600', fontSize: 14 }}>{phoneCountryCode}</Text>
                             <Text style={{ color: '#3b82f6', fontSize: 10, marginLeft: 4 }}>{showPhoneCodeDropdown ? '▲' : '▼'}</Text>
                         </TouchableOpacity>
                         <TextInput
-                            style={[styles.input, { flex: 1 }, formErrors.phone && styles.inputError]}
+                            style={[styles.input, { flex: 1, marginBottom: 0 }, formErrors.phone && styles.inputError]}
                             placeholder="999 000 111"
-                            placeholderTextColor="#475569"
+                            placeholderTextColor="#9CA3AF"
                             keyboardType="phone-pad"
                             value={phone}
                             onChangeText={(txt) => { setPhone(txt); if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' }); }}
@@ -1400,7 +1403,7 @@ export default function ExternalApplication() {
                     )}
                     {formErrors.phone && <Text style={styles.errorText}>{formErrors.phone}</Text>}
 
-                    <Text style={[styles.label, { marginTop: 15 }]}>País de Residencia actual *</Text>
+                    <Text style={styles.label}>País de residencia actual *</Text>
                     {job.allowedCountries && job.allowedCountries.length > 0 && (
                         <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#f59e0b', marginVertical: 8 }}>
                             <Text style={{ color: '#d97706', fontSize: 12, fontWeight: 'bold' }}>
@@ -1414,21 +1417,21 @@ export default function ExternalApplication() {
                         style={{ 
                             flexDirection: 'row', 
                             alignItems: 'center', 
-                            justifyContent: 'space-between', 
-                            backgroundColor: '#FFFFFF', 
-                            borderWidth: 1.5, 
-                            borderColor: '#E2E8F0', 
-                            padding: 12, 
-                            borderRadius: 12,
-                            marginTop: 5
+                            justifyContent: 'space-between',
+                            // mismo aspecto que styles.input
+                            backgroundColor: '#F9FAFB',
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                            padding: 14,
+                            borderRadius: 10,
                         }}
                         onPress={() => setShowCandidateCountryDropdown(!showCandidateCountryDropdown)}
                     >
-                        <Text style={{ color: selectedCountry ? '#1E293B' : '#94A3B8', fontSize: 14, fontWeight: '500' }}>
-                            {selectedCountry || 'Selecciona tu país...'}
+                        <Text style={{ color: selectedCountry ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                            {selectedCountry || 'Selecciona tu país'}
                         </Text>
-                        <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: 'bold' }}>
-                            {showCandidateCountryDropdown ? '▲ Cerrar' : '▼ Seleccionar'}
+                        <Text style={{ color: '#4F46E5', fontSize: 12, fontWeight: 'bold' }}>
+                            {showCandidateCountryDropdown ? '▲' : '▼'}
                         </Text>
                     </TouchableOpacity>
 
@@ -1508,7 +1511,7 @@ export default function ExternalApplication() {
                         <TextInput
                             style={[styles.salaryInput, formErrors.salary && styles.inputError]}
                             placeholder="Ej. 3000"
-                            placeholderTextColor="#475569"
+                            placeholderTextColor="#9CA3AF"
                             keyboardType="numeric"
                             value={salaryExpectation}
                             onChangeText={(txt) => { setSalaryExpectation(txt); if (formErrors.salary) setFormErrors({ ...formErrors, salary: '' }); }}
@@ -1565,14 +1568,7 @@ export default function ExternalApplication() {
 
                 {/* CV Upload */}
                 <View style={styles.formSection}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                        <Text style={styles.sectionTitle}>Tu Currículum</Text>
-                        {user && (
-                            <View style={{ backgroundColor: '#0f172a', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#1e293b' }}>
-                                <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: 'bold' }}>👤 CONECTADO: {fullName.split(' ')[0]}</Text>
-                            </View>
-                        )}
-                    </View>
+                    <Text style={styles.sectionTitle}>Tu Currículum</Text>
                     
                     {savedCv && (
                         <TouchableOpacity 
@@ -1589,7 +1585,7 @@ export default function ExternalApplication() {
                                 <Text style={styles.savedCvTitle}>Usar mi CV guardado</Text>
                                 <Text style={styles.savedCvName}>{savedCv.name}</Text>
                             </View>
-                            <FileText size={20} color={useSavedCv ? "#38bdf8" : "#64748b"} />
+                            <FileText size={20} color={useSavedCv ? "#4F46E5" : "#64748b"} />
                         </TouchableOpacity>
                     )}
 
@@ -1606,11 +1602,11 @@ export default function ExternalApplication() {
                                             paddingHorizontal: 12,
                                             borderRadius: 20,
                                             borderWidth: 1,
-                                            borderColor: isSelected ? '#38bdf8' : '#334155',
-                                            backgroundColor: isSelected ? 'rgba(56,189,248,0.1)' : 'transparent'
+                                            borderColor: isSelected ? '#4F46E5' : '#E5E7EB',
+                                            backgroundColor: isSelected ? 'rgba(79,70,229,0.08)' : '#FFFFFF'
                                         }}
                                     >
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? '#38bdf8' : '#94a3b8' }}>{opt.name}</Text>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? '#4F46E5' : '#6B7280' }}>{opt.name}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -1622,7 +1618,7 @@ export default function ExternalApplication() {
                             styles.uploadCard, 
                             file && styles.uploadCardDone, 
                             formErrors.file && !useSavedCv && styles.uploadCardError,
-                            useSavedCv && { opacity: 0.6, borderColor: '#334155' }
+                            useSavedCv && { opacity: 0.6, borderColor: '#E5E7EB' }
                         ]} 
                         onPress={() => {
                             setUseSavedCv(false);
@@ -1637,7 +1633,7 @@ export default function ExternalApplication() {
                             </>
                         ) : (
                             <>
-                                <Upload size={28} color={(formErrors.file && !useSavedCv) ? "#ef4444" : "#38bdf8"} />
+                                <Upload size={28} color={(formErrors.file && !useSavedCv) ? "#ef4444" : "#4F46E5"} />
                                 <Text style={[styles.uploadText, (formErrors.file && !useSavedCv) && { color: "#ef4444" }]}>
                                     {useSavedCv ? 'Subir un CV diferente' : 'Subir CV (PDF o Word)'}
                                 </Text>
@@ -1670,7 +1666,7 @@ export default function ExternalApplication() {
                         <Text style={styles.termsText}>
                             Acepto que mis datos sean utilizados para este proceso de selección y la{' '}
                             <Text 
-                                style={{ color: '#38bdf8', textDecorationLine: 'underline' }} 
+                                style={{ color: '#4F46E5', textDecorationLine: 'underline', fontWeight: '600' }}
                                 onPress={(e) => {
                                     e.stopPropagation();
                                     router.push('/privacy');
@@ -1704,30 +1700,8 @@ export default function ExternalApplication() {
                     )}
                 </TouchableOpacity>
 
-                {/* --- RACSO BANNER (el candidato ya postuló, este es el momento de
-                     ofrecerle mejorar su CV/entrevista, no venderle Veritly a el) --- */}
-                <View style={{ width: '100%', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                        <Image
-                            source={require('../../assets/images/racso-logo.png')}
-                            style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#E0E7FF' }}
-                        />
-                        <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', letterSpacing: -0.3 }}>Potencia tu CV con Racso</Text>
-                            <Text style={{ fontSize: 11, color: '#4F46E5', fontWeight: '800', letterSpacing: 0.5 }}>APP DE EMPLEABILIDAD</Text>
-                        </View>
-                    </View>
-                    <Text style={{ fontSize: 13, color: '#4B5563', lineHeight: 20, marginBottom: 20 }}>
-                        Racso es tu copiloto de carrera: te ayuda a estructurar un CV de alto impacto, prepararte para entrevistas reales y acelerar tu contratación.
-                    </Text>
-                    <TouchableOpacity
-                        style={{ backgroundColor: '#4F46E5', paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 2 }}
-                        onPress={() => handleOpenRacso('formulario_postulacion')}
-                    >
-                        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Descubrir Racso 🚀</Text>
-                    </TouchableOpacity>
-                </View>
-
+                {/* Racso se ofrece en la pantalla de exito (despues de postular):
+                    aca, antes de enviar, distraia de terminar la postulacion. */}
                 <View style={styles.footerPowered}>
                     <Zap size={12} color="#f59e0b" />
                     <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text></Text>
@@ -1751,7 +1725,9 @@ export default function ExternalApplication() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFFFFF' },
-    scrollContent: { padding: 20, paddingBottom: 120 },
+    // Ancho maximo en computadora: a 1280px las lineas de la descripcion tenian
+    // ~150 caracteres (lo legible son ~70-90). Aplica a los 4 pasos.
+    scrollContent: { padding: 20, paddingBottom: 120, width: '100%', maxWidth: 820, alignSelf: 'center' },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
     loadingText: { color: '#6B7280', marginTop: 12 },
 
@@ -1775,9 +1751,12 @@ const styles = StyleSheet.create({
     jobCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
     jobBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
     jobBadgeText: { color: '#4F46E5', fontSize: 12, fontWeight: 'bold' },
-    jobTitle: { color: '#111827', fontSize: 24, fontWeight: 'bold', marginBottom: 14 },
-    infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-    infoText: { color: '#6B7280', fontSize: 14 },
+    jobTitle: { color: '#111827', fontSize: 26, fontWeight: 'bold', marginBottom: 14, lineHeight: 32 },
+    // flex-start + icono con marginTop: el icono queda junto a la primera linea
+    // aunque el texto ocupe varias (antes flotaba a mitad del parrafo)
+    infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+    infoIcon: { marginTop: 2 },
+    infoText: { color: '#4B5563', fontSize: 14, lineHeight: 20, flex: 1 },
 
     errorText: { color: '#DC2626', fontSize: 12, marginTop: -8, marginBottom: 12 },
     inputError: { borderColor: '#DC2626' },
@@ -1785,10 +1764,10 @@ const styles = StyleSheet.create({
     // Description
     descCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
     descTitle: { color: '#4F46E5', fontWeight: 'bold', fontSize: 14, marginBottom: 12 },
-    descText: { color: '#374151', fontSize: 14, lineHeight: 22 },
+    descText: { color: '#374151', fontSize: 15, lineHeight: 24 },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, marginBottom: 5 },
-    skillTag: { backgroundColor: 'rgba(79,70,229,0.08)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(79,70,229,0.15)' },
-    skillTagText: { color: '#4F46E5', fontSize: 13, fontWeight: '600' },
+    skillTag: { maxWidth: '100%', backgroundColor: 'rgba(79,70,229,0.08)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(79,70,229,0.15)' },
+    skillTagText: { color: '#4F46E5', fontSize: 13, fontWeight: '600', flexShrink: 1 },
 
     // CTA
     applyBtn: { 
@@ -1815,7 +1794,7 @@ const styles = StyleSheet.create({
     footerPoweredText: { color: '#9CA3AF', fontSize: 11 },
     
     // Auth card
-    authCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+    authCard: { width: '100%', maxWidth: 460, alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#111827', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
     authTitle: { color: '#111827', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
     authSub: { color: '#6B7280', textAlign: 'center', fontSize: 13, marginBottom: 24, lineHeight: 19 },
     googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', padding: 14, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: '#E5E7EB' },
@@ -1858,7 +1837,7 @@ const styles = StyleSheet.create({
     killerBtnsRow: { flexDirection: 'row', gap: 10 },
     killerBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
     killerBtnActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-    killerBtnText: { color: '#9CA3AF', fontWeight: 'bold', fontSize: 15 },
+    killerBtnText: { color: '#374151', fontWeight: 'bold', fontSize: 15 },
     killerBtnTextActive: { color: 'white' },
 
     // Upload
