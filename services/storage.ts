@@ -174,6 +174,10 @@ export const getCandidateCvBase64 = async (jobId: string, candidateId: string): 
     }
 };
 
+// Timestamp de Firestore (o string ISO ya guardado) -> ISO
+const timestampToIso = (v: any): string | null =>
+    !v ? null : typeof v === 'string' ? v : (v.toDate?.().toISOString?.() || null);
+
 // 4. Obtener Candidatos de una Vacante específica
 export const getJobCandidates = async (jobId: string) => {
     try {
@@ -217,6 +221,10 @@ export const getJobCandidates = async (jobId: string) => {
                 cons: raw.cons || [],
                 keywordsValidation: raw.keywordsValidation,
                 killerAnswers: raw.killerAnswers || null,
+                // Para saber si un descarte fue automatico y si el candidato ya lo ve
+                // (ver isClosurePending en empresa/job/[id].tsx)
+                failureReason: raw.failureReason || '',
+                statusUpdatedAt: timestampToIso(raw.statusUpdatedAt),
                 originalFileUrl: cvUrl,
                 cvUrl: cvUrl,
                 cvBase64: cvBase64,
@@ -265,9 +273,6 @@ export type CandidateHistoryEntry = {
     status: RecruitmentStatus;
     matchScore: number | null;
 };
-
-const timestampToIso = (v: any): string | null =>
-    !v ? null : typeof v === 'string' ? v : (v.toDate?.().toISOString?.() || null);
 
 export const getCandidateHistoryForCompany = async (companyId: string, candidateEmail: string, currentJobId: string): Promise<CandidateHistoryEntry[]> => {
     try {

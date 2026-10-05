@@ -3,9 +3,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, where, orderBy, setDoc, serverTimestamp, increment, writeBatch, deleteDoc } from 'firebase/firestore';
 import { 
-    ArrowLeft, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table, 
+    ArrowLeft, Bell, Mail, MessageSquare, Sparkles, Upload, X, FileText, Table,
     Download, Info, LayoutTemplate, List, CheckCircle2, Trash2, 
-    ChevronRight, MoreVertical, CheckSquare, Square, UserX, Clock,
+    ChevronRight, MoreVertical, CheckSquare, Square, UserX,
     Briefcase, Target
 } from 'lucide-react-native';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
@@ -51,7 +51,12 @@ const TooltipWrapper = Platform.OS === 'web'
   ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
   : ({ children, style }: any) => <View style={style}>{children}</View>;
 
-const STATUS_OPTIONS: RecruitmentStatus[] = ['new', 'pending_ai', 'screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'];
+// Una sola lista de estados para las tres vistas (columnas del pipeline, barra
+// de seleccion y ficha del candidato), en el mismo orden y con los mismos
+// colores. 'new' es la pestaña Ranking IA; no hay columna para 'pending_ai',
+// por eso no se ofrece (el candidato desaparecia de ambas pestañas).
+const PIPELINE_STATUSES: RecruitmentStatus[] = ['screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'];
+const STATUS_OPTIONS: RecruitmentStatus[] = ['new', ...PIPELINE_STATUSES];
 
 const STATUS_LABELS: Record<string, string> = {
     new: 'NUEVO',
@@ -65,6 +70,19 @@ const STATUS_LABELS: Record<string, string> = {
     rejected_salary: 'DESC. SALARIAL',
     stored: 'ARCHIVADO',
 };
+
+// "DESC. SALARIAL" -> "Desc. salarial" (botones de la barra de seleccion)
+const statusButtonLabel = (status: RecruitmentStatus) => {
+    const label = STATUS_LABELS[status] || status;
+    return label.charAt(0) + label.slice(1).toLowerCase();
+};
+
+// Descartado automaticamente al postular (sueldo, pais, preguntas filtro) y
+// todavia sin confirmar por el reclutador: el candidato lo sigue viendo
+// "En revision" en Mis Postulaciones (misma regla que my-applications.ts).
+const isClosurePending = (c: any, jobOpen: boolean) =>
+    jobOpen && (c.recruitmentStatus === 'rejected' || c.recruitmentStatus === 'rejected_salary')
+    && !c.statusUpdatedAt && !!c.failureReason;
 
 const getStatusColor = (status: RecruitmentStatus) => {
     switch (status) {
@@ -108,7 +126,9 @@ export default function JobDetailScreen() {
     const [jobDetails, setJobDetails] = useState({
         title: title as string || '',
         description: description as string || '',
-        companyId: ''
+        companyId: '',
+        currency: 'S/',  // moneda de la vacante (sueldos de los candidatos)
+        isOpen: true,
     });
     const [killerQuestions, setKillerQuestions] = useState<any[]>([]);
     const [isEmailVerified, setIsEmailVerified] = useState(true);
@@ -232,13 +252,15 @@ export default function JobDetailScreen() {
                 const compId = jobData.companyId || '';
                 setKillerQuestions(getActiveKillerQuestions(jobData));
 
-                if (!jobDetails.description) {
-                    setJobDetails({
-                        title: jobData.jobTitle || 'Vacante',
-                        description: jobData.optimizedText || jobData.originalText || '',
-                        companyId: compId
-                    });
-                }
+                // companyId, moneda y si esta abierta siempre salen del doc (antes
+                // solo se cargaban si la pantalla no recibia la descripcion por URL)
+                setJobDetails(prev => ({
+                    title: jobData.jobTitle || prev.title || 'Vacante',
+                    description: prev.description || jobData.optimizedText || jobData.originalText || '',
+                    companyId: compId,
+                    currency: jobData.currency || 'S/',
+                    isOpen: jobData.status !== 'Closed',
+                }));
             } else if (!jobDetails.description) {
                 showAlert("Error", "No se encontró la información del puesto.");
             }
@@ -547,8 +569,9 @@ export default function JobDetailScreen() {
             });
             await batch.commit();
 
-            setCandidates(prev => (prev || []).map(c => 
-                idsToMove.includes(c.id) ? { ...c, recruitmentStatus: newStatus } : c
+            const now = new Date().toISOString();
+            setCandidates(prev => (prev || []).map(c =>
+                idsToMove.includes(c.id) ? { ...c, recruitmentStatus: newStatus, statusUpdatedAt: now } as any : c
             ));
             if (!targetIds) {
                 setSelectedIds([]);
@@ -560,6 +583,30 @@ export default function JobDetailScreen() {
             showAlert("Error", "No se pudieron mover los candidatos.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Descartados automaticamente al postular: los marca como revisados por el
+    // reclutador para que en Mis Postulaciones vean "Proceso finalizado" ya,
+    // en vez de "En revision" hasta que cierre la vacante.
+    const handleConfirmClosure = (ids: string[]) => {
+        const msg = `${ids.length} ${ids.length === 1 ? 'candidato verá' : 'candidatos verán'} "Proceso finalizado" en Mis Postulaciones. No se les envía ningún correo.`;
+        const run = async () => {
+            try {
+                const batch = writeBatch(db);
+                ids.forEach(cid => batch.set(doc(db, 'jobs', id as string, 'candidates', cid), { statusUpdatedAt: serverTimestamp() }, { merge: true }));
+                await batch.commit();
+                const now = new Date().toISOString();
+                setCandidates(prev => (prev || []).map(c => ids.includes(c.id) ? { ...c, statusUpdatedAt: now } as any : c));
+            } catch (err) {
+                console.error(err);
+                showAlert("Error", "No se pudo actualizar a los candidatos.");
+            }
+        };
+        if (Platform.OS === 'web') {
+            if (window.confirm(msg)) run();
+        } else {
+            Alert.alert("Avisar cierre", msg, [{ text: "Cancelar", style: "cancel" }, { text: "Confirmar", onPress: run }]);
         }
     };
 
@@ -796,7 +843,7 @@ export default function JobDetailScreen() {
 
     const handleQuickDiscard = async (candidateId: string) => {
         try {
-            setCandidates(prev => (prev || []).map(c => c.id === candidateId ? { ...c, recruitmentStatus: 'rejected' } : c));
+            setCandidates(prev => (prev || []).map(c => c.id === candidateId ? { ...c, recruitmentStatus: 'rejected', statusUpdatedAt: new Date().toISOString() } as any : c));
             await updateCandidateStatus(id as string, candidateId, 'rejected');
         } catch (err) {
             console.error(err);
@@ -905,7 +952,7 @@ export default function JobDetailScreen() {
         if (!selectedCandidate) return;
         setSelectedCandidate({ ...selectedCandidate, recruitmentStatus: newStatus });
         await updateCandidateStatus(id as string, selectedCandidate.id, newStatus);
-        setCandidates(prev => (prev || []).map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus } : c));
+        setCandidates(prev => (prev || []).map(c => c.id === selectedCandidate.id ? { ...c, recruitmentStatus: newStatus, statusUpdatedAt: new Date().toISOString() } as any : c));
     };
 
     const handleBulkAnalyze = async () => {
@@ -1084,7 +1131,7 @@ export default function JobDetailScreen() {
                         <Text style={[styles.mainTabText, activeTab === 'pipeline' && styles.mainTabTextActive, width < 450 && { fontSize: 13 }]}>Pipeline ATS</Text>
                         <View style={[styles.countBadge, activeTab === 'pipeline' && { backgroundColor: '#10b981' }]}>
                             <Text style={styles.countBadgeText}>
-                                {candidates.filter(c => ['screening', 'interview', 'offer', 'hired', 'rejected', 'rejected_salary'].includes(c.recruitmentStatus)).length}
+                                {candidates.filter(c => PIPELINE_STATUSES.includes(c.recruitmentStatus)).length}
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -1215,7 +1262,7 @@ export default function JobDetailScreen() {
                                         <View style={styles.cardInfo}>
                                             <Text style={styles.candidateName} numberOfLines={2}>{item.name}</Text>
                                             <Text style={styles.candidateSalary}>
-                                                Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
+                                                Sueldo: {item.salaryExpectation ? `${jobDetails.currency} ${item.salaryExpectation.toLocaleString()}` : 'N/A'}
                                             </Text>
                                             <Text style={styles.candidateDate}>
                                                 {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
@@ -1349,7 +1396,7 @@ export default function JobDetailScreen() {
                                         <View style={styles.cardInfo}>
                                             <Text style={styles.candidateName}>{item.name}</Text>
                                             <Text style={styles.candidateSalary}>
-                                                Sueldo: {item.salaryExpectation ? `S/ ${item.salaryExpectation}` : 'N/A'}
+                                                Sueldo: {item.salaryExpectation ? `${jobDetails.currency} ${item.salaryExpectation.toLocaleString()}` : 'N/A'}
                                             </Text>
                                             <Text style={styles.candidateDate}>
                                                 {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
@@ -1436,8 +1483,9 @@ export default function JobDetailScreen() {
                 />
             ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={{ padding: 20, gap: 15, paddingBottom: 40 }}>
-                    {STATUS_OPTIONS.filter(s => s !== 'new' && s !== 'pending_ai').map(status => {
+                    {PIPELINE_STATUSES.map(status => {
                         const columnCandidates = candidates.filter(c => c.recruitmentStatus === status);
+                        const pendingClosure = columnCandidates.filter(c => isClosurePending(c, jobDetails.isOpen));
                         return (
                             <View key={status} style={styles.kanbanColumn}>
                                 <View style={[styles.kanbanHeader, { borderTopColor: getStatusColor(status) }]}>
@@ -1446,6 +1494,16 @@ export default function JobDetailScreen() {
                                         <Text style={styles.kanbanBadgeText}>{columnCandidates.length}</Text>
                                     </View>
                                 </View>
+                                {pendingClosure.length > 0 && (
+                                    <TooltipWrapper title="Descartados automáticamente al postular: todavía ven su postulación 'En revisión'. Al confirmar verán 'Proceso finalizado' en Mis Postulaciones.">
+                                        <TouchableOpacity style={styles.closureBtn} onPress={() => handleConfirmClosure(pendingClosure.map(c => c.id))}>
+                                            <Bell size={14} color="#b45309" />
+                                            <Text style={styles.closureBtnText}>
+                                                Avisar cierre a {pendingClosure.length} {pendingClosure.length === 1 ? 'candidato' : 'candidatos'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </TooltipWrapper>
+                                )}
                                 <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
                                     {columnCandidates.map(candidate => {
                                         const isSelected = selectedIds.includes(candidate.id);
@@ -1466,10 +1524,13 @@ export default function JobDetailScreen() {
                                                     <View style={{ marginLeft: 10, flex: 1 }}>
                                                         <Text style={styles.kanbanCardName} numberOfLines={1}>{candidate.name}</Text>
                                                         <Text style={styles.kanbanCardSalary}>
-                                                            {candidate.salaryExpectation ? `S/ ${candidate.salaryExpectation}` : 'S/ N/A'}
+                                                            {candidate.salaryExpectation ? `${jobDetails.currency} ${candidate.salaryExpectation.toLocaleString()}` : `${jobDetails.currency} N/A`}
                                                         </Text>
                                                     </View>
                                                 </View>
+                                                {isClosurePending(candidate, jobDetails.isOpen) && (
+                                                    <Text style={styles.closurePendingText}>Aún ve: En revisión</Text>
+                                                )}
                                                 <Text style={styles.kanbanCardDate}>{new Date(candidate.analyzedAt).toLocaleDateString()}</Text>
                                             </TouchableOpacity>
                                         );
@@ -1509,27 +1570,22 @@ export default function JobDetailScreen() {
                             </>
                         ) : (
                             <>
+                                {/* Mover a: mismos estados, nombres, orden y colores que las columnas */}
+                                <Text style={styles.bulkMoveLabel}>Mover a:</Text>
+                                {PIPELINE_STATUSES.map(status => (
+                                    <TouchableOpacity key={status} style={[styles.bulkBtn, { backgroundColor: getStatusColor(status) }]} onPress={() => handleBulkMove(status)}>
+                                        <Text style={styles.bulkBtnText}>{statusButtonLabel(status)}</Text>
+                                    </TouchableOpacity>
+                                ))}
                                 <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#ef4444' }]} onPress={handleBulkDelete}>
                                     <Trash2 size={16} color="white" />
                                     <Text style={styles.bulkBtnText}>Eliminar</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#94a3b8' }]} onPress={() => handleBulkMove('rejected')}>
-                                    <UserX size={16} color="white" />
-                                    <Text style={styles.bulkBtnText}>Descartar</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#f59e0b' }]} onPress={() => handleBulkMove('interview')}>
-                                    <Clock size={16} color="white" />
-                                    <Text style={styles.bulkBtnText}>Entrevista</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#10b981' }]} onPress={() => handleBulkMove('offer')}>
-                                    <CheckCircle2 size={16} color="white" />
-                                    <Text style={styles.bulkBtnText}>Oferta</Text>
-                                </TouchableOpacity>
                             </>
                         )}
-                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setShowBccComposer(true)}>
-                            <Mail size={16} color="white" />
-                            <Text style={styles.bulkBtnText}>Correo (CCO)</Text>
+                        <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: 'white', borderWidth: 1, borderColor: '#3b82f6' }]} onPress={() => setShowBccComposer(true)}>
+                            <Mail size={16} color="#3b82f6" />
+                            <Text style={[styles.bulkBtnText, { color: '#3b82f6' }]}>Correo (CCO)</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.bulkBtn, { backgroundColor: '#64748b' }]} onPress={() => { setIsSelectionMode(false); setSelectedIds([]); }}>
                             <X size={16} color="white" />
@@ -1748,7 +1804,10 @@ export default function JobDetailScreen() {
                             {/* Status Buttons */}
                             <Text style={styles.sectionTitle}>Estado del Proceso</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
-                                {STATUS_OPTIONS.map(status => (
+                                {(STATUS_OPTIONS.includes(selectedCandidate.recruitmentStatus)
+                                    ? STATUS_OPTIONS
+                                    : [selectedCandidate.recruitmentStatus, ...STATUS_OPTIONS] // ej. pending_ai heredado: se ve, pero no se ofrece
+                                ).map(status => (
                                     <TouchableOpacity
                                         key={status}
                                         style={[
@@ -2456,6 +2515,36 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 12,
         fontWeight: '700'
+    },
+    bulkMoveLabel: {
+        color: '#cbd5e1',
+        fontSize: 12,
+        fontWeight: '600',
+        alignSelf: 'center',
+        marginLeft: 4
+    },
+    closureBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#fef3c7',
+        borderWidth: 1,
+        borderColor: '#fcd34d',
+        borderRadius: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        marginBottom: 10
+    },
+    closureBtnText: {
+        color: '#92400e',
+        fontSize: 12,
+        fontWeight: '700'
+    },
+    closurePendingText: {
+        fontSize: 11,
+        color: '#b45309',
+        fontWeight: '600',
+        marginBottom: 4
     },
     modalContainer: {
         flex: 1,
