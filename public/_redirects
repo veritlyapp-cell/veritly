@@ -11,5 +11,13 @@
 /empresa/invite/*  /empresa/invite/%5Bcode%5D.html  200
 /encuesta/*        /encuesta/%5Btipo%5D.html      200
 
+# Archivos del bundle o de assets que no existen (ej. una pagina vieja guardada
+# por el navegador interno de LinkedIn pide chunks de un deploy anterior): 404.
+# Con el fallback de abajo recibian el index.html con 200 y el navegador lo
+# ejecutaba como JS ("SyntaxError: Unexpected token '<'"). El 404 lo detecta
+# app/+html.tsx y recarga la pagina una vez.
+/_expo/*   /404.html  404
+/assets/*  /404.html  404
+
 # Todo lo demas sin archivo estatico: SPA fallback
 /*  /index.html  200

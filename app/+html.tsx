@@ -18,6 +18,29 @@ const PRE_HYDRATION_SCRIPT = `if (window.innerWidth >= 768) {
 }`;
 const PRE_HYDRATION_CSS = `.pre-hydration-desktop [data-hydration-gate] { opacity: 0 !important; }`;
 
+// Si un archivo de la app no carga (404 o HTML en vez de JS), la pagina es una
+// copia vieja de un deploy anterior (pasa con navegadores internos como el de
+// LinkedIn, que guardan la pagina aunque se les pida no hacerlo). Se recarga
+// una sola vez pidiendo una version fresca (_v= evita la copia guardada). Debe
+// ir antes que los <script> del bundle para escuchar sus errores.
+const STALE_RELOAD_SCRIPT = `(function () {
+  function reloadFresh() {
+    try {
+      var last = Number(sessionStorage.getItem('veritly-stale-reload') || 0);
+      if (Date.now() - last < 60000) return;
+      sessionStorage.setItem('veritly-stale-reload', String(Date.now()));
+    } catch (e) { return; }
+    var url = new URL(window.location.href);
+    url.searchParams.set('_v', String(Date.now()));
+    window.location.replace(url.toString());
+  }
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t.tagName === 'SCRIPT' && /\\/_expo\\/static\\//.test(t.src || '')) return reloadFresh();
+    if (/\\/_expo\\/static\\//.test(e.filename || '') && /Unexpected token|expected expression/.test(e.message || '')) reloadFresh();
+  }, true);
+})();`;
+
 export default function Root({ children }: PropsWithChildren) {
     return (
         <html lang="es">
@@ -25,6 +48,7 @@ export default function Root({ children }: PropsWithChildren) {
                 <meta charSet="utf-8" />
                 <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
                 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+                <script dangerouslySetInnerHTML={{ __html: STALE_RELOAD_SCRIPT }} />
                 <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_SCRIPT }} />
                 <style dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_CSS }} />
                 <ScrollViewStyleReset />
