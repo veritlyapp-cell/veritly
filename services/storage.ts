@@ -256,8 +256,20 @@ export const updateCandidateStatus = async (jobId: string, candidateId: string, 
 };
 
 // 6. BUSCADOR DE HISTORIAL (Collection Group Query)
-// Busca si este candidato (email) existe en CUALQUIER vacante de esta empresa
-export const getCandidateHistoryForCompany = async (companyId: string, candidateEmail: string, currentJobId: string) => {
+// Otras postulaciones de este candidato (por email) en vacantes de ESTA empresa
+// (companyId), nunca de otras empresas. Indice: firestore.indexes.json.
+export type CandidateHistoryEntry = {
+    jobId: string;
+    jobTitle: string;
+    appliedAt: string | null; // ISO
+    status: RecruitmentStatus;
+    matchScore: number | null;
+};
+
+const timestampToIso = (v: any): string | null =>
+    !v ? null : typeof v === 'string' ? v : (v.toDate?.().toISOString?.() || null);
+
+export const getCandidateHistoryForCompany = async (companyId: string, candidateEmail: string, currentJobId: string): Promise<CandidateHistoryEntry[]> => {
     try {
         // 'collectionGroup' busca en TODAS las colecciones llamadas "candidates" en toda la DB
         const candidatesQuery = query(
@@ -267,17 +279,30 @@ export const getCandidateHistoryForCompany = async (companyId: string, candidate
         );
 
         const snapshot = await getDocs(candidatesQuery);
-        const history: CandidateAnalysis[] = [];
+        // Excluimos la postulacion que estamos viendo actualmente
+        const others = snapshot.docs
+            .map((d) => ({ jobId: (d.data().jobId || d.ref.parent.parent?.id || '') as string, data: d.data() }))
+            .filter((o) => o.jobId && o.jobId !== currentJobId);
 
-        snapshot.forEach((doc) => {
-            const data = doc.data() as CandidateAnalysis;
-            // Excluimos el análisis que estamos viendo actualmente
-            if (data.jobId !== currentJobId) {
-                history.push(data);
-            }
-        });
+        // Nombre de cada vacante (el doc del candidato no lo guarda)
+        const jobIds = [...new Set(others.map((o) => o.jobId))];
+        const titles = new Map<string, string>();
+        await Promise.all(jobIds.map(async (jobId) => {
+            try {
+                const jobSnap = await getDoc(doc(db, 'jobs', jobId));
+                if (jobSnap.exists()) titles.set(jobId, jobSnap.data().jobTitle || jobSnap.data().title);
+            } catch { /* sin acceso o eliminada: queda el titulo de respaldo */ }
+        }));
 
-        return history.sort((a, b) => new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime());
+        const history: CandidateHistoryEntry[] = others.map(({ jobId, data }) => ({
+            jobId,
+            jobTitle: titles.get(jobId) || data.originalJobTitle || 'Vacante eliminada',
+            appliedAt: timestampToIso(data.appliedAt) || timestampToIso(data.analyzedAt) || timestampToIso(data.createdAt),
+            status: (data.recruitmentStatus || data.status || 'new') as RecruitmentStatus,
+            matchScore: typeof data.matchScore === 'number' ? data.matchScore : null,
+        }));
+
+        return history.sort((a, b) => (b.appliedAt || '').localeCompare(a.appliedAt || ''));
     } catch (e: any) {
         console.error("Error buscando historial (Posible falta de índice): ", e);
         // Firebase lanzará un error con un LINK en la consola para crear el índice requerido.

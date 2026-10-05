@@ -36,7 +36,8 @@ import {
     getCandidateHistoryForCompany,
     getJobCandidates,
     saveCandidateAnalysis,
-    updateCandidateStatus
+    updateCandidateStatus,
+    type CandidateHistoryEntry
 } from '../../../services/storage';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { HYDRATION_GATE } from '../../../utils/hydrationGate';
@@ -93,7 +94,7 @@ export default function JobDetailScreen() {
     const [processingStatus, setProcessingStatus] = useState('');
     const [selectedCVs, setSelectedCVs] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
     const [selectedCandidate, setSelectedCandidate] = useState<CandidateAnalysis | null>(null);
-    const [candidateHistory, setCandidateHistory] = useState<CandidateAnalysis[]>([]);
+    const [candidateHistory, setCandidateHistory] = useState<CandidateHistoryEntry[]>([]);
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [excelKeywords, setExcelKeywords] = useState('');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1773,14 +1774,21 @@ export default function JobDetailScreen() {
                                 <>
                                     <Text style={styles.sectionTitle}>Historial en la Empresa</Text>
                                     <View style={styles.historyContainer}>
-                                        {candidateHistory.map((h, i) => (
-                                            <View key={i} style={styles.historyItem}>
-                                                <Text style={styles.historyTitle}>{h.originalJobTitle || 'Otro puesto'}</Text>
+                                        {candidateHistory.map((h) => (
+                                            <View key={h.jobId} style={styles.historyItem}>
+                                                <View style={{ flex: 1, marginRight: 12 }}>
+                                                    <Text style={styles.historyTitle} numberOfLines={1}>{h.jobTitle}</Text>
+                                                    {h.appliedAt && (
+                                                        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                                                            Postuló el {new Date(h.appliedAt).toLocaleDateString()}
+                                                        </Text>
+                                                    )}
+                                                </View>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                    <Text style={styles.historyScore}>{h.matchScore}%</Text>
-                                                    <View style={[styles.historyStatus, { backgroundColor: `${getStatusColor(h.recruitmentStatus)}20` }]}>
-                                                        <Text style={[styles.historyStatusText, { color: getStatusColor(h.recruitmentStatus) }]}>
-                                                            {h.recruitmentStatus}
+                                                    {h.matchScore !== null && <Text style={styles.historyScore}>{h.matchScore}%</Text>}
+                                                    <View style={[styles.historyStatus, { backgroundColor: `${getStatusColor(h.status)}20` }]}>
+                                                        <Text style={[styles.historyStatusText, { color: getStatusColor(h.status) }]}>
+                                                            {STATUS_LABELS[h.status] || h.status}
                                                         </Text>
                                                     </View>
                                                 </View>
