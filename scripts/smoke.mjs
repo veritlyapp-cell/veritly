@@ -227,12 +227,19 @@ async function openBrowser(chromePath) {
     const profile = mkdtempSync(join(tmpdir(), 'veritly-smoke-'));
     const proc = spawn(chromePath, [
         '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-        '--no-sandbox', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
-    ], { stdio: 'ignore' });
+        '--no-sandbox', '--disable-dev-shm-usage', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr = (stderr + d).slice(-600); });
 
+    // En los runners de GitHub Chrome puede tardar bastante en el primer arranque
     const portFile = join(profile, 'DevToolsActivePort');
-    for (let i = 0; i < 100 && !existsSync(portFile); i++) await sleep(100);
-    if (!existsSync(portFile)) throw new Error('Chrome no abrio el puerto de depuracion');
+    for (let i = 0; i < 300 && !existsSync(portFile) && proc.exitCode === null; i++) await sleep(100);
+    if (!existsSync(portFile)) {
+        proc.kill();
+        const why = proc.exitCode !== null ? `Chrome se cerro (codigo ${proc.exitCode})` : 'Chrome no abrio el puerto de depuracion en 30 s';
+        throw new Error(`${why}${stderr ? `: ${stderr.replace(/\s+/g, ' ').trim()}` : ''}`);
+    }
     await sleep(200);
     const port = readFileSync(portFile, 'utf8').split('\n')[0].trim();
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
@@ -281,7 +288,12 @@ async function checkBrowser() {
 
     let browser;
     try {
-        browser = await openBrowser(chromePath);
+        try {
+            browser = await openBrowser(chromePath);
+        } catch (e) {
+            warn(`primer arranque de Chrome fallo (${e.message}), reintentando`);
+            browser = await openBrowser(chromePath);
+        }
         const { send, onEvent } = browser;
         let errors = [];
         let sentryOk = false;
