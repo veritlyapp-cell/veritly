@@ -41,6 +41,7 @@ import {
 } from '../../../services/storage';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
 import { HYDRATION_GATE } from '../../../utils/hydrationGate';
+import { countMonthlyAnalysesByJob } from '../../../utils/aiQuota';
 import { base64ToBytes, base64ToBlobUrl, detectCvMimeType, getCandidateCvSource, isWordMimeType, openBase64Cv, rawBase64 } from '../../../utils/cvSource';
 import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../types';
 import { extractTextFromDocument } from '../../../utils/gemini';
@@ -171,23 +172,11 @@ export default function JobDetailScreen() {
     // las vacantes de la empresa (mismo criterio que el dashboard de inicio).
     const loadMonthlyQuotaUsage = async (companyId: string, limit: number) => {
         try {
+            // Antes descargaba TODOS los candidatos de TODAS las vacantes de la
+            // empresa al abrir cada vacante; ahora Firestore los cuenta (utils/aiQuota.ts)
             const jobsSnap = await getDocs(query(collection(db, 'jobs'), where('companyId', '==', companyId)));
-            const now = new Date();
-            const isThisMonth = (raw: any): boolean => {
-                if (!raw) return false;
-                const d = raw?.toDate ? raw.toDate() : new Date(raw);
-                if (isNaN(d.getTime())) return false;
-                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-            };
-
-            let used = 0;
-            await Promise.all(jobsSnap.docs.map(async (jobDoc) => {
-                const candSnap = await getDocs(collection(db, 'jobs', jobDoc.id, 'candidates'));
-                candSnap.forEach(c => {
-                    const data = c.data();
-                    if (data.matchScore > 0 && isThisMonth(data.analyzedAt)) used++;
-                });
-            }));
+            const byJob = await countMonthlyAnalysesByJob(jobsSnap.docs.map(d => d.id));
+            const used = Object.values(byJob).reduce((acc, n) => acc + n, 0);
             setQuotaInfo({ limit, used });
         } catch (e) {
             console.error("Error calculando uso de cuota IA:", e);

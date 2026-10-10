@@ -140,26 +140,7 @@ export default function CompanyJobs() {
             const membership = await getEffectiveMembership(auth.currentUser.uid);
             const companyId = membership.companyId;
             setRole(membership.role);
-            // 1. Verificar Perfil (nueva colección con fallback)
-            let userDoc = await getDoc(doc(db, 'users_empresas', companyId));
 
-            console.log("  users_empresas existe?", userDoc.exists());
-
-            // Fallback a colección antigua
-            if (!userDoc.exists()) {
-                userDoc = await getDoc(doc(db, 'companies', companyId));
-                console.log("  companies existe?", userDoc.exists());
-            }
-
-            if (!userDoc.exists() || !userDoc.data().profileCompleted) {
-                console.log("  ⚠️ Perfil no completado, redirigiendo a profile");
-                return router.replace('/empresa/dashboard/profile');
-            }
-
-            console.log("  ✅ Perfil encontrado:", userDoc.data());
-            setCheckingProfile(false);
-
-            // 2. Cargar Puestos
             // NOTA: Quitamos orderBy temporalmente para evitar error de "Index Missing" en Firestore si no esta creado
             // Un reclutador solo ve las vacantes que el Admin le asigno explicitamente.
             const q = membership.role === 'reclutador'
@@ -173,58 +154,56 @@ export default function CompanyJobs() {
                     where('companyId', '==', companyId)
                 );
 
-            console.log("  🔎 Buscando jobs con companyId:", companyId);
-
-            // 2b. Si es Admin/dueño, cargar la lista de reclutadores para poder asignar vacantes
+            // Lista de reclutadores (para asignar vacantes): solo se usa al abrir
+            // "Asignar", asi que no bloquea la carga. Antes se esperaba esta
+            // llamada a una funcion del servidor antes de pedir las vacantes.
             if (membership.role !== 'reclutador') {
-                try {
-                    const idToken = await auth.currentUser.getIdToken();
-                    const teamRes = await fetch('/.netlify/functions/team', {
+                auth.currentUser.getIdToken()
+                    .then(idToken => fetch('/.netlify/functions/team', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'list_team', idToken, companyId })
-                    });
-                    const teamData = await teamRes.json();
-                    if (teamRes.ok) {
+                    }))
+                    .then(async teamRes => {
+                        const teamData = await teamRes.json();
+                        if (!teamRes.ok) return;
                         const onlyRecruiters = (teamData.members || []).filter((m: any) => m.role === 'reclutador');
                         setRecruiters(onlyRecruiters.map((m: any) => ({ uid: m.uid, name: m.name, email: m.email })));
-                    }
-                } catch (teamErr) {
-                    console.warn('No se pudo cargar la lista de reclutadores:', teamErr);
-                }
+                    })
+                    .catch(teamErr => console.warn('No se pudo cargar la lista de reclutadores:', teamErr));
             }
 
-            const querySnapshot = await getDocs(q);
-            const jobsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Perfil de la empresa (nueva coleccion con fallback a la antigua) y
+            // vacantes no dependen uno del otro: se piden en paralelo
+            const [userDoc, querySnapshot] = await Promise.all([
+                (async () => {
+                    const d = await getDoc(doc(db, 'users_empresas', companyId));
+                    return d.exists() ? d : getDoc(doc(db, 'companies', companyId));
+                })(),
+                getDocs(q),
+            ]);
 
-            console.log("  📊 Jobs encontrados:", jobsList.length);
-            if (jobsList.length > 0) {
-                console.log("  Primer job:", jobsList[0]);
+            if (!userDoc.exists() || !userDoc.data().profileCompleted) {
+                return router.replace('/empresa/dashboard/profile');
             }
+            setCheckingProfile(false);
 
+            const jobsList: any[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             // Ordenamos en cliente (más seguro por ahora)
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-            // 3. Cargar conteo de candidatos para cada puesto
-            // getCountFromServer cuenta sin descargar los documentos completos
-            // (antes traia todos los candidatos de cada vacante solo para contarlos)
-            const jobsWithCounts = await Promise.all(
-                jobsList.map(async (job) => {
-                    try {
-                        const countSnap = await getCountFromServer(collection(db, 'jobs', job.id, 'candidates'));
-                        return { ...job, candidateCount: countSnap.data().count };
-                    } catch (e) {
-                        console.error(`Error loading candidates for job ${job.id}:`, e);
-                        return { ...job, candidateCount: 0 };
-                    }
-                })
-            );
+            // La lista se muestra ya; el conteo de candidatos llega despues
+            setJobs(prev => jobsList.map(j => ({ ...j, candidateCount: prev.find(p => p.id === j.id)?.candidateCount })));
+            setLoading(false);
 
-            console.log("Jobs found:", jobsWithCounts.length);
-            setJobs(jobsWithCounts);
-            
-            const total = jobsWithCounts.reduce((acc, job) => acc + job.candidateCount, 0);
-            setTotalCandidates(total);
+            // getCountFromServer cuenta sin descargar los documentos completos
+            const counts = await Promise.all(jobsList.map(job =>
+                getCountFromServer(collection(db, 'jobs', job.id, 'candidates'))
+                    .then(s => s.data().count)
+                    .catch(e => { console.error(`Error loading candidates for job ${job.id}:`, e); return 0; })
+            ));
+            setJobs(jobsList.map((job, i) => ({ ...job, candidateCount: counts[i] })));
+            setTotalCandidates(counts.reduce((acc, n) => acc + n, 0));
 
         } catch (e: any) {
             console.error("Error loading dashboard data", e);

@@ -7,6 +7,14 @@
         { "fieldPath": "email", "order": "ASCENDING" },
         { "fieldPath": "companyId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "candidates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "matchScore", "order": "ASCENDING" },
+        { "fieldPath": "analyzedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

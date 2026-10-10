@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert as RNAlert, FlatList, Platform, RefreshControl
 import { auth, db } from '../../../config/firebase';
 import FeedbackButton from '../../../components/FeedbackButton';
 import { getEffectiveMembership } from '../../../services/auth-service';
+import { countMonthlyAnalysesByJob } from '../../../utils/aiQuota';
 import { HYDRATION_GATE } from '../../../utils/hydrationGate';
 
 // Light Tech Theme Colors
@@ -220,77 +221,60 @@ export default function CompanyDashboard() {
             }
 
             const userData = userDocRaw.data();
-            let subscription = userData.subscription || { plan: 'beta_free' };
+            const baseSubscription = userData.subscription || { plan: 'beta_free' };
             setIsProfileSkipped(!!userData.profileSkipped);
+            setUserSubscription((prev: any) => prev || baseSubscription);
 
-            // [FIX] Query by 'id' field instead of Doc ID
-            try {
-                const planId = (subscription.plan || 'beta_free').toLowerCase().replace(' ', '_');
-                const plansRef = collection(db, 'config_plans');
-                const qPlan = query(plansRef, where('id', '==', planId));
-                const planSnap = await getDocs(qPlan);
-
-                if (!planSnap.empty) {
-                    const planData = planSnap.docs[0].data();
-                    subscription = {
-                        ...subscription,
-                        internalVacanciesLimit: planData.internalVacanciesLimit ?? subscription.internalVacanciesLimit,
-                        publicVacanciesLimit: planData.publicVacanciesLimit ?? subscription.publicVacanciesLimit,
-                        killerQuestionsLimit: planData.killerQuestionsLimit ?? subscription.killerQuestionsLimit,
-                        aiAnalysisLimit: planData.aiAnalysisLimit ?? subscription.aiAnalysisLimit,
-                        planName: planData.name || subscription.planName
-                    };
-                }
-            } catch (planErr) {
-                console.error("Error syncing dashboard plan limits:", planErr);
-            }
-
-            setUserSubscription(subscription);
-
-            const jobsList = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const jobsList: any[] = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             jobsList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-            // El limite de "Analisis IA" del plan es mensual, asi que solo contamos
-            // candidatos analizados dentro del mes calendario actual.
-            const now = new Date();
-            const isThisMonth = (raw: any): boolean => {
-                if (!raw) return false;
-                const d = raw?.toDate ? raw.toDate() : new Date(raw);
-                if (isNaN(d.getTime())) return false;
-                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-            };
+            // La lista se muestra apenas llegan las vacantes; los limites del plan
+            // y los contadores se completan despues, en paralelo. Antes todo se
+            // esperaba en cadena y el dashboard no aparecia hasta terminar.
+            setJobs(prev => jobsList.map(j => ({ ...j, candidateCount: prev.find(p => p.id === j.id)?.candidateCount })));
+            setLoading(false);
 
-            // Antes esto descargaba TODOS los documentos de candidatos de
-            // CADA vacante solo para contar cuantos habian y cuantos estaban
-            // analizados: con decenas/cientos de candidatos por vacante era
-            // la causa principal de la demora al abrir el dashboard.
-            // getCountFromServer cuenta sin transferir los documentos, y la
-            // query de analizados solo trae los que ya tienen matchScore.
-            const jobsWithCounts = await Promise.all(
-                jobsList.map(async (job) => {
-                    try {
-                        const candidatesRef = collection(db, 'jobs', job.id, 'candidates');
-                        const [countSnap, analyzedSnap] = await Promise.all([
-                            getCountFromServer(candidatesRef),
-                            getDocs(query(candidatesRef, where('matchScore', '>', 0)))
-                        ]);
-                        const analyzedCount = analyzedSnap.docs.filter(d => isThisMonth(d.data().analyzedAt)).length;
-                        return {
-                            ...job,
-                            candidateCount: countSnap.data().count,
-                            analyzedCount
-                        };
-                    } catch (e) {
-                        return { ...job, candidateCount: 0, analyzedCount: 0 };
+            // [FIX] Query by 'id' field instead of Doc ID
+            const planPromise = (async () => {
+                try {
+                    const planId = (baseSubscription.plan || 'beta_free').toLowerCase().replace(' ', '_');
+                    const planSnap = await getDocs(query(collection(db, 'config_plans'), where('id', '==', planId)));
+                    if (!planSnap.empty) {
+                        const planData = planSnap.docs[0].data();
+                        setUserSubscription({
+                            ...baseSubscription,
+                            internalVacanciesLimit: planData.internalVacanciesLimit ?? baseSubscription.internalVacanciesLimit,
+                            publicVacanciesLimit: planData.publicVacanciesLimit ?? baseSubscription.publicVacanciesLimit,
+                            killerQuestionsLimit: planData.killerQuestionsLimit ?? baseSubscription.killerQuestionsLimit,
+                            aiAnalysisLimit: planData.aiAnalysisLimit ?? baseSubscription.aiAnalysisLimit,
+                            planName: planData.name || baseSubscription.planName
+                        });
+                    } else {
+                        setUserSubscription(baseSubscription);
                     }
-                })
-            );
+                } catch (planErr) {
+                    console.error("Error syncing dashboard plan limits:", planErr);
+                    setUserSubscription(baseSubscription);
+                }
+            })();
 
+            // Total de candidatos por vacante (getCountFromServer no descarga
+            // documentos) y analisis IA del mes (utils/aiQuota.ts: tambien se
+            // cuentan en Firestore; antes se descargaban todos los analizados)
+            const [candidateCounts, analyzedByJob] = await Promise.all([
+                Promise.all(jobsList.map(job =>
+                    getCountFromServer(collection(db, 'jobs', job.id, 'candidates'))
+                        .then(s => s.data().count)
+                        .catch(() => 0)
+                )),
+                countMonthlyAnalysesByJob(jobsList.map(j => j.id)),
+                planPromise,
+            ]);
+
+            const jobsWithCounts = jobsList.map((job, i) => ({ ...job, candidateCount: candidateCounts[i], analyzedCount: analyzedByJob[job.id] || 0 }));
             setJobs(jobsWithCounts);
-            const total = jobsWithCounts.reduce((acc, job) => acc + job.candidateCount, 0);
-            const totalAnalyzed = jobsWithCounts.reduce((acc, job) => acc + (job.analyzedCount || 0), 0);
-            setTotalCandidates(total);
-            setTotalAnalyzedCandidates(totalAnalyzed);
+            setTotalCandidates(candidateCounts.reduce((acc, n) => acc + n, 0));
+            setTotalAnalyzedCandidates(Object.values(analyzedByJob).reduce((acc, n) => acc + n, 0));
 
             // Disparar tour automáticamente si no tienen vacantes y es su primera vez
             if (jobsWithCounts.length === 0 && auth.currentUser) {
@@ -605,12 +589,12 @@ export default function CompanyDashboard() {
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.jobCardTitle} numberOfLines={1}>{job.jobTitle}</Text>
                                 <Text style={styles.jobCardMeta}>
-                                    {job.candidateCount} candidatos • {new Date(job.createdAt).toLocaleDateString()}
+                                    {job.candidateCount ?? '…'} candidatos • {new Date(job.createdAt).toLocaleDateString()}
                                 </Text>
                             </View>
                             <View style={styles.jobCardRight}>
                                 <View style={styles.candidateBadge}>
-                                    <Text style={styles.candidateBadgeText}>{job.candidateCount}</Text>
+                                    <Text style={styles.candidateBadgeText}>{job.candidateCount ?? '…'}</Text>
                                 </View>
                                 <ChevronRight size={20} color={COLORS.textTertiary} />
                             </View>
