@@ -18,6 +18,28 @@ const PRE_HYDRATION_SCRIPT = `if (window.innerWidth >= 768) {
 }`;
 const PRE_HYDRATION_CSS = `.pre-hydration-desktop [data-hydration-gate] { opacity: 0 !important; }`;
 
+// Pagina de vacante: pide la vacante (y la empresa, si no es confidencial) a la
+// API REST de Firestore mientras se descarga la app, en vez de despues de que
+// arranca. La consume utils/jobPrefetch.ts; si falla, la pagina lee como siempre.
+// La API key es la publica del cliente web (la misma de config/firebase.ts).
+const JOB_PREFETCH_SCRIPT = `(function () {
+  var m = window.location.pathname.match(/^\\/vacante\\/([A-Za-z0-9_-]{10,40})\\/?$/);
+  if (!m || !window.fetch) return;
+  var base = 'https://firestore.googleapis.com/v1/projects/vinku-3a3af/databases/(default)/documents/';
+  var key = '?key=AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8';
+  var get = function (path) { return fetch(base + path + key).then(function (r) { return r.ok ? r.json() : null; }); };
+  window.__VERITLY_JOB_PREFETCH = {
+    jobId: m[1],
+    promise: get('jobs/' + m[1]).then(function (job) {
+      var f = job && job.fields;
+      var companyId = f && f.companyId && f.companyId.stringValue;
+      var confidential = f && f.isConfidential && f.isConfidential.booleanValue;
+      if (!companyId || confidential) return { job: job, company: null };
+      return get('users_empresas/' + companyId).then(function (company) { return { job: job, company: company }; }, function () { return { job: job, company: null }; });
+    })
+  };
+})();`;
+
 // Si un archivo de la app no carga (404 o HTML en vez de JS), la pagina es una
 // copia vieja de un deploy anterior (pasa con navegadores internos como el de
 // LinkedIn, que guardan la pagina aunque se les pida no hacerlo). Se recarga
@@ -50,6 +72,7 @@ export default function Root({ children }: PropsWithChildren) {
                 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
                 <script dangerouslySetInnerHTML={{ __html: STALE_RELOAD_SCRIPT }} />
                 <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_SCRIPT }} />
+                <script dangerouslySetInnerHTML={{ __html: JOB_PREFETCH_SCRIPT }} />
                 <style dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_CSS }} />
                 <ScrollViewStyleReset />
             </head>

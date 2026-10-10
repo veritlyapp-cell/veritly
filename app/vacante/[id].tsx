@@ -53,6 +53,7 @@ import { showAlert } from '../../utils/ui';
 import { getMaxReasonableSalary, getSalaryRange } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
 import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
+import { getPrefetchedJob } from '../../utils/jobPrefetch';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -364,13 +365,26 @@ export default function ExternalApplication() {
 
     const loadJobDetails = async (jobId: string) => {
         try {
-            const jobDoc = await getDoc(doc(db, 'jobs', jobId));
-            if (!jobDoc.exists() || !jobDoc.data().isExternal || jobDoc.data().status === 'Closed') {
+            // Primera carga: la vacante ya viene pedida desde el HTML (ver
+            // utils/jobPrefetch.ts). Si no esta, se lee con el SDK.
+            const prefetched = await getPrefetchedJob(jobId);
+            let jobData: any = prefetched?.job || null;
+            if (!jobData) {
+                const jobDoc = await getDoc(doc(db, 'jobs', jobId));
+                jobData = jobDoc.exists() ? jobDoc.data() : null;
+            }
+            if (!jobData || !jobData.isExternal || jobData.status === 'Closed') {
                 showAlert('Vacante no disponible', 'Este enlace de postulación ya no está activo.');
                 return;
             }
-            const jobData = jobDoc.data();
             setJob(jobData);
+
+            // Contador de postulantes: NO se puede obtener leyendo la subcolección
+            // jobs/{id}/candidates (las reglas de Firestore la bloquean para
+            // visitantes públicos, solo la empresa dueña puede listarla) -- por
+            // eso se guarda de forma denormalizada en applicantsCount dentro del
+            // propio doc de la vacante, que sí es público (allow read: if true).
+            setApplicantCount(jobData?.applicantsCount || 0);
 
             // Vacante confidencial: no se revela nombre ni logo real de la empresa
             // (se usa para procesos donde el reclutador no quiere identificarse,
@@ -380,29 +394,21 @@ export default function ExternalApplication() {
                 setCompanyLogo('');
                 setCompanyType('empresa');
             } else {
-                // Load company info for branding (no debe bloquear el resto si falla)
-                try {
-                    const empSnap = await getDoc(doc(db, 'users_empresas', jobData.companyId));
-                    const data = empSnap.exists() ? empSnap.data() : null;
-                    setCompanyName(
-                        data?.company?.name ||
-                        data?.nombreComercial ||
-                        data?.aiContext?.nombre ||
-                        'Empresa'
-                    );
+                // Branding de la empresa: ya no bloquea mostrar la oferta (antes
+                // se esperaba esta segunda lectura antes de quitar el "Cargando")
+                const applyBranding = (data: any) => {
+                    setCompanyName(data?.company?.name || data?.nombreComercial || data?.aiContext?.nombre || 'Empresa');
                     setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
                     setCompanyType(data?.company?.type || 'empresa');
-                } catch (e) {
-                    console.warn('No se pudo cargar el branding de la empresa:', e);
+                };
+                if (prefetched?.company) {
+                    applyBranding(prefetched.company);
+                } else {
+                    getDoc(doc(db, 'users_empresas', jobData.companyId))
+                        .then(empSnap => applyBranding(empSnap.exists() ? empSnap.data() : null))
+                        .catch(e => console.warn('No se pudo cargar el branding de la empresa:', e));
                 }
             }
-
-            // Contador de postulantes: NO se puede obtener leyendo la subcolección
-            // jobs/{id}/candidates (las reglas de Firestore la bloquean para
-            // visitantes públicos, solo la empresa dueña puede listarla) -- por
-            // eso se guarda de forma denormalizada en applicantsCount dentro del
-            // propio doc de la vacante, que sí es público (allow read: if true).
-            setApplicantCount(jobData?.applicantsCount || 0);
         } catch (e) {
             console.error('Error loading job:', e);
         } finally {
