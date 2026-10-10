@@ -45,6 +45,7 @@
     "lucide-react-native": "^0.555.0",
     "mammoth": "^1.11.0",
     "nodemailer": "^8.0.1",
+    "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -60,6 +61,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",

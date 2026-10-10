@@ -10,20 +10,33 @@ import { getCorsHeaders, checkRateLimit } from './_security';
 // bloquean en su red corporativa. Mismo patron que company_slugs para las
 // landing pages de empresa.
 
+// Palabras que no aportan al link ("Jefe(a) de Atraccion del Talento" ->
+// "jefe-atraccion-talento"). El link tiene que caber en una imagen o post.
+const STOPWORDS = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'o', 'u', 'en', 'para', 'por', 'con', 'a', 'al', 'un', 'una', 'sr', 'jr']);
+
 function slugify(text: string): string {
-    return text
+    const words = text
         .toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g, '') // quitar acentos
-        .replace(/[^a-z0-9\s-]/g, '')
-        .trim()
-        .replace(/\s+/g, '-')
-        .slice(0, 40)
-        .replace(/-+$/, '');
+        .replace(/\(a\)|\(o\)|\(as\)|\(os\)/g, '')       // "jefe(a)" -> "jefe"
+        .replace(/[^a-z0-9\s-]/g, ' ')
+        .split(/[\s-]+/)
+        .filter((w) => w && !STOPWORDS.has(w));
+    let slug = '';
+    for (const w of words.slice(0, 3)) {
+        const next = slug ? `${slug}-${w}` : w;
+        if (next.length > 22) break;
+        slug = next;
+    }
+    return slug || words[0]?.slice(0, 22) || '';
 }
 
 function randomSuffix(): string {
-    return Math.random().toString(36).slice(2, 6);
+    return Math.random().toString(36).slice(2, 5);
 }
+
+// Link elegido por el reclutador: 3-30 caracteres, minusculas, numeros y guiones
+const CUSTOM_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,28})[a-z0-9]$/;
 
 export const handler: Handler = async (event) => {
     const origin = event.headers.origin || event.headers.Origin || '';
@@ -94,6 +107,26 @@ export const handler: Handler = async (event) => {
             await adminDb.collection('job_slugs').doc(slug).set({ jobId, companyId: jobData.companyId });
             await adminDb.collection('jobs').doc(jobId).set({ shortSlug: slug }, { merge: true });
 
+            return { statusCode: 200, headers, body: JSON.stringify({ slug }) };
+        }
+
+        // ── El reclutador elige su propio link (ej. veritlyapp.com/v/ventas-lima) ──
+        // El link anterior NO se borra: sigue llevando a la vacante, para no
+        // romper los que ya se compartieron en imagenes o publicaciones.
+        if (action === 'set_custom') {
+            const slug = String(body.slug || '').trim().toLowerCase();
+            if (!CUSTOM_SLUG_RE.test(slug) || slug.includes('--')) {
+                return { statusCode: 400, headers, body: JSON.stringify({ error: 'Usa entre 3 y 30 caracteres: minúsculas, números y guiones (sin espacios ni tildes).' }) };
+            }
+            const ref = adminDb.collection('job_slugs').doc(slug);
+            const taken = await adminDb.runTransaction(async (tx) => {
+                const existing = await tx.get(ref);
+                if (existing.exists && existing.data()!.jobId !== jobId) return true;
+                if (!existing.exists) tx.set(ref, { jobId, companyId: jobData.companyId });
+                tx.set(adminDb.collection('jobs').doc(jobId), { shortSlug: slug }, { merge: true });
+                return false;
+            });
+            if (taken) return { statusCode: 409, headers, body: JSON.stringify({ error: 'Ese link ya lo usa otra vacante. Prueba con otro.' }) };
             return { statusCode: 200, headers, body: JSON.stringify({ slug }) };
         }
 

@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, RotateCw, UserCog } from 'lucide-react-native';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog } from 'lucide-react-native';
+import ShareJobModal from '../../../components/ShareJobModal';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -46,6 +47,8 @@ export default function CompanyJobs() {
     // Note: Auth protection is already handled by the layout (_layout.tsx)
     const router = useRouter();
     const [jobs, setJobs] = useState<any[]>([]);
+    // Vacante abierta en la ventana "Link / QR" (null = cerrada)
+    const [shareJob, setShareJob] = useState<any | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [checkingProfile, setCheckingProfile] = useState(true);
@@ -393,6 +396,22 @@ export default function CompanyJobs() {
                         </TouchableOpacity>
                     </TooltipWrapper>
 
+                    <TooltipWrapper title={item.isExternal ? "Link corto personalizado y código QR para imágenes" : "Habilita el link de postulación en Editar para compartir"}>
+                        <TouchableOpacity
+                            style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }, !item.isExternal && { opacity: 0.5 }]}
+                            onPress={() => {
+                                if (!item.isExternal) {
+                                    Alert.alert("Link no habilitado", "Esta vacante es de uso interno. Edita el puesto y activa la opción 'Habilitar Link de Postulación'.");
+                                    return;
+                                }
+                                setShareJob(item);
+                            }}
+                        >
+                            <QrCode color={item.isExternal ? "#4F46E5" : "#64748b"} size={20} />
+                            <Text style={{ color: item.isExternal ? '#4F46E5' : '#64748b', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>LINK / QR</Text>
+                        </TouchableOpacity>
+                    </TooltipWrapper>
+
                     <TooltipWrapper title={item.isExternal ? "Compartir en LinkedIn" : "Habilita el link de postulación en Editar para compartir"}>
                         <TouchableOpacity
                             style={[styles.iconButton, { alignItems: 'center', minWidth: 50, backgroundColor: item.isExternal ? 'rgba(0, 119, 181, 0.1)' : '#F3F4F6', borderColor: item.isExternal ? 'rgba(0, 119, 181, 0.2)' : '#E5E7EB' }, !item.isExternal && { opacity: 0.5 }]}
@@ -560,6 +579,14 @@ export default function CompanyJobs() {
                     </View>
                 </View>
             </Modal>
+
+            <ShareJobModal
+                visible={!!shareJob}
+                onClose={() => setShareJob(null)}
+                job={shareJob}
+                ensureSlug={getShortJobUrl}
+                onSlugSaved={(jobId, slug) => setJobs(prev => prev.map(j => j.id === jobId ? { ...j, shortSlug: slug } : j))}
+            />
 
             <FeedbackButton />
         </SafeAreaView>
