@@ -250,13 +250,19 @@ export const getJobCandidates = async (jobId: string) => {
     }
 };
 
+// Historial de etapas: cada cambio agrega { status, at, by } a statusHistory.
+// Habilita en Indicadores los tiempos (dias hasta contratar, tiempo por etapa),
+// que con solo statusUpdatedAt (el ultimo cambio) no se pueden calcular.
+export const statusHistoryEntry = (status: RecruitmentStatus) =>
+    arrayUnion({ status, at: new Date().toISOString(), by: auth.currentUser?.uid || null });
+
 // 5. Actualizar Estatus del Candidato (Kanban/ATS)
 export const updateCandidateStatus = async (jobId: string, candidateId: string, newStatus: RecruitmentStatus) => {
     try {
         const candidateRef = doc(db, "jobs", jobId, "candidates", candidateId);
         // statusUpdatedAt: el candidato ve en "Mis Postulaciones" que hubo una
         // novedad (ver netlify/functions/my-applications.ts)
-        await updateDoc(candidateRef, { recruitmentStatus: newStatus, statusUpdatedAt: serverTimestamp() });
+        await updateDoc(candidateRef, { recruitmentStatus: newStatus, statusUpdatedAt: serverTimestamp(), statusHistory: statusHistoryEntry(newStatus) });
     } catch (e) {
         console.error("Error actualizando status: ", e);
         throw e;

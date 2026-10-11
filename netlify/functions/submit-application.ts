@@ -102,6 +102,8 @@ export const handler: Handler = async (event) => {
                 appliedAt: FieldValue.serverTimestamp(),
                 status: status || 'pending_ai',
                 recruitmentStatus: status || 'screening',
+                // Primera entrada del historial de etapas (Indicadores: tiempos)
+                statusHistory: [{ status: status || 'screening', at: new Date().toISOString(), by: 'postulacion' }],
                 failureReason: isSalaryRejected ? 'Presupuesto fuera de rango' : (isCountryRejected ? 'No reside en el país solicitado' : failureReason),
                 killerAnswers,
                 source: 'external_link',
