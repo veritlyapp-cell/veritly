@@ -5,7 +5,7 @@ import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text
 import { auth } from '../config/firebase';
 import { JOB_SHORT_BASE } from '../utils/publicLinks';
 
-// Compartir una vacante: link corto (veritlyapp.com/v/{slug}), opcion de elegir
+// Compartir una vacante: link corto (vjobs.app/v/{slug}), opcion de elegir
 // uno propio y codigo QR descargable, para piezas graficas donde un link largo
 // no cabe o nadie lo va a tipear. Los links anteriores siguen funcionando.
 
