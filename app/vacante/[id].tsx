@@ -9,9 +9,9 @@ import {
     signInWithPopup,
     signInAnonymously
 } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where, increment } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp, deleteField, query, getDocs, where } from 'firebase/firestore';
 import { deductCredit } from '../../services/credits-service';
-import { saveAnalysisToCloud, saveCandidateCvBase64 } from '../../services/storage';
+import { saveAnalysisToCloud } from '../../services/storage';
 import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 import {
     ArrowLeft,
@@ -50,10 +50,9 @@ import {
     Linking
 } from 'react-native';
 import { showAlert } from '../../utils/ui';
-import { getMaxReasonableSalary, getSalaryRange } from '../../utils/salaryRange';
-import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
+import { getMaxReasonableSalary } from '../../utils/salaryRange';
 import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
-import { getPrefetchedJob } from '../../utils/jobPrefetch';
+import { fetchPublicJob, getPrefetchedJob } from '../../utils/jobPrefetch';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -365,50 +364,19 @@ export default function ExternalApplication() {
 
     const loadJobDetails = async (jobId: string) => {
         try {
-            // Primera carga: la vacante ya viene pedida desde el HTML (ver
-            // utils/jobPrefetch.ts). Si no esta, se lee con el SDK.
-            const prefetched = await getPrefetchedJob(jobId);
-            let jobData: any = prefetched?.job || null;
-            if (!jobData) {
-                const jobDoc = await getDoc(doc(db, 'jobs', jobId));
-                jobData = jobDoc.exists() ? jobDoc.data() : null;
-            }
+            // Vacante publica (netlify/functions/job-public.ts): sin respuestas de
+            // preguntas filtro, sin presupuesto y, si es confidencial, solo con el
+            // alias. En la primera carga ya viene pedida desde el HTML.
+            const jobData = (await getPrefetchedJob(jobId)) || (await fetchPublicJob(jobId));
             if (!jobData || !jobData.isExternal || jobData.status === 'Closed') {
                 showAlert('Vacante no disponible', 'Este enlace de postulación ya no está activo.');
                 return;
             }
             setJob(jobData);
-
-            // Contador de postulantes: NO se puede obtener leyendo la subcolección
-            // jobs/{id}/candidates (las reglas de Firestore la bloquean para
-            // visitantes públicos, solo la empresa dueña puede listarla) -- por
-            // eso se guarda de forma denormalizada en applicantsCount dentro del
-            // propio doc de la vacante, que sí es público (allow read: if true).
-            setApplicantCount(jobData?.applicantsCount || 0);
-
-            // Vacante confidencial: no se revela nombre ni logo real de la empresa
-            // (se usa para procesos donde el reclutador no quiere identificarse,
-            // ej. buscando su propio reemplazo antes de anunciarlo internamente).
-            if (jobData.isConfidential) {
-                setCompanyName(jobData.confidentialLabel?.trim() || 'Empresa Confidencial');
-                setCompanyLogo('');
-                setCompanyType('empresa');
-            } else {
-                // Branding de la empresa: ya no bloquea mostrar la oferta (antes
-                // se esperaba esta segunda lectura antes de quitar el "Cargando")
-                const applyBranding = (data: any) => {
-                    setCompanyName(data?.company?.name || data?.nombreComercial || data?.aiContext?.nombre || 'Empresa');
-                    setCompanyLogo(data?.company?.logoUrl || data?.logoUrl || '');
-                    setCompanyType(data?.company?.type || 'empresa');
-                };
-                if (prefetched?.company) {
-                    applyBranding(prefetched.company);
-                } else {
-                    getDoc(doc(db, 'users_empresas', jobData.companyId))
-                        .then(empSnap => applyBranding(empSnap.exists() ? empSnap.data() : null))
-                        .catch(e => console.warn('No se pudo cargar el branding de la empresa:', e));
-                }
-            }
+            setApplicantCount(jobData.applicantsCount || 0);
+            setCompanyName(jobData.company?.name || 'Empresa');
+            setCompanyLogo(jobData.company?.logoUrl || '');
+            setCompanyType(jobData.company?.type === 'independiente' ? 'independiente' : 'empresa');
         } catch (e) {
             console.error('Error loading job:', e);
         } finally {
@@ -557,29 +525,9 @@ export default function ExternalApplication() {
                 }
             }
 
-            // Salary filter
-            const salaryRange = getSalaryRange(job);
-            const isSalaryRejected = !!salaryRange && (expectationNumber > salaryRange.max || expectationNumber < salaryRange.min);
-
-            // Country filter
-            let isCountryRejected = false;
-            let failureReason = '';
-            if (job.allowedCountries && job.allowedCountries.length > 0) {
-                if (!job.allowedCountries.includes(selectedCountry)) {
-                    isCountryRejected = true;
-                    failureReason = 'No reside en los países permitidos para esta oferta.';
-                }
-            }
-
-            let isKillerRejected = false;
-            getActiveKillerQuestions(job).forEach((q: any, idx: number) => {
-                if (!passesKillerQuestion(q, killerAnswers[idx])) {
-                    isKillerRejected = true;
-                    failureReason = 'No cumple con requisitos críticos (Killer Questions).';
-                }
-            });
-
-            const isRejected = isSalaryRejected || isKillerRejected || isCountryRejected;
+            // Los descartes automaticos (sueldo, pais, preguntas filtro) ahora los
+            // decide el servidor (submit-application.ts): el navegador ya no
+            // recibe las respuestas correctas ni el presupuesto.
 
             let cvUrl = useSavedCv ? savedCv?.url : null;
             let cvBase64 = null;
@@ -658,67 +606,37 @@ export default function ExternalApplication() {
                 }
             }
 
-            // STEP 2: Duplicate Check (Safety Layer)
-            // El ID del documento del candidato es su propio uid (o, si por algun
-            // motivo no hay uid, su email normalizado) -- esto hace la postulacion
-            // idempotente por diseno: no se puede "crear otra" postulacion, solo
-            // sobreescribir la propia. La consulta anterior intentaba LISTAR la
-            // subcoleccion filtrando por email, algo que las reglas de Firestore
-            // no permiten a un candidato (solo a la empresa dueña), asi que el
-            // chequeo fallaba en silencio y nunca bloqueaba nada.
-            const candidateDocId = user?.uid || (user?.email || authEmail).toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
-            setSubmitStatus('Verificando postulación previa...');
+            // STEP 2: Guardar la postulacion en el servidor (submit-application.ts):
+            // evalua los descartes automaticos, evita postulaciones duplicadas
+            // (el id del doc es el uid), guarda el CV en base64 si la subida
+            // fallo y suma el contador de postulantes, todo junto.
+            setSubmitStatus('Enviando tu postulación...');
             try {
-                const existingSnap = await getDoc(doc(db, 'jobs', id as string, 'candidates', candidateDocId));
-                if (existingSnap.exists()) {
-                    setSubmitError('Ya te has postulado a esta vacante anteriormente.');
+                const idToken = await auth.currentUser!.getIdToken();
+                const res = await fetch('/.netlify/functions/submit-application', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idToken,
+                        jobId: id,
+                        fullName: fullName.trim(),
+                        email: (user?.email || authEmail).toLowerCase().trim(),
+                        phone: `${phoneCountryCode} ${phone.trim()}`,
+                        country: selectedCountry,
+                        salaryExpectation: expectationNumber,
+                        killerAnswers,
+                        cvUrl,
+                        cvBase64,
+                        cvFileName: file?.name || '',
+                    }),
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    setSubmitError(result.error || 'No se pudo guardar tu postulación. Intenta de nuevo.');
                     setSubmitting(false);
                     return;
                 }
-            } catch (dupCheckErr: any) {
-                console.warn('No se pudo verificar postulación previa, continuando:', dupCheckErr.message);
-            }
-
-            // STEP 3: Save to Firestore
-            setSubmitStatus('Sincronizando perfiles...');
-            try {
-                const candidateRef = doc(db, 'jobs', id as string, 'candidates', candidateDocId);
-                await setDoc(candidateRef, {
-                    fullName: fullName.trim(),
-                    email: (user?.email || authEmail).toLowerCase().trim(),
-                    phone: `${phoneCountryCode} ${phone.trim()}`,
-                    country: selectedCountry,
-                    salaryExpectation: expectationNumber,
-                    cvUrl: cvUrl,
-                    originalFileUrl: cvUrl,
-                    cvFileName: file?.name || '',
-                    appliedAt: serverTimestamp(),
-                    status: isRejected ? (isSalaryRejected ? 'rejected_salary' : 'rejected') : 'pending_ai',
-                    recruitmentStatus: isRejected ? (isSalaryRejected ? 'rejected_salary' : 'rejected') : 'screening',
-                    failureReason: isSalaryRejected ? 'Presupuesto fuera de rango' : (isCountryRejected ? 'No reside en el país solicitado' : failureReason),
-                    killerAnswers,
-                    source: 'external_link',
-                    userId: auth.currentUser?.uid || user?.uid || null,
-                    jobId: id,
-                    companyId: job.companyId || ''
-                });
-
-                // El CV en base64 (solo existe cuando la subida a Storage
-                // fallo/tardo demasiado) se guarda en un doc aparte, para que
-                // la lista de candidatos del reclutador no tenga que
-                // descargar el archivo completo de cada postulante.
-                if (cvBase64) {
-                    await saveCandidateCvBase64(id as string, candidateDocId, cvBase64);
-                }
                 setLastUploadedCv({ url: cvUrl ?? undefined, base64: cvBase64 ?? undefined, mimeType: file?.mimeType });
-
-                // Contador publico de postulantes (ver nota en loadJobDetails):
-                // no debe bloquear el flujo de postulacion si falla.
-                try {
-                    await updateDoc(doc(db, 'jobs', id as string), { applicantsCount: increment(1) });
-                } catch (counterErr) {
-                    console.warn('No se pudo incrementar applicantsCount:', counterErr);
-                }
 
                 // Guardar el telefono en el perfil del candidato (no opcional,
                 // a diferencia del CV): asi la proxima vez que postule a otra
@@ -995,11 +913,11 @@ export default function ExternalApplication() {
                                 </Text>
                             </View>
                         )}
-                        {job.isSalaryPublic && job.salaryBudget > 0 && (
+                        {job.salaryRange && (
                             <View style={styles.infoRow}>
                                 <DollarSign size={16} color="#059669" style={styles.infoIcon} />
                                 <Text style={[styles.infoText, { color: '#059669', fontWeight: '700' }]}>
-                                    Rango salarial: {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.max).toLocaleString()}
+                                    Rango salarial: {job.currency || 'S/'} {Math.round(job.salaryRange.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryRange.max).toLocaleString()}
                                 </Text>
                             </View>
                         )}
@@ -1496,11 +1414,11 @@ export default function ExternalApplication() {
                 <View style={styles.formSection}>
                     <Text style={styles.sectionTitle}>Expectativa Salarial</Text>
 
-                    {job.isSalaryPublic && job.salaryBudget > 0 && (
+                    {job.salaryRange && (
                         <View style={styles.salaryRangeHint}>
                             <DollarSign size={14} color="#38bdf8" />
                             <Text style={styles.salaryRangeText}>
-                                Rango esperado: {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(getSalaryRange(job)!.max).toLocaleString()}
+                                Rango esperado: {job.currency || 'S/'} {Math.round(job.salaryRange.min).toLocaleString()} – {job.currency || 'S/'} {Math.round(job.salaryRange.max).toLocaleString()}
                             </Text>
                         </View>
                     )}

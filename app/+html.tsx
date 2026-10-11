@@ -18,25 +18,16 @@ const PRE_HYDRATION_SCRIPT = `if (window.innerWidth >= 768) {
 }`;
 const PRE_HYDRATION_CSS = `.pre-hydration-desktop [data-hydration-gate] { opacity: 0 !important; }`;
 
-// Pagina de vacante: pide la vacante (y la empresa, si no es confidencial) a la
-// API REST de Firestore mientras se descarga la app, en vez de despues de que
-// arranca. La consume utils/jobPrefetch.ts; si falla, la pagina lee como siempre.
-// La API key es la publica del cliente web (la misma de config/firebase.ts).
+// Pagina de vacante: pide la vacante publica (netlify/functions/job-public.ts:
+// sin respuestas de preguntas filtro ni presupuesto) mientras se descarga la
+// app, en vez de despues de que arranca. La consume utils/jobPrefetch.ts; si
+// falla, la pagina la vuelve a pedir.
 const JOB_PREFETCH_SCRIPT = `(function () {
   var m = window.location.pathname.match(/^\\/vacante\\/([A-Za-z0-9_-]{10,40})\\/?$/);
   if (!m || !window.fetch) return;
-  var base = 'https://firestore.googleapis.com/v1/projects/vinku-3a3af/databases/(default)/documents/';
-  var key = '?key=AIzaSyBbQwiklf0kWnz5V2_l6PgPeL679NyGEJ8';
-  var get = function (path) { return fetch(base + path + key).then(function (r) { return r.ok ? r.json() : null; }); };
   window.__VERITLY_JOB_PREFETCH = {
     jobId: m[1],
-    promise: get('jobs/' + m[1]).then(function (job) {
-      var f = job && job.fields;
-      var companyId = f && f.companyId && f.companyId.stringValue;
-      var confidential = f && f.isConfidential && f.isConfidential.booleanValue;
-      if (!companyId || confidential) return { job: job, company: null };
-      return get('users_empresas/' + companyId).then(function (company) { return { job: job, company: company }; }, function () { return { job: job, company: null }; });
-    })
+    promise: fetch('/.netlify/functions/job-public?id=' + m[1]).then(function (r) { return r.ok ? r.json() : null; })
   };
 })();`;
 

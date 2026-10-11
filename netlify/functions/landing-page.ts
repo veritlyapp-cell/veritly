@@ -63,9 +63,12 @@ export const handler: Handler = async (event) => {
                 .where('companyId', '==', companyId)
                 .where('showOnLandingPage', '==', true)
                 .get();
+            // Solo datos publicos: antes devolvia el documento completo de cada
+            // vacante (respuestas de preguntas filtro, presupuesto, etc.)
             const jobs = jobsSnap.docs
-                .map(d => ({ id: d.id, ...d.data() }))
-                .filter((j: any) => j.isActive !== false && j.status !== 'Closed');
+                .map(d => ({ id: d.id, ...d.data() }) as any)
+                .filter((j: any) => j.isActive !== false && j.status !== 'Closed' && !j.isConfidential)
+                .map((j: any) => ({ id: j.id, jobTitle: j.jobTitle, location: j.location || null, employmentType: j.employmentType || null }));
 
             return {
                 statusCode: 200, headers,
