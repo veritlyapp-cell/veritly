@@ -16,7 +16,7 @@ export const OTHER_CITY = 'Otra';
 
 // Mismo orden y nombres que LATAM_COUNTRIES (create.tsx y vacante/[id].tsx)
 export const MAIN_CITIES: Record<string, string[]> = {
-    'Perú': ['Lima', 'Arequipa', 'Trujillo', 'Chiclayo', 'Piura'],
+    'Perú': ['Lima', 'Arequipa', 'Trujillo', 'Chiclayo', 'Piura', 'Cusco'],
     'Colombia': ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Bucaramanga'],
     'México': ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla', 'Querétaro'],
     'Chile': ['Santiago', 'Valparaíso', 'Concepción', 'Antofagasta'],
