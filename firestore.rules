@@ -1,0 +1,188 @@
+rules_version = '2';
+
+// Reglas de Firestore (antes solo existian en la consola de Firebase).
+// Publicar: firebase deploy --only firestore:rules
+//
+// Cambios de privacidad respecto de la version anterior:
+// - users_empresas: ya no es legible por cualquiera (exponia correo, RUC,
+//   responsable, plan y verificationToken de cada empresa). La pagina publica
+//   usa netlify/functions/job-public.ts, que devuelve solo nombre y logo.
+// - jobs: ya no es legible por cualquiera (exponia respuestas correctas de las
+//   preguntas filtro, presupuesto aunque el sueldo fuera privado y companyId de
+//   las confidenciales). Las paginas publicas usan job-public.ts / landing-page.ts.
+// - jobs.applicantsCount: lo suma submit-application.ts; antes cualquiera
+//   (incluso sin sesion) podia ponerle cualquier valor.
+// - candidates y su /private: antes cualquiera podia crear candidatos falsos en
+//   cualquier vacante. Ahora solo la empresa (las postulaciones las crea
+//   submit-application.ts con el Admin SDK).
+// - Grupo "candidates": la empresa puede consultar SUS candidatos en todas sus
+//   vacantes (historial del candidato); antes solo el admin, y el historial no
+//   funcionaba para las empresas.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'oscar@veritlyapp.com';
+    }
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function teamMemberData(uid) {
+      return get(/databases/$(database)/documents/team_members/$(uid)).data;
+    }
+    function isTeamMember(uid, companyId) {
+      return exists(/databases/$(database)/documents/team_members/$(uid)) &&
+        teamMemberData(uid).companyId == companyId;
+    }
+    function isTeamAdmin(uid, companyId) {
+      return isTeamMember(uid, companyId) && teamMemberData(uid).role == 'admin';
+    }
+    // Dueño de la cuenta de empresa o miembro de su equipo
+    function isCompanyMember(companyId) {
+      return request.auth != null && (request.auth.uid == companyId || isTeamMember(request.auth.uid, companyId));
+    }
+
+    // Quien puede gestionar los candidatos de una vacante (igual que antes)
+    function jobData(jobId) {
+      return get(/databases/$(database)/documents/jobs/$(jobId)).data;
+    }
+    function canManageJob(jobId) {
+      return request.auth != null && (
+        request.auth.uid == jobData(jobId).companyId ||
+        isTeamAdmin(request.auth.uid, jobData(jobId).companyId) ||
+        (isTeamMember(request.auth.uid, jobData(jobId).companyId) && jobData(jobId).assignedTo == request.auth.uid)
+      );
+    }
+    function canDeleteInJob(jobId) {
+      return request.auth != null && (
+        request.auth.uid == jobData(jobId).companyId ||
+        isTeamAdmin(request.auth.uid, jobData(jobId).companyId)
+      );
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+    match /users_candidatos/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+    match /users_empresas/{uid} {
+      allow get: if isCompanyMember(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isOwner(uid) || isTeamAdmin(request.auth.uid, uid) || isAdmin();
+    }
+    match /companies/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    match /team_members/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /team_invites/{code} {
+      allow read, write: if false;
+    }
+
+    match /company_slugs/{slug} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    match /job_slugs/{slug} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    match /user_credits/{uid} {
+      allow get, write: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isCompanyMember(resource.data.companyId) || isAdmin();
+
+      allow create: if request.auth != null && (
+        request.auth.uid == request.resource.data.companyId ||
+        isTeamAdmin(request.auth.uid, request.resource.data.companyId)
+      );
+
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.companyId ||
+        isTeamAdmin(request.auth.uid, resource.data.companyId) ||
+        (isTeamMember(request.auth.uid, resource.data.companyId) && resource.data.assignedTo == request.auth.uid)
+      ) || isAdmin();
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.companyId ||
+        isTeamAdmin(request.auth.uid, resource.data.companyId)
+      ) || isAdmin();
+
+      match /candidates/{candidateId} {
+        // El candidato lee su propia postulacion (CV para "Revelar mi score")
+        allow get: if request.auth != null && request.auth.uid == candidateId;
+
+        allow create, read, update: if canManageJob(jobId) || isAdmin();
+        allow delete: if canDeleteInJob(jobId) || isAdmin();
+
+        match /private/{docId} {
+          allow create, read, update: if canManageJob(jobId) || isAdmin();
+          allow delete: if canDeleteInJob(jobId) || isAdmin();
+        }
+      }
+    }
+
+    // Consultas de grupo (historial del candidato en la empresa): la consulta
+    // filtra por companyId, asi que solo devuelve candidatos de esa empresa.
+    match /{path=**}/candidates/{candidateId} {
+      allow list: if isAdmin() || (resource.data.companyId != null && isCompanyMember(resource.data.companyId));
+    }
+
+    match /config_plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /racso_clicks/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /feedback/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /surveys/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /stats/{docId} {
+      allow write: if request.auth != null;
+      allow read: if isAdmin();
+    }
+    match /system_logs/{docId} {
+      allow write: if request.auth != null;
+      allow read: if isAdmin();
+    }
+    match /job_profiles/{docId} {
+      allow get: if request.auth != null;
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

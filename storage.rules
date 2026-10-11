@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Antes habia "allow read: if true" sobre TODO el bucket: cualquiera, sin
+    // sesion, podia LISTAR y descargar los CVs de todas las postulaciones.
+    //
+    // Los links de descarga que usa la app (cvUrl, logos, banners) llevan su
+    // propio token y Storage los sirve sin pasar por estas reglas, asi que
+    // siguen funcionando. Estas reglas solo controlan el acceso por el SDK.
+
+    // Logos y banners: se muestran en paginas publicas
+    match /logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /landing_banners/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // CVs: nadie puede listarlos. "get" con sesion es lo que necesita
+    // getDownloadURL justo despues de subir el archivo (candidato o reclutador).
+    match /cvs/{allPaths=**} {
+      allow get, write: if request.auth != null;
+    }
+    // CV guardado en el perfil del candidato (app/(tabs)/profile.tsx)
+    match /candidates_cvs/{allPaths=**} {
+      allow get, write: if request.auth != null;
+    }
+    // Ruta legacy de documentos de candidatos
+    match /candidates/{allPaths=**} {
+      allow get, write: if request.auth != null;
+    }
+  }
+}
