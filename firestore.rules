@@ -181,6 +181,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Data de mercado (una fila anonima por postulacion, la escribe
+    // submit-application.ts): solo para los Indicadores del admin
+    match /market_applications/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

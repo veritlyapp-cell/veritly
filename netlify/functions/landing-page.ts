@@ -139,6 +139,10 @@ export const handler: Handler = async (event) => {
                 }));
 
             const customizable = await planAllowsLandingPage(companyId);
+            // Que se muestra de Veritly en la pagina: Freemium = firma + "unete a
+            // Veritly" + banner de Racso; planes de pago = solo la firma; Gold = nada
+            const planId = companyData.subscription?.planId || '';
+            const tier = customizable ? 'gold' : (planId && planId !== 'beta_free' ? 'paid' : 'free');
             return {
                 statusCode: 200, headers,
                 body: JSON.stringify({
@@ -149,6 +153,7 @@ export const handler: Handler = async (event) => {
                     // Personalizacion solo con plan Gold
                     bannerUrl: customizable ? companyData.landingPage?.bannerUrl || null : null,
                     brandColor: customizable ? companyData.landingPage?.brandColor || '#4F46E5' : '#4F46E5',
+                    tier,
                     jobs
                 })
             };

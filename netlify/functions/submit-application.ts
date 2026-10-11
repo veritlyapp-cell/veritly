@@ -6,6 +6,7 @@ import { getCorsHeaders, checkRateLimit } from './_security';
 import { getSalaryRange, getMaxReasonableSalary } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
 import { livesInOtherCity } from '../../utils/jobLocation';
+import { MIN_AGE, ageAt, ageBracket, isValidBirthDate, isValidGender } from '../../utils/demographics';
 
 // Guarda la postulacion de un candidato y decide los descartes automaticos
 // (sueldo, pais, preguntas filtro) en el servidor. Antes se evaluaba en el
@@ -65,6 +66,21 @@ export const handler: Handler = async (event) => {
         }
 
         // Descartes automaticos: misma logica que tenia el navegador
+        // Fecha de nacimiento y genero: del perfil, o los que manda la primera
+        // postulacion. Solo para estadisticas: no se copian a la postulacion que
+        // ve la empresa ni se usan en el analisis.
+        const userRef = adminDb.collection('users_candidatos').doc(verified.uid);
+        const stored = (await userRef.get()).data()?.demographics;
+        const hasStored = isValidBirthDate(stored?.birthDate) && isValidGender(stored?.gender);
+        const birthDate: string = hasStored ? stored.birthDate : body.birthDate;
+        const gender: string = hasStored ? stored.gender : body.gender;
+        if (!isValidBirthDate(birthDate) || !isValidGender(gender)) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'Completa tu fecha de nacimiento y género.' }) };
+        }
+        if (ageAt(birthDate) < MIN_AGE) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: `Debes ser mayor de ${MIN_AGE} años para postular.` }) };
+        }
+
         const range = getSalaryRange(job);
         const isSalaryRejected = !!range && (salaryExpectation > range.max || salaryExpectation < range.min);
 
@@ -120,6 +136,30 @@ export const handler: Handler = async (event) => {
             // CV en base64 solo si la subida a Storage fallo: doc aparte para que
             // la lista del reclutador no descargue el archivo de cada postulante
             if (cvBase64) tx.set(candidateRef.collection('private').doc('cv'), { cvBase64 });
+            if (!hasStored) tx.set(userRef, { demographics: { birthDate, gender, updatedAt: new Date().toISOString() } }, { merge: true });
+            // Data de mercado (Indicadores de admin): anonima, sin nombre ni contacto,
+            // edad en rango. Solo la lee el admin (firestore.rules).
+            tx.set(adminDb.collection('market_applications').doc(`${jobId}_${verified.uid}`), {
+                appliedAt: FieldValue.serverTimestamp(),
+                jobId,
+                companyId: job.companyId || '',
+                jobTitle: job.jobTitle || '',
+                area: job.area || null,
+                workMode: job.workMode || null,
+                employmentType: job.employmentType || null,
+                jobCountry: job.country || job.allowedCountries?.[0] || null,
+                jobCity: job.city || null,
+                currency,
+                offeredMin: range?.min ?? null,
+                offeredMax: range?.max ?? null,
+                candidateCountry: country || null,
+                candidateCity: city || null,
+                otherCity: livesInOtherCity(job, { city, country }),
+                salaryExpectation,
+                ageBracket: ageBracket(ageAt(birthDate)),
+                gender,
+                autoStatus: status || null,
+            });
             tx.update(jobRef, { applicantsCount: FieldValue.increment(1) });
             return true;
         });

@@ -105,6 +105,7 @@ export const extractJobData = async (text: string) => {
         "workMode": "presencial | hibrido | remoto (solo si se menciona, si no null)",
         "country": "País de la vacante si se menciona o null",
         "city": "Ciudad de la vacante si se menciona o null",
+        "area": "Una de: Ventas y Comercial, Atención al Cliente, Tecnología, Administración y Finanzas, Recursos Humanos, Marketing y Comunicación, Operaciones y Logística, Producción y Manufactura, Ingeniería, Salud, Educación, Legal, Construcción, Gastronomía y Hotelería, Diseño y Creatividad, Otros",
         "salaryRange": "Rango salarial si se menciona o null"
     }
 

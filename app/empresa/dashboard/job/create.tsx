@@ -11,6 +11,7 @@ import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocu
 import { getEffectiveCompanyId } from '../../../../services/auth-service';
 import { getSalaryRange } from '../../../../utils/salaryRange';
 import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
+import { JOB_AREAS, matchArea } from '../../../../utils/jobAreas';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -366,6 +367,7 @@ export default function CreateJob() {
                 country,
                 city: listedCity || (extracted.city ? String(extracted.city).trim() : null),
                 cityIsOther: !listedCity && !!extracted.city,
+                area: matchArea(extracted.area) || jobData.area || 'Otros',
             });
             setOptimizedDescription(optimized);
             setStep(2);
@@ -443,6 +445,9 @@ export default function CreateJob() {
             );
         }
 
+        if (!jobData.area) {
+            return Alert.alert("Falta el área", "Elige el área de la vacante (ej. Ventas, Tecnología).");
+        }
         if (!jobData.workMode) {
             return Alert.alert("Falta la modalidad", "Indica si la vacante es Presencial, Híbrida o Remota.");
         }
@@ -476,6 +481,7 @@ export default function CreateJob() {
                 confidentialLabel: jobData.confidentialLabel?.trim() || '',
                 // Ubicacion: una vacante = un pais + una ciudad (o remoto).
                 // `location` queda como texto para pantallas y vacantes anteriores.
+                area: jobData.area,
                 workMode: jobData.workMode,
                 country: jobData.workMode === 'remoto' ? null : jobData.country,
                 city: jobData.workMode === 'remoto' ? null : jobData.city.trim(),
@@ -641,6 +647,18 @@ export default function CreateJob() {
                                     value={jobData?.requiredExperience}
                                     onChangeText={(t) => setJobData({ ...jobData, requiredExperience: t })}
                                 />
+
+                                <Text style={styles.label}>ÁREA</Text>
+                                <View style={styles.chipRow}>
+                                    {JOB_AREAS.map((a) => {
+                                        const active = jobData.area === a;
+                                        return (
+                                            <TouchableOpacity key={a} style={[styles.chip, active && styles.chipActive]} onPress={() => setJobData({ ...jobData, area: a })}>
+                                                <Text style={[styles.chipText, active && styles.chipTextActive]}>{a}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
 
                                 <Text style={styles.label}>MODALIDAD DE TRABAJO</Text>
                                 <View style={styles.chipRow}>

@@ -20,7 +20,7 @@ export default function PrivacyScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>Política de Privacidad - Veritly</Text>
-                <Text style={styles.date}>Última actualización: 23 de agosto de 2026</Text>
+                <Text style={styles.date}>Última actualización: 11 de octubre de 2026</Text>
 
                 <View style={styles.section}>
                     <Text style={styles.text}>
@@ -31,7 +31,8 @@ export default function PrivacyScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>1. Qué datos recopilamos</Text>
                     <Text style={styles.text}>
-                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Si eres Candidato:</Text> nombre, correo, teléfono, expectativa salarial, país, respuestas a preguntas filtro, y tu Currículum (CV) en PDF o Word que subes al postular.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Si eres Candidato:</Text> nombre, correo, teléfono, expectativa salarial, país y ciudad, respuestas a preguntas filtro, y tu Currículum (CV) en PDF o Word que subes al postular.
+                        {'\n'}• <Text style={{ fontWeight: 'bold' }}>Fecha de nacimiento y género (Candidatos):</Text> los pedimos una sola vez para confirmar que eres mayor de 18 años y para elaborar estadísticas anónimas y agregadas del mercado laboral (por ejemplo, rangos de edad o expectativas salariales por país), que podemos publicar sin identificar a ninguna persona. Estos datos no se muestran a los Reclutadores ni se usan para evaluarte o filtrarte: Veritly no filtra candidatos por edad ni por género.
                         {'\n'}• <Text style={{ fontWeight: 'bold' }}>Si eres Reclutador/Empresa:</Text> nombre, correo, teléfono, nombre de la empresa, RUC o DNI (cuando lo proporcionas), y datos de facturación de tu suscripción.
                         {'\n'}• <Text style={{ fontWeight: 'bold' }}>Datos de candidatos que un Reclutador carga a la plataforma:</Text> cuando un Reclutador sube CVs manualmente, importa una base de datos en Excel, o usa nuestra extensión de navegador para capturar perfiles públicos de LinkedIn, esa información (nombre, experiencia, habilidades, contacto) también queda registrada en Veritly bajo la cuenta de ese Reclutador.
                         {'\n'}• <Text style={{ fontWeight: 'bold' }}>Datos automáticos de navegación:</Text> usamos Google Analytics, Meta Pixel (para medir el resultado de nuestra publicidad en Facebook/Instagram), Microsoft Clarity (que puede grabar cómo interactúas con la página, sin capturar contraseñas ni campos sensibles) y Sentry (para detectar errores técnicos). Estas herramientas usan cookies o tecnologías similares.

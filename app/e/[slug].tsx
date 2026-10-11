@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Briefcase, ChevronRight, Clock, MapPin, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { addDoc, collection } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { openAppPath } from '../../utils/publicLinks';
 
 // Pagina de empleos publica de una empresa o reclutador (veritlyapp.com/e/{slug}).
@@ -77,6 +79,19 @@ export default function CompanyJobsPage() {
     }
 
     const brand = data.brandColor || '#4F46E5';
+
+    const openRacso = () => {
+        // Mismo registro de clics que los botones de Racso en la vacante
+        addDoc(collection(db, 'racso_clicks'), {
+            jobId: null,
+            jobTitle: null,
+            companyName: data.companyName || 'Desconocido',
+            platform: Platform.OS,
+            context: 'pagina_empleos',
+            createdAt: new Date(),
+        }).catch(() => {});
+        Linking.openURL('https://racso.app/ingreso');
+    };
     const jobs: any[] = data.jobs || [];
 
     return (
@@ -134,10 +149,35 @@ export default function CompanyJobsPage() {
                     ))
                 )}
 
-                <View style={styles.footer}>
-                    <Zap size={12} color="#f59e0b" />
-                    <Text style={styles.footerText}>Con tecnología de <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly</Text></Text>
-                </View>
+                {/* Freemium: invitacion a Racso (candidatos) y a Veritly (reclutadores) */}
+                {data.tier === 'free' && (
+                    <>
+                        <TouchableOpacity style={styles.promoCard} onPress={openRacso}>
+                            <Image source={require('../../assets/images/racso-logo.png')} style={styles.promoLogo} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.promoTitle}>¿Vas a postular? Potencia tu CV con Racso</Text>
+                                <Text style={styles.promoText}>Arma un CV de alto impacto y prepárate para tus entrevistas.</Text>
+                            </View>
+                            <ChevronRight size={18} color="#6B7280" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.promoCard} onPress={() => openAppPath(router, '/?utm_source=pagina_empleos&utm_medium=referral')}>
+                            <View style={[styles.promoLogo, styles.promoVeritly]}><Zap size={18} color="#f59e0b" /></View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.promoTitle}>Publica empleos gratis hoy mismo en Veritly</Text>
+                                <Text style={styles.promoText}>Crea tu página de empleos y recibe candidatos pre-filtrados con IA.</Text>
+                            </View>
+                            <ChevronRight size={18} color="#6B7280" />
+                        </TouchableOpacity>
+                    </>
+                )}
+
+                {/* Planes de pago: una linea que invita a publicar en Veritly (Gold: nada) */}
+                {data.tier === 'paid' && (
+                    <TouchableOpacity style={styles.footer} onPress={() => openAppPath(router, '/?utm_source=pagina_empleos&utm_medium=referral')}>
+                        <Zap size={12} color="#f59e0b" />
+                        <Text style={styles.footerText}>¿Reclutas? <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Publica empleos gratis hoy mismo en Veritly →</Text></Text>
+                    </TouchableOpacity>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -165,6 +205,11 @@ const styles = StyleSheet.create({
     metaText: { fontSize: 12, color: '#6B7280' },
     applyPill: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     applyText: { fontSize: 13, fontWeight: '700' },
+    promoCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
+    promoLogo: { width: 36, height: 36, borderRadius: 18 },
+    promoVeritly: { backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' },
+    promoTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+    promoText: { fontSize: 12, color: '#6B7280', marginTop: 2 },
     footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 28 },
     footerText: { color: '#9CA3AF', fontSize: 12 },
     errorTitle: { color: '#111827', fontSize: 18, fontWeight: '700', marginTop: 12 },

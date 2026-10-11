@@ -54,6 +54,7 @@ import { getMaxReasonableSalary } from '../../utils/salaryRange';
 import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
 import { fetchPublicJob, getPrefetchedJob } from '../../utils/jobPrefetch';
 import { OTHER_CITY, citiesFor, formatJobLocation, locationNoteForAI } from '../../utils/jobLocation';
+import { GENDERS, MIN_AGE, ageAt, toBirthDate } from '../../utils/demographics';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -160,6 +161,13 @@ export default function ExternalApplication() {
     const [selectedCity, setSelectedCity] = useState('');
     const [cityIsOther, setCityIsOther] = useState(false);
     const needsCity = !!job?.city && !!job?.workMode && job.workMode !== 'remoto';
+    // Fecha de nacimiento y genero: una sola vez (si el perfil ya los tiene no se
+    // piden). Solo estadisticas anonimas: la empresa no los ve.
+    const [hasDemographics, setHasDemographics] = useState(false);
+    const [birthDay, setBirthDay] = useState('');
+    const [birthMonth, setBirthMonth] = useState('');
+    const [birthYear, setBirthYear] = useState('');
+    const [gender, setGender] = useState('');
 
     // Compartido entre los puntos de contacto que ofrecen Racso al candidato.
     // `context` identifica el punto exacto para poder medir clics antes vs
@@ -266,6 +274,7 @@ export default function ExternalApplication() {
                 foundCv2 = d.profile?.cv2Url || d.profile?.cv2Base64 || foundCv2;
                 foundCv2Name = d.profile?.cv2FileName || foundCv2Name;
                 foundCv2Label = d.profile?.cv2Label || foundCv2Label;
+                if (d.demographics?.birthDate && d.demographics?.gender) setHasDemographics(true);
             }
 
             // 2. Extraer de users (Legacy / Perfil principal)
@@ -510,6 +519,12 @@ export default function ExternalApplication() {
             }
         }
         if (needsCity && !selectedCity.trim()) { errors.city = 'Indica la ciudad donde vives.'; hasErrors = true; }
+        const birthDate = toBirthDate(birthDay, birthMonth, birthYear);
+        if (!hasDemographics) {
+            if (!birthDate) { errors.birthDate = 'Ingresa una fecha de nacimiento válida (día, mes y año).'; hasErrors = true; }
+            else if (ageAt(birthDate) < MIN_AGE) { errors.birthDate = `Debes ser mayor de ${MIN_AGE} años para postular.`; hasErrors = true; }
+            if (!gender) { errors.gender = 'Elige una opción (puedes elegir "Prefiero no decir").'; hasErrors = true; }
+        }
         if (!file && !useSavedCv) { errors.file = 'Debes subir tu CV o usar el guardado.'; hasErrors = true; }
         if (!acceptedTerms) { errors.terms = 'Debes aceptar la política de privacidad.'; hasErrors = true; }
 
@@ -636,6 +651,7 @@ export default function ExternalApplication() {
                         phone: `${phoneCountryCode} ${phone.trim()}`,
                         country: selectedCountry,
                         city: needsCity ? selectedCity.trim() : '',
+                        ...(!hasDemographics && { birthDate, gender }),
                         salaryExpectation: expectationNumber,
                         killerAnswers,
                         cvUrl,
@@ -1462,6 +1478,33 @@ export default function ExternalApplication() {
                         </>
                     )}
                 </View>
+
+                {!hasDemographics && (
+                    <View style={styles.formSection}>
+                        <Text style={styles.sectionTitle}>Sobre ti</Text>
+                        <Text style={styles.label}>Fecha de nacimiento *</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Día" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={2} value={birthDay} onChangeText={(t) => setBirthDay(t.replace(/\D/g, ''))} />
+                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Mes" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={2} value={birthMonth} onChangeText={(t) => setBirthMonth(t.replace(/\D/g, ''))} />
+                            <TextInput style={[styles.input, { flex: 1.4 }]} placeholder="Año" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={4} value={birthYear} onChangeText={(t) => setBirthYear(t.replace(/\D/g, ''))} />
+                        </View>
+                        {formErrors.birthDate && <Text style={styles.errorText}>{formErrors.birthDate}</Text>}
+
+                        <Text style={[styles.label, { marginTop: 8 }]}>Género *</Text>
+                        <View style={styles.chipRow}>
+                            {GENDERS.map((g) => (
+                                <TouchableOpacity key={g.value} style={[styles.chip, gender === g.value && styles.chipActive]} onPress={() => setGender(g.value)}>
+                                    <Text style={[styles.chipText, gender === g.value && styles.chipTextActive]}>{g.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        {formErrors.gender && <Text style={styles.errorText}>{formErrors.gender}</Text>}
+
+                        <Text style={styles.cityHint}>
+                            Se piden una sola vez. La empresa no los ve y no se usan para evaluarte: solo para estadísticas anónimas del mercado laboral. Debes ser mayor de {MIN_AGE} años.
+                        </Text>
+                    </View>
+                )}
 
                 {/* Salary */}
                 <View style={styles.formSection}>
