@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Briefcase, ChevronRight, Clock, MapPin, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { openAppPath } from '../../utils/publicLinks';
 
 // Pagina de empleos publica de una empresa o reclutador (veritlyapp.com/e/{slug}).
 // Todas las cuentas tienen una, armada con el logo y los datos de su
@@ -68,7 +69,7 @@ export default function CompanyJobsPage() {
                 <Briefcase size={40} color="#9CA3AF" />
                 <Text style={styles.errorTitle}>Página no encontrada</Text>
                 <Text style={styles.errorText}>Revisa el link o pide a la empresa uno actualizado.</Text>
-                <TouchableOpacity onPress={() => router.push('/')} style={{ marginTop: 16 }}>
+                <TouchableOpacity onPress={() => openAppPath(router, '/')} style={{ marginTop: 16 }}>
                     <Text style={styles.link}>Ir a Veritly</Text>
                 </TouchableOpacity>
             </SafeAreaView>
@@ -109,7 +110,7 @@ export default function CompanyJobsPage() {
                     </View>
                 ) : (
                     jobs.map((job) => (
-                        <TouchableOpacity key={job.id} style={styles.jobCard} onPress={() => router.push(`/vacante/${job.id}` as any)}>
+                        <TouchableOpacity key={job.id} style={styles.jobCard} onPress={() => openAppPath(router, `/vacante/${job.id}`)}>
                             <View style={[styles.jobIcon, { backgroundColor: `${brand}14` }]}>
                                 <Briefcase color={brand} size={20} />
                             </View>

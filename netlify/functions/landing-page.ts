@@ -17,6 +17,8 @@ const RESERVED_SLUGS = new Set([
     'api', 'app', 'apps', 'soporte', 'ayuda', 'help', 'contacto', 'privacidad', 'privacy', 'terminos', 'terms',
     'empresa', 'empresas', 'candidato', 'candidatos', 'dashboard', 'panel', 'perfil', 'profile', 'config',
     'configuracion', 'veritly', 'vjobs', 'racso', 'blog', 'www', 'mail', 'static', 'assets', 'encuesta', 'e', 'v', 'c',
+    // Rutas en la raiz de la app (tienen prioridad sobre vjobs.app/{slug})
+    'explore', 'analytics', 'landing', 'modal', 'index', 'not-found',
 ]);
 
 const isValidSlug = (slug: string) => SLUG_REGEX.test(slug) && !slug.includes('--') && !RESERVED_SLUGS.has(slug);

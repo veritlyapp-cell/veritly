@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text } from 'react-native';
+import { openAppPath } from '../../utils/publicLinks';
 
 // Redirector de enlaces cortos de vacante: veritlyapp.com/v/{slug}
 // -> resuelve el slug via job-slug.ts y manda a la pagina real /vacante/{id}.
@@ -21,7 +22,7 @@ export default function ShortJobLinkRedirect() {
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || 'No se pudo resolver el enlace');
-                router.replace(`/vacante/${json.jobId}` as any);
+                openAppPath(router, `/vacante/${json.jobId}`, true);
             } catch (e: any) {
                 setError(e.message);
             }
