@@ -158,7 +158,7 @@ export default function LandingPage() {
 
                 {/* FOOTER */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>© 2024 Veritly - Powered by Gemini AI</Text>
+                    <Text style={styles.footerText}>© 2026 Veritly</Text>
                 </View>
 
             </ScrollView>

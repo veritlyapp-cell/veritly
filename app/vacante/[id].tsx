@@ -975,7 +975,7 @@ export default function ExternalApplication() {
 
                     <View style={styles.footerPowered}>
                         <Zap size={12} color="#f59e0b" />
-                        <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text> · Selección Inteligente</Text>
+                        <Text style={styles.footerPoweredText}>Con tecnología de <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly</Text></Text>
                     </View>
                     <View style={{ height: Platform.OS === 'web' ? 20 : 100 }} />
                 </ScrollView>
@@ -1628,7 +1628,7 @@ export default function ExternalApplication() {
                     aca, antes de enviar, distraia de terminar la postulacion. */}
                 <View style={styles.footerPowered}>
                     <Zap size={12} color="#f59e0b" />
-                    <Text style={styles.footerPoweredText}>Powered by <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly IA</Text></Text>
+                    <Text style={styles.footerPoweredText}>Con tecnología de <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly</Text></Text>
                 </View>
              </ScrollView>
 
@@ -1637,7 +1637,7 @@ export default function ExternalApplication() {
                  <View style={styles.loadingOverlay}>
                      <View style={styles.loadingBox}>
                          <ActivityIndicator size="large" color="#3b82f6" />
-                         <Text style={styles.loadingTitle}>Veritly IA</Text>
+                         <Text style={styles.loadingTitle}>Veritly</Text>
                          <Text style={styles.loadingMsg}>Veritly está procesando tu perfil para el reclutador...</Text>
                          {submitStatus && <Text style={{ color: '#3b82f6', fontSize: 10, marginTop: 15, fontWeight: 'bold' }}>{submitStatus.toUpperCase()}</Text>}
                      </View>

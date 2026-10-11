@@ -44,7 +44,7 @@ export default function FeedbackButton() {
                             <blockquote style="background: #f9f9f9; padding: 10px; border-left: 5px solid #3b82f6;">
                                 ${feedback.replace(/\n/g, '<br>')}
                             </blockquote>
-                            <p style="color: #666; font-size: 12px;">Enviado desde Veritly App</p>
+                            <p style="color: #666; font-size: 12px;">Enviado desde Veritly</p>
                         `
                     })
                 });

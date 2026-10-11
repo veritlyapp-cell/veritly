@@ -93,7 +93,7 @@ export default function CompanyLandingPage() {
                     )}
                 </View>
 
-                <Text style={styles.footer}>Powered by Veritly</Text>
+                <Text style={styles.footer}>Con tecnología de Veritly</Text>
             </ScrollView>
         </SafeAreaView>
     );

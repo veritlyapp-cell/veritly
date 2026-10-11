@@ -357,7 +357,7 @@ export default function SuperAdminAnalytics() {
                 )}
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Veritly Intelligence DNA • Superadmin View</Text>
+                    <Text style={styles.footerText}>Veritly • Vista de administrador</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>

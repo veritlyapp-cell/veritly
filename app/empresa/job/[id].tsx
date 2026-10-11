@@ -718,7 +718,7 @@ export default function JobDetailScreen() {
 
             if (!textToAnalyze) throw new Error("No hay contenido suficiente para analizar automáticamente. Verifica que el candidato tenga un CV adjunto o perfil de LinkedIn capturado.");
 
-            setProcessingStatus(`Ejecutando IA Veritly DNA...`);
+            setProcessingStatus(`Analizando con la IA de Veritly...`);
             
             let aiResult;
             const isExcelCandidate = (candidate as any).experience || (candidate as any).skills;

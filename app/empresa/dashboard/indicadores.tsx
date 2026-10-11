@@ -910,7 +910,7 @@ export default function IndicadoresDashboard() {
 
 
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Veritly ATS • Indicadores en tiempo real</Text>
+                    <Text style={styles.footerText}>Veritly • Indicadores en tiempo real</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
