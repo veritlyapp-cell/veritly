@@ -294,7 +294,7 @@ export default function MyApplications() {
                 >
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={[styles.historyRole, { flex: 0, flexShrink: 1 }]} numberOfLines={1}>{app.jobTitle}</Text>
+                      <Text style={styles.appTitle} numberOfLines={1}>{app.jobTitle}</Text>
                       {newsJobIds.includes(app.jobId) && <Text style={styles.newBadge}>Nuevo</Text>}
                     </View>
                     <Text style={styles.historyCompany} numberOfLines={1}>
@@ -438,6 +438,9 @@ const styles = StyleSheet.create({
   historyRole: { color: 'white', fontWeight: 'bold', fontSize: 14, flex: 1 },
   historyCompany: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   historyMatch: { fontSize: 18, fontWeight: 'bold', marginRight: 10 },
+  // Sin "flex": en web "flex: 0" deja el texto con ancho 0 y el nombre de la
+  // vacante no se veia; flexShrink permite cortarlo con "…" junto a "Nuevo"
+  appTitle: { color: 'white', fontWeight: 'bold', fontSize: 14, flexShrink: 1 },
   newsBanner: { flexDirection: 'row', gap: 10, backgroundColor: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.4)', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
   newsTitle: { color: '#fde68a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
   newsItem: { color: '#fef3c7', fontSize: 13, lineHeight: 20 },
