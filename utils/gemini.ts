@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // La clave de Gemini vive solo en el servidor (Netlify Function); el cliente
 // nunca la ve. Todas las llamadas pasan por este proxy.
-const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
+import { functionUrl } from './functionsBase';
 
 // 🔄 LISTA DE MODELOS OFICIALES (Actualizada agosto 2026)
 // Los modelos Gemini 2.5 se apagan el 16 de octubre de 2026, migrados a la
@@ -21,7 +21,7 @@ const fetchWithFallback = async (body: any) => {
 
     for (const model of MODELS_TO_TRY) {
         try {
-            const response = await fetch(PROXY_URL, {
+            const response = await fetch(functionUrl('gemini-proxy'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model, ...body, generationConfig: { temperature: 0 } })
@@ -47,7 +47,7 @@ const fetchWithFallback = async (body: any) => {
     throw lastError;
 };
 
-const CV_FILE_URL = 'https://www.veritlyapp.com/.netlify/functions/cv-file';
+// cv-file: ver utils/functionsBase.ts
 
 // Los CVs en Firebase Storage no se pueden leer con fetch() desde el navegador
 // (el bucket no tiene CORS para descargas), asi que se descargan via servidor.
@@ -55,7 +55,7 @@ const isFirebaseStorageUrl = (uri: string) =>
     typeof uri === 'string' && uri.startsWith('https://firebasestorage.googleapis.com/');
 
 const fetchStorageFileViaServer = async (url: string): Promise<{ base64: string; contentType: string }> => {
-    const res = await fetch(CV_FILE_URL, {
+    const res = await fetch(functionUrl('cv-file'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })

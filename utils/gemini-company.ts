@@ -3,7 +3,7 @@
 
 // La clave de Gemini vive solo en el servidor (Netlify Function); el cliente
 // nunca la ve. Todas las llamadas pasan por este proxy.
-const PROXY_URL = 'https://www.veritlyapp.com/.netlify/functions/gemini-proxy';
+import { functionUrl } from './functionsBase';
 
 // 🔄 Modelos para EMPRESA (Actualizado agosto 2026 — Gemini 2.5 se apaga el
 // 16 de octubre de 2026). Priorizamos velocidad primero, con fallback a mayor
@@ -20,7 +20,7 @@ const fetchWithFallback = async (body: any) => {
 
     for (const model of MODELS_TO_TRY) {
         try {
-            const response = await fetch(PROXY_URL, {
+            const response = await fetch(functionUrl('gemini-proxy'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ model, ...body, generationConfig: { temperature: 0.2 } }) // Un poco más de creatividad para Job Descriptions
