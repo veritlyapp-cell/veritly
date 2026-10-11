@@ -71,8 +71,16 @@ const PAGES = [
     ['/signin', null, null],
     ['/empresa/signin', null, null],
     [`/vacante/${JOB_ID}`, '[id]-', 'Cargando oferta'],
-    ['/e/smoke-test', '[slug]-', null],
+    // La pagina de empleos la comparten /e/{slug} y /{slug} (app/[slug].tsx), asi
+    // que su codigo va en __common y /e/ no trae chunk propio.
+    ['/e/smoke-test', null, null],
     ['/v/smoke-test', '[slug]-', null],
+    // Dominio corto (reglas de vjobs.app en public/_redirects)
+    ...(BASE.includes('veritlyapp.com') ? [
+        ['https://vjobs.app/smoke-test', '[slug]-', null],
+        ['https://vjobs.app/v/smoke-test', '[slug]-', null],
+        [`https://vjobs.app/vacante/${JOB_ID}`, '[id]-', 'Cargando oferta'], // redirige a veritlyapp.com
+    ] : []),
     ['/empresa/job/smoke-test', '[id]-', null],
     ['/empresa/invite/smoke-test', '[code]-', null],
     ['/encuesta/b2b', '[tipo]-', null],
