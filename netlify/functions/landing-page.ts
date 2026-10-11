@@ -21,7 +21,13 @@ const RESERVED_SLUGS = new Set([
     'explore', 'analytics', 'landing', 'modal', 'index', 'not-found',
 ]);
 
-const isValidSlug = (slug: string) => SLUG_REGEX.test(slug) && !slug.includes('--') && !RESERVED_SLUGS.has(slug);
+// Los nombres de la marca solo los puede usar la cuenta de Veritly (mismo
+// correo que isAdmin() en firestore.rules)
+const BRAND_SLUGS = new Set(['veritly', 'vjobs']);
+const VERITLY_ADMIN_EMAIL = 'oscar@veritlyapp.com';
+
+const isValidSlug = (slug: string, isVeritly = false) =>
+    SLUG_REGEX.test(slug) && !slug.includes('--') && (!RESERVED_SLUGS.has(slug) || (isVeritly && BRAND_SLUGS.has(slug)));
 
 function slugifyName(text: string): string {
     return text
@@ -38,8 +44,8 @@ function slugifyName(text: string): string {
         .replace(/-+$/, '');
 }
 
-async function isSlugAvailable(slug: string, companyId: string): Promise<boolean> {
-    if (!isValidSlug(slug)) return false;
+async function isSlugAvailable(slug: string, companyId: string, isVeritly = false): Promise<boolean> {
+    if (!isValidSlug(slug, isVeritly)) return false;
     const snap = await adminDb.collection('company_slugs').doc(slug).get();
     return !snap.exists || snap.data()?.companyId === companyId;
 }
@@ -153,6 +159,7 @@ export const handler: Handler = async (event) => {
         if (!companyId || verified.uid !== companyId) {
             return { statusCode: 403, headers, body: JSON.stringify({ error: 'No autorizado' }) };
         }
+        const isVeritly = verified.email?.toLowerCase() === VERITLY_ADMIN_EMAIL;
 
         if (action === 'get_config') {
             const companySnap = await adminDb.collection('users_empresas').doc(companyId).get();
@@ -169,10 +176,10 @@ export const handler: Handler = async (event) => {
 
         if (action === 'check_slug') {
             const slug = String(body.slug || '').trim().toLowerCase();
-            if (!isValidSlug(slug)) {
+            if (!isValidSlug(slug, isVeritly)) {
                 return { statusCode: 200, headers, body: JSON.stringify({ available: false, reason: RESERVED_SLUGS.has(slug) ? 'reservado' : 'formato' }) };
             }
-            const available = await isSlugAvailable(slug, companyId);
+            const available = await isSlugAvailable(slug, companyId, isVeritly);
             const companySnap = await adminDb.collection('users_empresas').doc(companyId).get();
             const name = companySnap.data()?.company?.name || slug;
             return { statusCode: 200, headers, body: JSON.stringify({ available, reason: available ? null : 'tomado', suggestions: available ? [] : await suggestSlugs(name, companyId) }) };
@@ -180,7 +187,7 @@ export const handler: Handler = async (event) => {
 
         if (action === 'set_slug') {
             const slug = String(body.slug || '').trim().toLowerCase();
-            if (!isValidSlug(slug)) {
+            if (!isValidSlug(slug, isVeritly)) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: RESERVED_SLUGS.has(slug) ? 'Ese nombre está reservado. Elige otro.' : 'Usa entre 3 y 30 caracteres: minúsculas, números y guiones (sin tildes, ñ ni espacios).' }) };
             }
 
