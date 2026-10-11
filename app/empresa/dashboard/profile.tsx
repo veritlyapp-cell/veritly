@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, SafeAre
 import { auth, db, storage } from '../../../config/firebase';
 import { getDepartamentos, getDistritos, getProvincias } from '../../../utils/geo-peru';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
+import JobsPageLinkCard from '../../../components/JobsPageLinkCard';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -531,6 +532,9 @@ export default function CompanyProfile() {
                     </TouchableOpacity>
                 )}
 
+
+                {/* Pagina de empleos publica: usa el logo y los datos de esta pantalla */}
+                {profileCompleted && !isProfileSkipped && <JobsPageLinkCard />}
 
                 {/* SECCIÓN 1: DATOS CORPORATIVOS */}
                 <View style={styles.sectionHeader}>

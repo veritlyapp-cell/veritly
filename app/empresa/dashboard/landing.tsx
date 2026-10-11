@@ -60,28 +60,6 @@ export default function LandingPageConfig() {
         load();
     }, []);
 
-    const handleSaveSlug = async () => {
-        if (!auth.currentUser) return;
-        setSaving(true);
-        try {
-            const idToken = await auth.currentUser.getIdToken();
-            const companyId = await getEffectiveCompanyId(auth.currentUser.uid);
-            const res = await fetch('/.netlify/functions/landing-page', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'set_slug', idToken, companyId, slug: slug.trim().toLowerCase() })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'No se pudo guardar');
-            setSavedSlug(slug.trim().toLowerCase());
-            showAlert("Listo", "Tu página de empleos está activa.");
-        } catch (e: any) {
-            showAlert("Error", e.message);
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handlePickBanner = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -151,8 +129,8 @@ export default function LandingPageConfig() {
                 <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
                 <View style={styles.lockedBox}>
                     <Lock color="#9CA3AF" size={40} />
-                    <Text style={styles.lockedTitle}>Landing Page no disponible</Text>
-                    <Text style={styles.lockedText}>Esta función es exclusiva de los planes Gold y Enterprise.</Text>
+                    <Text style={styles.lockedTitle}>Personalización exclusiva de Gold</Text>
+                    <Text style={styles.lockedText}>Tu página de empleos ya está activa con tu logo y tus datos (el link está en Configuración). Cambiar colores, banner e imágenes es parte del plan Gold.</Text>
                     <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
                         <Text style={styles.backBtnText}>Volver</Text>
                     </TouchableOpacity>
@@ -172,22 +150,8 @@ export default function LandingPageConfig() {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20 }}>
+                {/* El link se elige en Configuracion (JobsPageLinkCard), para todas las cuentas */}
                 <Text style={styles.sectionLabel}>Tu link público</Text>
-                <View style={styles.slugRow}>
-                    <Text style={styles.slugPrefix}>veritlyapp.com/e/</Text>
-                    <TextInput
-                        style={styles.slugInput}
-                        value={slug}
-                        onChangeText={t => setSlug(t.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                        placeholder="tu-empresa"
-                        placeholderTextColor="#9CA3AF"
-                        autoCapitalize="none"
-                    />
-                </View>
-                <TouchableOpacity style={styles.saveSlugBtn} onPress={handleSaveSlug} disabled={saving || !slug.trim()}>
-                    {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveSlugBtnText}>Guardar link</Text>}
-                </TouchableOpacity>
-
                 {savedSlug ? (
                     <View style={styles.publicUrlRow}>
                         <Text style={styles.publicUrlText} numberOfLines={1}>{publicUrl}</Text>
@@ -199,8 +163,11 @@ export default function LandingPageConfig() {
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <Text style={styles.helperText}>Elige un link y guárdalo para activar tu página.</Text>
+                    <Text style={styles.helperText}>Elige tu link en Configuración para activar tu página.</Text>
                 )}
+                <TouchableOpacity onPress={() => router.push('/empresa/dashboard/profile')}>
+                    <Text style={[styles.helperText, { color: '#4F46E5', fontWeight: '700' }]}>Cambiar el link en Configuración</Text>
+                </TouchableOpacity>
 
                 <Text style={[styles.sectionLabel, { marginTop: 30 }]}>Banner (opcional)</Text>
                 <TouchableOpacity style={styles.bannerUpload} onPress={handlePickBanner}>
@@ -232,7 +199,7 @@ export default function LandingPageConfig() {
                 </TouchableOpacity>
 
                 <Text style={styles.footerNote}>
-                    Las vacantes aparecen aquí solo si marcaste "Publicar en Página de Empleos" al crearlas o editarlas.
+                    Aparecen todas tus vacantes activas con link de postulación, excepto las confidenciales.
                 </Text>
             </ScrollView>
         </SafeAreaView>

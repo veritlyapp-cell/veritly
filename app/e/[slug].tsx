@@ -1,9 +1,31 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Briefcase, MapPin } from 'lucide-react-native';
+import { Briefcase, ChevronRight, Clock, MapPin, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function CompanyLandingPage() {
+// Pagina de empleos publica de una empresa o reclutador (veritlyapp.com/e/{slug}).
+// Todas las cuentas tienen una, armada con el logo y los datos de su
+// Configuracion; el plan Gold suma banner y color de marca. Datos desde
+// netlify/functions/landing-page.ts (solo campos publicos, sin confidenciales).
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+    tiempo_completo: 'Tiempo completo',
+    medio_tiempo: 'Medio tiempo',
+    honorarios: 'Freelance / Honorarios',
+    practicas: 'Prácticas',
+};
+
+const timeAgo = (iso?: string | null) => {
+    if (!iso) return '';
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (isNaN(days)) return '';
+    if (days <= 0) return 'Publicada hoy';
+    if (days === 1) return 'Publicada ayer';
+    if (days < 30) return `Publicada hace ${days} días`;
+    return `Publicada el ${new Date(iso).toLocaleDateString()}`;
+};
+
+export default function CompanyJobsPage() {
     const { slug } = useLocalSearchParams();
     const router = useRouter();
 
@@ -17,7 +39,7 @@ export default function CompanyLandingPage() {
                 const res = await fetch('/.netlify/functions/landing-page', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_by_slug', slug })
+                    body: JSON.stringify({ action: 'get_by_slug', slug: String(slug || '').toLowerCase() })
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || 'No se pudo cargar la página');
@@ -33,85 +55,118 @@ export default function CompanyLandingPage() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <ActivityIndicator color="#38bdf8" size="large" />
+            <SafeAreaView style={[styles.container, styles.centered]}>
+                <ActivityIndicator color="#4F46E5" size="large" />
             </SafeAreaView>
         );
     }
 
     if (error || !data) {
         return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+            <SafeAreaView style={[styles.container, styles.centered]}>
+                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+                <Briefcase size={40} color="#9CA3AF" />
                 <Text style={styles.errorTitle}>Página no encontrada</Text>
-                <Text style={styles.errorText}>{error || 'Esta empresa no tiene una página de empleos activa.'}</Text>
+                <Text style={styles.errorText}>Revisa el link o pide a la empresa uno actualizado.</Text>
+                <TouchableOpacity onPress={() => router.push('/')} style={{ marginTop: 16 }}>
+                    <Text style={styles.link}>Ir a Veritly</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
-    const brandColor = data.brandColor || '#4F46E5';
+    const brand = data.brandColor || '#4F46E5';
+    const jobs: any[] = data.jobs || [];
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-            <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-                {data.bannerUrl && (
-                    <Image source={{ uri: data.bannerUrl }} style={styles.banner} resizeMode="contain" />
-                )}
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+            <ScrollView contentContainerStyle={styles.scroll}>
+                {data.bannerUrl && <Image source={{ uri: data.bannerUrl }} style={styles.banner} resizeMode="cover" />}
+
                 <View style={styles.header}>
-                    {data.logoUrl && (
-                        <Image source={{ uri: data.logoUrl }} style={styles.logo} />
-                    )}
-                    <Text style={styles.companyName}>{data.companyName}</Text>
-                    <Text style={styles.subtitle}>Vacantes activas</Text>
+                    <View style={[styles.logo, { borderColor: `${brand}33`, backgroundColor: `${brand}12` }]}>
+                        {data.logoUrl
+                            ? <Image source={{ uri: data.logoUrl }} style={styles.logoImage} />
+                            : <Text style={[styles.logoInitial, { color: brand }]}>{(data.companyName || '?').charAt(0).toUpperCase()}</Text>}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.companyName}>{data.companyName}</Text>
+                        <Text style={styles.companyMeta}>
+                            {data.companyType === 'independiente' ? 'Reclutador independiente' : 'Empresa'}
+                            {data.rubro ? `  ·  ${data.rubro}` : ''}
+                        </Text>
+                    </View>
                 </View>
 
-                <View style={{ paddingHorizontal: 20 }}>
-                    {data.jobs.length === 0 ? (
-                        <Text style={styles.emptyText}>Esta empresa no tiene vacantes publicadas por ahora.</Text>
-                    ) : (
-                        data.jobs.map((job: any) => (
-                            <TouchableOpacity
-                                key={job.id}
-                                style={styles.jobCard}
-                                onPress={() => router.push(`/vacante/${job.id}` as any)}
-                            >
-                                <View style={[styles.jobIcon, { backgroundColor: `${brandColor}22` }]}>
-                                    <Briefcase color={brandColor} size={20} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+                <Text style={styles.sectionTitle}>
+                    {jobs.length === 0 ? 'Vacantes' : jobs.length === 1 ? '1 vacante abierta' : `${jobs.length} vacantes abiertas`}
+                </Text>
+
+                {jobs.length === 0 ? (
+                    <View style={styles.empty}>
+                        <Text style={styles.emptyText}>No hay vacantes abiertas en este momento. Vuelve pronto.</Text>
+                    </View>
+                ) : (
+                    jobs.map((job) => (
+                        <TouchableOpacity key={job.id} style={styles.jobCard} onPress={() => router.push(`/vacante/${job.id}` as any)}>
+                            <View style={[styles.jobIcon, { backgroundColor: `${brand}14` }]}>
+                                <Briefcase color={brand} size={20} />
+                            </View>
+                            <View style={{ flex: 1, gap: 4 }}>
+                                <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+                                <View style={styles.metaRow}>
+                                    {job.employmentType && (
+                                        <View style={styles.meta}><Clock size={12} color="#6B7280" /><Text style={styles.metaText}>{EMPLOYMENT_LABELS[job.employmentType] || 'Tiempo completo'}</Text></View>
+                                    )}
                                     {job.location && (
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                                            <MapPin size={12} color="#64748b" />
-                                            <Text style={styles.jobLocation}>{job.location}</Text>
-                                        </View>
+                                        <View style={styles.meta}><MapPin size={12} color="#6B7280" /><Text style={styles.metaText}>{job.location}</Text></View>
                                     )}
                                 </View>
-                            </TouchableOpacity>
-                        ))
-                    )}
-                </View>
+                                {job.createdAt && <Text style={styles.metaText}>{timeAgo(job.createdAt)}</Text>}
+                            </View>
+                            <View style={styles.applyPill}>
+                                <Text style={[styles.applyText, { color: brand }]}>Postular</Text>
+                                <ChevronRight size={16} color={brand} />
+                            </View>
+                        </TouchableOpacity>
+                    ))
+                )}
 
-                <Text style={styles.footer}>Con tecnología de Veritly</Text>
+                <View style={styles.footer}>
+                    <Zap size={12} color="#f59e0b" />
+                    <Text style={styles.footerText}>Con tecnología de <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Veritly</Text></Text>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-    errorTitle: { color: 'white', fontSize: 18, fontWeight: '700', marginBottom: 8 },
-    errorText: { color: '#94a3b8', fontSize: 14, textAlign: 'center', paddingHorizontal: 30 },
-    banner: { width: '100%', height: 160, backgroundColor: '#1e293b' },
-    header: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20 },
-    logo: { width: 72, height: 72, borderRadius: 36, marginBottom: 12, backgroundColor: '#1e293b' },
-    companyName: { color: 'white', fontSize: 22, fontWeight: '800', textAlign: 'center' },
-    subtitle: { color: '#94a3b8', fontSize: 13, marginTop: 6 },
-    emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 30 },
-    jobCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#334155' },
-    jobIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-    jobTitle: { color: 'white', fontSize: 15, fontWeight: '700' },
-    jobLocation: { color: '#64748b', fontSize: 12, marginLeft: 4 },
-    footer: { color: '#475569', fontSize: 11, textAlign: 'center', marginTop: 30 },
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    centered: { alignItems: 'center', justifyContent: 'center', padding: 24 },
+    scroll: { width: '100%', maxWidth: 820, alignSelf: 'center', padding: 20, paddingBottom: 40 },
+    banner: { width: '100%', aspectRatio: 3, borderRadius: 16, marginBottom: 20, backgroundColor: '#F3F4F6' },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 28 },
+    logo: { width: 72, height: 72, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    logoImage: { width: 72, height: 72 },
+    logoInitial: { fontSize: 28, fontWeight: '800' },
+    companyName: { fontSize: 24, fontWeight: '800', color: '#111827' },
+    companyMeta: { fontSize: 14, color: '#6B7280', marginTop: 2 },
+    sectionTitle: { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 12 },
+    empty: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16, padding: 24, alignItems: 'center' },
+    emptyText: { color: '#6B7280', fontSize: 14, textAlign: 'center' },
+    jobCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16, padding: 16, marginBottom: 12, backgroundColor: '#FFFFFF' },
+    jobIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    jobTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 12, color: '#6B7280' },
+    applyPill: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    applyText: { fontSize: 13, fontWeight: '700' },
+    footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 28 },
+    footerText: { color: '#9CA3AF', fontSize: 12 },
+    errorTitle: { color: '#111827', fontSize: 18, fontWeight: '700', marginTop: 12 },
+    errorText: { color: '#6B7280', fontSize: 14, textAlign: 'center', marginTop: 6 },
+    link: { color: '#4F46E5', fontWeight: '700' },
 });
