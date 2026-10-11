@@ -6,12 +6,13 @@ import { ActivityIndicator, Linking, Platform, StyleSheet, Text, TextInput, Touc
 import { auth } from '../config/firebase';
 import { getEffectiveCompanyId } from '../services/auth-service';
 import PaidBadge from './PaidBadge';
+import { JOBS_PAGE_BASE, jobsPageUrl } from '../utils/publicLinks';
 
 // "Tu pagina de empleos" en Configuracion: todas las cuentas tienen una pagina
 // publica armada con su logo y datos; aca eligen su link (unico, sin repetir).
 // Personalizar colores y banner es del plan Gold. Usa landing-page.ts.
 
-const BASE = 'veritlyapp.com/e/';
+const BASE = JOBS_PAGE_BASE;
 
 async function callLanding(action: string, extra: Record<string, any> = {}) {
     const idToken = await auth.currentUser!.getIdToken();
@@ -86,7 +87,7 @@ export default function JobsPageLinkCard() {
     if (loading) return <View style={styles.card}><ActivityIndicator color="#4F46E5" /></View>;
     if (hidden) return null;
 
-    const publicUrl = saved ? `https://www.${BASE}${saved}` : '';
+    const publicUrl = saved ? jobsPageUrl(saved) : '';
     const reasonText = check && !check.available
         ? check.reason === 'reservado' ? 'Ese nombre está reservado.' : check.reason === 'formato' ? 'Usa 3 a 30 caracteres: minúsculas, números y guiones.' : 'Ese link ya lo usa otra cuenta.'
         : null;

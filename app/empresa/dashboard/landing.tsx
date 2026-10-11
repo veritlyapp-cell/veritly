@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, storage } from '../../../config/firebase';
 import { getEffectiveCompanyId } from '../../../services/auth-service';
+import { jobsPageUrl } from '../../../utils/publicLinks';
 
 const BRAND_COLORS = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#111827'];
 
@@ -113,7 +114,7 @@ export default function LandingPageConfig() {
         }
     };
 
-    const publicUrl = savedSlug ? `https://www.veritlyapp.com/e/${savedSlug}` : '';
+    const publicUrl = savedSlug ? jobsPageUrl(savedSlug) : '';
 
     if (loading) {
         return (

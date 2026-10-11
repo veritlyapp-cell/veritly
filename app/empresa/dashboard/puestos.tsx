@@ -3,6 +3,7 @@ import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog } from 'lucide-react-native';
 import ShareJobModal from '../../../components/ShareJobModal';
+import { jobShortUrl } from '../../../utils/publicLinks';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -234,7 +235,7 @@ export default function CompanyJobs() {
     // generandolo la primera vez que se necesita. Se cachea en el doc de la
     // vacante (shortSlug) para no volver a llamar a la funcion despues.
     const getShortJobUrl = async (job: any): Promise<string> => {
-        if (job.shortSlug) return `https://veritlyapp.com/v/${job.shortSlug}`;
+        if (job.shortSlug) return jobShortUrl(job.shortSlug);
         try {
             const idToken = await auth.currentUser!.getIdToken();
             const res = await fetch('/.netlify/functions/job-slug', {
@@ -245,7 +246,7 @@ export default function CompanyJobs() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, shortSlug: json.slug } : j));
-            return `https://veritlyapp.com/v/${json.slug}`;
+            return jobShortUrl(json.slug);
         } catch (e) {
             console.warn('No se pudo generar el enlace corto, se usa el largo:', e);
             return `https://veritlyapp.com/vacante/${job.id}`;

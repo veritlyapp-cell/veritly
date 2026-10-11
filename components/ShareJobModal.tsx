@@ -3,12 +3,13 @@ import { Copy, Download, Link as LinkIcon, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../config/firebase';
+import { JOB_SHORT_BASE } from '../utils/publicLinks';
 
 // Compartir una vacante: link corto (veritlyapp.com/v/{slug}), opcion de elegir
 // uno propio y codigo QR descargable, para piezas graficas donde un link largo
 // no cabe o nadie lo va a tipear. Los links anteriores siguen funcionando.
 
-const BASE = 'https://veritlyapp.com/v/';
+const BASE = `https://${JOB_SHORT_BASE}`;
 
 type Props = {
     visible: boolean;
@@ -115,7 +116,7 @@ export default function ShareJobModal({ visible, onClose, job, ensureSlug, onSlu
                             <View>
                                 <Text style={styles.label}>Elige un link más corto o fácil de recordar</Text>
                                 <View style={styles.slugRow}>
-                                    <Text style={styles.slugPrefix}>veritlyapp.com/v/</Text>
+                                    <Text style={styles.slugPrefix}>{JOB_SHORT_BASE}</Text>
                                     <TextInput
                                         style={styles.slugInput}
                                         value={draft}
