@@ -5,6 +5,7 @@ import { verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
 import { getSalaryRange, getMaxReasonableSalary } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
+import { livesInOtherCity } from '../../utils/jobLocation';
 
 // Guarda la postulacion de un candidato y decide los descartes automaticos
 // (sueldo, pais, preguntas filtro) en el servidor. Antes se evaluaba en el
@@ -41,6 +42,7 @@ export const handler: Handler = async (event) => {
         const fullName = str(body.fullName, 120);
         const phone = str(body.phone, 40);
         const country = str(body.country, 60);
+        const city = str(body.city, 60);
         const cvFileName = str(body.cvFileName, 200);
         const salaryExpectation = Number(body.salaryExpectation);
         const killerAnswers = body.killerAnswers && typeof body.killerAnswers === 'object' ? body.killerAnswers : {};
@@ -95,6 +97,10 @@ export const handler: Handler = async (event) => {
                 email: (verified.email || str(body.email, 200)).toLowerCase(),
                 phone,
                 country,
+                city,
+                // Vive en otra ciudad que la de una vacante presencial/hibrida: no
+                // descarta, se marca en el pipeline y la IA lo considera
+                otherCity: livesInOtherCity(job, { city, country }),
                 salaryExpectation,
                 cvUrl,
                 originalFileUrl: cvUrl,

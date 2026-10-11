@@ -72,6 +72,9 @@ export interface JobPosting {
 
 // --- CANDIDATOS ANALIZADOS ---
 export interface CandidateAnalysis {
+  city?: string;          // Ciudad donde vive (vacantes presenciales/hibridas)
+  otherCity?: boolean;    // Vive en otra ciudad que la de la vacante (no descarta)
+  country?: string;
   id: string;             // ID único del análisis
   jobId: string;          // A qué vacante pertenece
   name: string;           // Nombre detectado por IA

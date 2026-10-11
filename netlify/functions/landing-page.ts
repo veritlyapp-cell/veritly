@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import { adminDb } from './_firebaseAdmin';
 import { verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
+import { formatJobLocation } from '../../utils/jobLocation';
 
 // Pagina de empleos publica: TODAS las cuentas tienen una (veritlyapp.com/e/{slug},
 // luego vjobs.app/{slug}) armada con su logo y datos de Configuracion. Los
@@ -131,7 +132,8 @@ export const handler: Handler = async (event) => {
                 .map((j: any) => ({
                     id: j.id,
                     jobTitle: j.jobTitle,
-                    location: j.location || null,
+                    // "Presencial · Trujillo, Perú" (o el texto de vacantes anteriores)
+                    location: formatJobLocation(j) || null,
                     employmentType: j.employmentType || null,
                     createdAt: typeof j.createdAt === 'string' ? j.createdAt : j.createdAt?.toDate?.().toISOString?.() || null,
                 }));

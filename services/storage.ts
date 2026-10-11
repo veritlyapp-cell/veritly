@@ -224,6 +224,9 @@ export const getJobCandidates = async (jobId: string) => {
                 // Para saber si un descarte fue automatico y si el candidato ya lo ve
                 // (ver isClosurePending en empresa/job/[id].tsx)
                 failureReason: raw.failureReason || '',
+                country: raw.country || '',
+                city: raw.city || '',
+                otherCity: !!raw.otherCity,
                 statusUpdatedAt: timestampToIso(raw.statusUpdatedAt),
                 originalFileUrl: cvUrl,
                 cvUrl: cvUrl,

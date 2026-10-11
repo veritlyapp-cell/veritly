@@ -1,0 +1,101 @@
+// Modalidad y ubicacion de una vacante: una vacante = un pais + una ciudad
+// (o remoto). La lista de ciudades es corta a proposito (las principales de
+// cada pais) para que los reportes no tengan "Lima", "lima" y "LIMA" como
+// ciudades distintas; lo demas va en "Otra". Sin dependencias de React Native:
+// tambien lo usan las Netlify Functions (submit-application, landing-page).
+
+export type WorkMode = 'presencial' | 'hibrido' | 'remoto';
+
+export const WORK_MODES: { value: WorkMode; label: string }[] = [
+    { value: 'presencial', label: 'Presencial' },
+    { value: 'hibrido', label: 'Híbrido' },
+    { value: 'remoto', label: 'Remoto' },
+];
+
+export const OTHER_CITY = 'Otra';
+
+// Mismo orden y nombres que LATAM_COUNTRIES (create.tsx y vacante/[id].tsx)
+export const MAIN_CITIES: Record<string, string[]> = {
+    'Perú': ['Lima', 'Arequipa', 'Trujillo', 'Chiclayo', 'Piura'],
+    'Colombia': ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Bucaramanga'],
+    'México': ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla', 'Querétaro'],
+    'Chile': ['Santiago', 'Valparaíso', 'Concepción', 'Antofagasta'],
+    'Argentina': ['Buenos Aires', 'Córdoba', 'Rosario', 'Mendoza'],
+    'Ecuador': ['Quito', 'Guayaquil', 'Cuenca'],
+    'Bolivia': ['Santa Cruz', 'La Paz', 'Cochabamba'],
+    'Uruguay': ['Montevideo', 'Maldonado'],
+    'Paraguay': ['Asunción', 'Ciudad del Este'],
+    'Panamá': ['Ciudad de Panamá', 'Colón'],
+    'Costa Rica': ['San José', 'Alajuela', 'Heredia'],
+    'República Dominicana': ['Santo Domingo', 'Santiago de los Caballeros'],
+    'El Salvador': ['San Salvador', 'Santa Ana'],
+    'Guatemala': ['Ciudad de Guatemala', 'Quetzaltenango'],
+    'Honduras': ['Tegucigalpa', 'San Pedro Sula'],
+    'Nicaragua': ['Managua', 'León'],
+};
+
+export const COUNTRY_NAMES = Object.keys(MAIN_CITIES);
+
+export const citiesFor = (country?: string | null) => (country && MAIN_CITIES[country]) || [];
+
+const fold = (s?: string | null) =>
+    String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+export const sameCity = (a?: string | null, b?: string | null) => !!fold(a) && fold(a) === fold(b);
+
+// Texto libre ("lima metropolitana", "PERU") -> nombre de la lista, si coincide
+export function matchCountry(text?: string | null): string | null {
+    const t = fold(text);
+    if (!t) return null;
+    return COUNTRY_NAMES.find((c) => fold(c) === t || t.includes(fold(c))) || null;
+}
+
+export function matchCity(country: string | null, text?: string | null): string | null {
+    const t = fold(text);
+    if (!t) return null;
+    return citiesFor(country).find((c) => fold(c) === t || t.startsWith(fold(c))) || null;
+}
+
+export const workModeLabel = (mode?: string | null) => WORK_MODES.find((m) => m.value === mode)?.label || '';
+
+// "Trujillo, Perú" (o el texto libre de vacantes anteriores a estos campos)
+export function jobPlace(job: { workMode?: string; city?: string; country?: string; location?: string } | null | undefined): string {
+    if (!job) return '';
+    if (job.workMode) {
+        if (job.workMode === 'remoto') return '';
+        return [job.city, job.country].filter(Boolean).join(', ');
+    }
+    // Vacantes anteriores: texto libre que saco la IA del aviso; si es largo
+    // ("A nivel nacional (Perú/Multinacional - no especifica...)") no se muestra
+    const legacy = String(job.location || '').trim();
+    return legacy.length <= 40 ? legacy : '';
+}
+
+// Resumen de la posicion: "Presencial · Trujillo, Perú", "Remoto", o el texto
+// libre de vacantes antiguas
+export function formatJobLocation(job: { workMode?: string; city?: string; country?: string; location?: string } | null | undefined): string {
+    if (!job) return '';
+    return [workModeLabel(job.workMode), jobPlace(job)].filter(Boolean).join(' · ');
+}
+
+// El candidato vive en otra ciudad que la de una vacante presencial/hibrida.
+// No descarta: solo se marca y la IA lo considera.
+export function livesInOtherCity(job: { workMode?: string; city?: string; country?: string }, candidate: { city?: string; country?: string }): boolean {
+    if (!job.workMode || job.workMode === 'remoto' || !job.city || !candidate.city) return false;
+    if (job.country && candidate.country && job.country !== candidate.country) return true;
+    return !sameCity(job.city, candidate.city);
+}
+
+// Contexto para el analisis con IA (se agrega a la descripcion del puesto)
+export function locationNoteForAI(job: { workMode?: string; city?: string; country?: string; location?: string }, candidate?: { city?: string; country?: string }): string {
+    const where = formatJobLocation(job);
+    if (!where) return '';
+    let note = `\n\nUBICACIÓN DE LA VACANTE: ${where}.`;
+    if (candidate?.city || candidate?.country) {
+        note += `\nUBICACIÓN DEL CANDIDATO: vive en ${[candidate.city, candidate.country].filter(Boolean).join(', ')}.`;
+        if (livesInOtherCity(job, candidate)) {
+            note += '\nEl candidato vive en otra ciudad que la de esta vacante presencial/híbrida: menciónalo en los puntos débiles (cons) y considéralo al puntuar, sin descartarlo (podría mudarse o viajar).';
+        }
+    }
+    return note;
+}

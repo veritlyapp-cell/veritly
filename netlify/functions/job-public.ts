@@ -50,7 +50,7 @@ export const handler: Handler = async (event) => {
             id,
             ...pick(job, [
                 'jobTitle', 'optimizedText', 'originalText', 'hardSkills', 'softSkills', 'education',
-                'requiredExperience', 'employmentType', 'location', 'currency', 'allowedCountries',
+                'requiredExperience', 'employmentType', 'location', 'workMode', 'country', 'city', 'currency', 'allowedCountries',
                 'isExternal', 'status', 'applicantsCount', 'isConfidential', 'confidentialLabel', 'shortSlug',
             ]),
             createdAt: toIso(job.createdAt),

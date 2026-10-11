@@ -102,6 +102,9 @@ export const extractJobData = async (text: string) => {
         "softSkills": ["Lista", "de", "habilidades", "blandas"],
         "education": "Requisitos educativos",
         "location": "Ubicación si se menciona",
+        "workMode": "presencial | hibrido | remoto (solo si se menciona, si no null)",
+        "country": "País de la vacante si se menciona o null",
+        "city": "Ciudad de la vacante si se menciona o null",
         "salaryRange": "Rango salarial si se menciona o null"
     }
 

@@ -10,6 +10,7 @@ import { extractTextFromDocument } from '../../../../utils/gemini';
 import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
 import { getEffectiveCompanyId } from '../../../../services/auth-service';
 import { getSalaryRange } from '../../../../utils/salaryRange';
+import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -352,9 +353,19 @@ export default function CreateJob() {
                 throw new Error("La IA no devolvió datos estructurados.");
             }
 
+            // Modalidad, pais y ciudad detectados -> valores de la lista (lo que no
+            // coincide con una ciudad principal queda como "Otra" para revisar)
+            const mode = ['presencial', 'hibrido', 'remoto'].includes(extracted.workMode) ? extracted.workMode : null;
+            const detectedCountry = matchCountry(extracted.country) || matchCountry(extracted.location);
+            const country = detectedCountry || jobData.country || jobData.allowedCountries?.[0] || 'Perú';
+            const listedCity = matchCity(country, extracted.city) || matchCity(country, extracted.location);
             setJobData({
                 ...jobData, // Preserve manually set fields if any, or default ones
-                ...extracted
+                ...extracted,
+                workMode: mode || jobData.workMode || null,
+                country,
+                city: listedCity || (extracted.city ? String(extracted.city).trim() : null),
+                cityIsOther: !listedCity && !!extracted.city,
             });
             setOptimizedDescription(optimized);
             setStep(2);
@@ -432,6 +443,13 @@ export default function CreateJob() {
             );
         }
 
+        if (!jobData.workMode) {
+            return Alert.alert("Falta la modalidad", "Indica si la vacante es Presencial, Híbrida o Remota.");
+        }
+        if (jobData.workMode !== 'remoto' && (!jobData.country || !jobData.city?.trim())) {
+            return Alert.alert("Falta la ubicación", "Indica el país y la ciudad de la vacante.");
+        }
+
         console.log("💾 Iniciando guardado de puesto...");
         setLoading(true);
         try {
@@ -456,6 +474,13 @@ export default function CreateJob() {
                 employmentType: jobData.employmentType || 'tiempo_completo',
                 isConfidential: !!jobData.isConfidential,
                 confidentialLabel: jobData.confidentialLabel?.trim() || '',
+                // Ubicacion: una vacante = un pais + una ciudad (o remoto).
+                // `location` queda como texto para pantallas y vacantes anteriores.
+                workMode: jobData.workMode,
+                country: jobData.workMode === 'remoto' ? null : jobData.country,
+                city: jobData.workMode === 'remoto' ? null : jobData.city.trim(),
+                cityIsOther: jobData.workMode !== 'remoto' && !citiesFor(jobData.country).includes(jobData.city.trim()),
+                location: jobData.workMode === 'remoto' ? 'Remoto' : jobPlace({ workMode: jobData.workMode, city: jobData.city.trim(), country: jobData.country }),
                 originalText: rawText,
                 optimizedText: optimizedDescription,
                 companyId,
@@ -616,6 +641,76 @@ export default function CreateJob() {
                                     value={jobData?.requiredExperience}
                                     onChangeText={(t) => setJobData({ ...jobData, requiredExperience: t })}
                                 />
+
+                                <Text style={styles.label}>MODALIDAD DE TRABAJO</Text>
+                                <View style={styles.chipRow}>
+                                    {WORK_MODES.map((m) => {
+                                        const active = jobData.workMode === m.value;
+                                        return (
+                                            <TouchableOpacity key={m.value} style={[styles.chip, active && styles.chipActive]} onPress={() => setJobData({ ...jobData, workMode: m.value })}>
+                                                <Text style={[styles.chipText, active && styles.chipTextActive]}>{m.label}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+
+                                {jobData.workMode && jobData.workMode !== 'remoto' && (
+                                    <>
+                                        <Text style={styles.label}>PAÍS</Text>
+                                        <View style={styles.chipRow}>
+                                            {COUNTRY_NAMES.map((c) => {
+                                                const active = jobData.country === c;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={c}
+                                                        style={[styles.chip, active && styles.chipActive]}
+                                                        onPress={() => setJobData({
+                                                            ...jobData,
+                                                            country: c,
+                                                            city: null,
+                                                            cityIsOther: false,
+                                                            // Si solo habia un pais de residencia permitido, sigue al de la vacante
+                                                            allowedCountries: (jobData.allowedCountries?.length || 0) <= 1 ? [c] : jobData.allowedCountries,
+                                                        })}
+                                                    >
+                                                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+
+                                        {jobData.country && (
+                                            <>
+                                                <Text style={styles.label}>CIUDAD</Text>
+                                                <View style={styles.chipRow}>
+                                                    {[...citiesFor(jobData.country), OTHER_CITY].map((c) => {
+                                                        const isOther = c === OTHER_CITY;
+                                                        const active = isOther ? !!jobData.cityIsOther : (!jobData.cityIsOther && jobData.city === c);
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={c}
+                                                                style={[styles.chip, active && styles.chipActive]}
+                                                                onPress={() => setJobData({ ...jobData, city: isOther ? '' : c, cityIsOther: isOther })}
+                                                            >
+                                                                <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                                {jobData.cityIsOther && (
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="Escribe la ciudad"
+                                                        placeholderTextColor="#9CA3AF"
+                                                        value={jobData.city || ''}
+                                                        onChangeText={(t) => setJobData({ ...jobData, city: t })}
+                                                        maxLength={60}
+                                                    />
+                                                )}
+                                            </>
+                                        )}
+                                    </>
+                                )}
 
                                 <Text style={styles.label}>H SKILLS (Verifica)</Text>
                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
@@ -1249,6 +1344,11 @@ const styles = StyleSheet.create({
     label: { color: '#6B7280', fontSize: 12, fontWeight: 'bold', marginBottom: 5, marginTop: 10 },
     input: { backgroundColor: '#F9FAFB', color: '#111827', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 },
     tag: { backgroundColor: 'rgba(79, 70, 229, 0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+    chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+    chipActive: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
+    chipText: { color: '#4B5563', fontSize: 13 },
+    chipTextActive: { color: '#4338CA', fontWeight: '700' },
     tagText: { color: '#4F46E5', fontSize: 12 },
     optimizedInput: { backgroundColor: '#F9FAFB', color: '#374151', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', minHeight: 150, textAlignVertical: 'top', lineHeight: 22 },
     saveButton: { backgroundColor: '#059669', flexDirection: 'row', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 50, elevation: 5, shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },

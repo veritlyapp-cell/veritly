@@ -48,6 +48,7 @@ import { CandidateAnalysis, MatchStatus, RecruitmentStatus } from '../../../type
 import { extractTextFromDocument } from '../../../utils/gemini';
 import { analyzeCandidateForCompany, analyzeExcelRowForCompany, analyzeScrapedProfile } from '../../../utils/gemini-company';
 import { formatKillerAnswer, getActiveKillerQuestions, passesKillerQuestion } from '../../../utils/killerQuestions';
+import { locationNoteForAI } from '../../../utils/jobLocation';
 
 const TooltipWrapper = Platform.OS === 'web' 
   ? ({ title, children, style }: any) => <div title={title} style={{ display: 'flex', flexDirection: 'column', ...style }}>{children}</div>
@@ -131,6 +132,10 @@ export default function JobDetailScreen() {
         companyId: '',
         currency: 'S/',  // moneda de la vacante (sueldos de los candidatos)
         isOpen: true,
+        // Ubicacion: la IA considera si el candidato vive en otra ciudad
+        workMode: '',
+        city: '',
+        country: '',
     });
     const [killerQuestions, setKillerQuestions] = useState<any[]>([]);
     const [isEmailVerified, setIsEmailVerified] = useState(true);
@@ -250,6 +255,9 @@ export default function JobDetailScreen() {
                     companyId: compId,
                     currency: jobData.currency || 'S/',
                     isOpen: jobData.status !== 'Closed',
+                    workMode: jobData.workMode || '',
+                    city: jobData.city || '',
+                    country: jobData.country || '',
                 }));
             } else if (!jobDetails.description) {
                 showAlert("Error", "No se encontró la información del puesto.");
@@ -730,7 +738,7 @@ export default function JobDetailScreen() {
                 const structuredData = `CANDIDATO: ${candidate.name}\nRESUMEN: ${cleanSummary}\nEXPERIENCIA: ${(candidate as any).experience || ''}\nHABILIDADES: ${(candidate as any).skills || ''}`;
                 aiResult = await analyzeExcelRowForCompany(structuredData, jobDetails.description, excelKeywords);
             } else {
-                aiResult = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+                aiResult = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description + locationNoteForAI(jobDetails, candidate));
             }
             
             const updatedCandidate = {
@@ -995,7 +1003,7 @@ export default function JobDetailScreen() {
                     continue;
                 }
 
-                const analysis = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description);
+                const analysis = await analyzeCandidateForCompany(textToAnalyze, jobDetails.description + locationNoteForAI(jobDetails, cand));
 
                 const docRef = doc(db, 'jobs', id as string, 'candidates', cand.id);
                 
@@ -1254,6 +1262,7 @@ export default function JobDetailScreen() {
                                             <Text style={styles.candidateSalary}>
                                                 Sueldo: {item.salaryExpectation ? `${jobDetails.currency} ${item.salaryExpectation.toLocaleString()}` : 'N/A'}
                                             </Text>
+                                            {item.otherCity && <Text style={styles.otherCityText}>Vive en otra ciudad{item.city ? ` (${item.city})` : ''}</Text>}
                                             <Text style={styles.candidateDate}>
                                                 {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
                                                     day: 'numeric',
@@ -1388,6 +1397,7 @@ export default function JobDetailScreen() {
                                             <Text style={styles.candidateSalary}>
                                                 Sueldo: {item.salaryExpectation ? `${jobDetails.currency} ${item.salaryExpectation.toLocaleString()}` : 'N/A'}
                                             </Text>
+                                            {item.otherCity && <Text style={styles.otherCityText}>Vive en otra ciudad{item.city ? ` (${item.city})` : ''}</Text>}
                                             <Text style={styles.candidateDate}>
                                                 {new Date(item.analyzedAt).toLocaleDateString('es-ES', {
                                                     day: 'numeric',
@@ -1518,6 +1528,7 @@ export default function JobDetailScreen() {
                                                         </Text>
                                                     </View>
                                                 </View>
+                                                {candidate.otherCity && <Text style={styles.otherCityText}>Otra ciudad{candidate.city ? `: ${candidate.city}` : ''}</Text>}
                                                 {isClosurePending(candidate, jobDetails.isOpen) && (
                                                     <Text style={styles.closurePendingText}>Aún ve: En revisión</Text>
                                                 )}
@@ -2529,6 +2540,12 @@ const styles = StyleSheet.create({
         color: '#92400e',
         fontSize: 12,
         fontWeight: '700'
+    },
+    otherCityText: {
+        color: '#B45309',
+        fontSize: 11,
+        fontWeight: '600',
+        marginTop: 2,
     },
     closurePendingText: {
         fontSize: 11,

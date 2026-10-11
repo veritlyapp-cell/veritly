@@ -53,6 +53,7 @@ import { showAlert } from '../../utils/ui';
 import { getMaxReasonableSalary } from '../../utils/salaryRange';
 import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
 import { fetchPublicJob, getPrefetchedJob } from '../../utils/jobPrefetch';
+import { OTHER_CITY, citiesFor, formatJobLocation, locationNoteForAI } from '../../utils/jobLocation';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -154,6 +155,11 @@ export default function ExternalApplication() {
     const [saveToProfile, setSaveToProfile] = useState(true);
     const [selectedCountry, setSelectedCountry] = useState<string>('');
     const [showCandidateCountryDropdown, setShowCandidateCountryDropdown] = useState(false);
+    // Ciudad donde vive: solo se pide en vacantes presenciales/hibridas con ciudad.
+    // No descarta; el servidor marca si es otra ciudad y la IA lo considera.
+    const [selectedCity, setSelectedCity] = useState('');
+    const [cityIsOther, setCityIsOther] = useState(false);
+    const needsCity = !!job?.city && !!job?.workMode && job.workMode !== 'remoto';
 
     // Compartido entre los puntos de contacto que ofrecen Racso al candidato.
     // `context` identifica el punto exacto para poder medir clics antes vs
@@ -194,6 +200,11 @@ export default function ExternalApplication() {
     // residencia mientras no haya un telefono ya cargado (de lo contrario
     // pisaria el codigo guardado en el perfil del candidato, cargado en
     // loadCandidateProfile).
+    useEffect(() => {
+        setSelectedCity('');
+        setCityIsOther(false);
+    }, [selectedCountry]);
+
     useEffect(() => {
         if (selectedCountry && !phone) {
             const match = LATAM_COUNTRIES.find(c => c.name === selectedCountry);
@@ -498,6 +509,7 @@ export default function ExternalApplication() {
                 hasErrors = true;
             }
         }
+        if (needsCity && !selectedCity.trim()) { errors.city = 'Indica la ciudad donde vives.'; hasErrors = true; }
         if (!file && !useSavedCv) { errors.file = 'Debes subir tu CV o usar el guardado.'; hasErrors = true; }
         if (!acceptedTerms) { errors.terms = 'Debes aceptar la política de privacidad.'; hasErrors = true; }
 
@@ -623,6 +635,7 @@ export default function ExternalApplication() {
                         email: (user?.email || authEmail).toLowerCase().trim(),
                         phone: `${phoneCountryCode} ${phone.trim()}`,
                         country: selectedCountry,
+                        city: needsCity ? selectedCity.trim() : '',
                         salaryExpectation: expectationNumber,
                         killerAnswers,
                         cvUrl,
@@ -726,7 +739,8 @@ export default function ExternalApplication() {
             // Realizar análisis enfocado en candidato
             const result = await analyzeWithGemini(
                 textToAnalyze, 
-                job?.optimizedText || job?.originalText || job?.jobTitle || "Puesto de trabajo", 
+                (job?.optimizedText || job?.originalText || job?.jobTitle || "Puesto de trabajo")
+                    + locationNoteForAI(job || {}, { city: selectedCity.trim(), country: selectedCountry }),
                 'text'
             );
 
@@ -898,6 +912,12 @@ export default function ExternalApplication() {
                             <View style={styles.infoRow}>
                                 <Award size={16} color="#6366f1" style={styles.infoIcon} />
                                 <Text style={styles.infoText}>Experiencia: {job.requiredExperience}</Text>
+                            </View>
+                        )}
+                        {!!formatJobLocation(job) && (
+                            <View style={styles.infoRow}>
+                                <MapPin size={16} color="#6366f1" style={styles.infoIcon} />
+                                <Text style={styles.infoText}>{formatJobLocation(job)}</Text>
                             </View>
                         )}
                         {job.employmentType && (
@@ -1408,6 +1428,39 @@ export default function ExternalApplication() {
                             </ScrollView>
                         </View>
                     )}
+
+                    {needsCity && (
+                        <>
+                            <Text style={[styles.label, { marginTop: 14 }]}>Ciudad donde vives *</Text>
+                            <Text style={styles.cityHint}>Esta vacante es {formatJobLocation(job).toLowerCase()}.</Text>
+                            <View style={styles.chipRow}>
+                                {[...citiesFor(selectedCountry), OTHER_CITY].map((c) => {
+                                    const isOther = c === OTHER_CITY;
+                                    const active = isOther ? cityIsOther : (!cityIsOther && selectedCity === c);
+                                    return (
+                                        <TouchableOpacity
+                                            key={c}
+                                            style={[styles.chip, active && styles.chipActive]}
+                                            onPress={() => { setCityIsOther(isOther); setSelectedCity(isOther ? '' : c); }}
+                                        >
+                                            <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            {(cityIsOther || citiesFor(selectedCountry).length === 0) && (
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Escribe tu ciudad"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={selectedCity}
+                                    onChangeText={(t) => { setCityIsOther(true); setSelectedCity(t); }}
+                                    maxLength={60}
+                                />
+                            )}
+                            {formErrors.city && <Text style={styles.errorText}>{formErrors.city}</Text>}
+                        </>
+                    )}
                 </View>
 
                 {/* Salary */}
@@ -1683,6 +1736,12 @@ const styles = StyleSheet.create({
     infoText: { color: '#4B5563', fontSize: 14, lineHeight: 20, flex: 1 },
 
     errorText: { color: '#DC2626', fontSize: 12, marginTop: -8, marginBottom: 12 },
+    cityHint: { color: '#6B7280', fontSize: 12, marginBottom: 8 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+    chip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+    chipActive: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
+    chipText: { color: '#4B5563', fontSize: 13 },
+    chipTextActive: { color: '#4338CA', fontWeight: '700' },
     inputError: { borderColor: '#DC2626' },
 
     // Description

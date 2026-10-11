@@ -4,6 +4,14 @@ import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query,
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog } from 'lucide-react-native';
 import ShareJobModal from '../../../components/ShareJobModal';
 import { jobShortUrl } from '../../../utils/publicLinks';
+import { formatJobLocation } from '../../../utils/jobLocation';
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+    tiempo_completo: 'Tiempo completo',
+    medio_tiempo: 'Medio tiempo',
+    honorarios: 'Freelance / Honorarios',
+    practicas: 'Prácticas',
+};
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert as RNAlert, FlatList, Modal, Platform, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ScrollView, Linking, Share } from 'react-native';
 import { auth, db } from '../../../config/firebase';
@@ -315,7 +323,7 @@ export default function CompanyJobs() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
                 <View style={{ flex: 1, minWidth: 200 }}>
                     <Text style={styles.jobTitle}>{item.jobTitle}</Text>
-                    <Text style={styles.jobMeta}>{item.location || "Remoto"} • {item.employmentType || "Tiempo Completo"}</Text>
+                    <Text style={styles.jobMeta}>{formatJobLocation(item) || 'Ubicación sin indicar'} • {EMPLOYMENT_LABELS[item.employmentType] || 'Tiempo completo'}</Text>
                     {role !== 'reclutador' && (
                         <TouchableOpacity
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}
