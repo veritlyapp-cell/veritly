@@ -6,6 +6,7 @@ import ShareJobModal from '../../../components/ShareJobModal';
 import { jobLinkUrl } from '../../../utils/publicLinks';
 import { formatJobLocation } from '../../../utils/jobLocation';
 import { JOB_ACTIVE_DAYS, daysUntilExpiry, isJobExpired, jobExpiresAt } from '../../../utils/jobExpiry';
+import { activeLimitMessage, getActiveJobsUsage, isJobActive } from '../../../utils/activeJobs';
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
     tiempo_completo: 'Tiempo completo',
@@ -309,6 +310,11 @@ export default function CompanyJobs() {
         if (!confirmWeb(`Republicar "${job.jobTitle}"\n\nSe publica de nuevo con fecha de hoy y queda activa ${JOB_ACTIVE_DAYS} días. Mantiene sus ${count} postulante(s) y su link.`)) return;
         const now = new Date().toISOString();
         try {
+            if (!isJobActive(job)) {
+                const { companyId } = await getEffectiveMembership(auth.currentUser!.uid);
+                const { active, limit } = await getActiveJobsUsage(companyId);
+                if (active >= limit) return Alert.alert('Límite de vacantes activas', activeLimitMessage(limit));
+            }
             await updateDoc(doc(db, 'jobs', job.id), {
                 status: 'Open',
                 publishedAt: now,
@@ -332,14 +338,8 @@ export default function CompanyJobs() {
         try {
             const membership = await getEffectiveMembership(auth.currentUser!.uid);
             const companyId = membership.companyId;
-            const [jobsSnap, companySnap] = await Promise.all([
-                getCountFromServer(query(collection(db, 'jobs'), where('companyId', '==', companyId))),
-                getDoc(doc(db, 'users_empresas', companyId)),
-            ]);
-            const limit = companySnap.data()?.subscription?.internalVacanciesLimit || 10;
-            if (jobsSnap.data().count >= limit) {
-                return Alert.alert('Límite de vacantes', `Tu plan permite ${limit} vacantes. Elimina una o pasa a un plan con más vacantes para copiar esta.`);
-            }
+            const { active, limit } = await getActiveJobsUsage(companyId);
+            if (active >= limit) return Alert.alert('Límite de vacantes activas', activeLimitMessage(limit));
             const {
                 id: _id, candidateCount: _cc, applicantsCount: _ac, shortSlug: _ss, createdAt: _ca, publishedAt: _pa,
                 republishedAt: _ra, republishCount: _rc, closedReason: _cr, closedAt: _cl, updatedAt: _ua, status: _st, ...rest
@@ -372,6 +372,11 @@ export default function CompanyJobs() {
         }
         const newStatus = currentStatus === 'Closed' ? 'Open' : 'Closed';
         try {
+            if (newStatus === 'Open') {
+                const { companyId } = await getEffectiveMembership(auth.currentUser!.uid);
+                const { active, limit } = await getActiveJobsUsage(companyId);
+                if (active >= limit) return Alert.alert('Límite de vacantes activas', activeLimitMessage(limit));
+            }
             await updateDoc(doc(db, 'jobs', jobId), { status: newStatus });
             setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
         } catch (e: any) {

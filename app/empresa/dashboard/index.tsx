@@ -10,6 +10,7 @@ import FeedbackButton from '../../../components/FeedbackButton';
 import { getEffectiveMembership } from '../../../services/auth-service';
 import { countMonthlyAnalysesByJob } from '../../../utils/aiQuota';
 import { HYDRATION_GATE } from '../../../utils/hydrationGate';
+import { isJobActive } from '../../../utils/activeJobs';
 
 // Light Tech Theme Colors
 const COLORS = {
@@ -315,7 +316,8 @@ export default function CompanyDashboard() {
         router.replace('/empresa/signin');
     };
 
-    const activeJobsCount = jobs.filter((j: any) => j.status === 'Open' || !j.status).length;
+    // Activas = encendidas y sin vencer (60 dias): es lo que cuenta para el limite del plan
+    const activeJobsCount = jobs.filter((j: any) => isJobActive(j)).length;
     const publicJobsCount = jobs.filter((j: any) => (j.status === 'Open' || !j.status) && j.isExternal).length;
 
     const renderBetaBanner = () => (
@@ -533,7 +535,7 @@ export default function CompanyDashboard() {
                         <View style={styles.limitMiniCard}>
                             <View style={styles.limitMiniHeader}>
                                 <Text style={styles.limitMiniLabel}>Vacantes Activas</Text>
-                                <Text style={styles.limitMiniValue}>{jobs.length} / {userSubscription?.internalVacanciesLimit || 10}</Text>
+                                <Text style={styles.limitMiniValue}>{activeJobsCount} / {userSubscription?.internalVacanciesLimit || 10}</Text>
                             </View>
                             <View style={styles.miniBarBg}>
                                 <View style={[styles.miniBarFill, { width: `${Math.min((activeJobsCount / (userSubscription?.internalVacanciesLimit || 10)) * 100, 100)}%` }]} />

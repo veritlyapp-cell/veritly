@@ -13,6 +13,7 @@ import { getSalaryRange } from '../../../../utils/salaryRange';
 import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, canonicalCity, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
 import { JOB_AREAS, matchArea } from '../../../../utils/jobAreas';
 import { usePortalCustomizationAllowed } from '../../../../hooks/usePortalCustomizationAllowed';
+import { activeLimitMessage, getActiveJobsUsage } from '../../../../utils/activeJobs';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -517,19 +518,9 @@ export default function CreateJob() {
             } else {
                 // CREAR
                 // Validar Límite de Vacantes Activas
-                const jobsQ = query(
-                    collection(db, 'jobs'),
-                    where('companyId', '==', companyId)
-                );
-                const jobsSnap = await getDocs(jobsQ);
-
-                const userSnap = await getDoc(doc(db, 'users_empresas', companyId));
-                const userData = userSnap.data();
-                const limit = userData?.subscription?.internalVacanciesLimit || 10; 
-
-                if (jobsSnap.size >= limit) {
-                    throw new Error(`Has alcanzado el límite de vacantes activas para tu plan (${limit}). Pasa a PRO o cierra una vacante existente para publicar más.`);
-                }
+                // (las inactivas no cuentan para el limite del plan)
+                const { active, limit } = await getActiveJobsUsage(companyId);
+                if (active >= limit) throw new Error(activeLimitMessage(limit));
 
                 const newDoc = await addDoc(collection(db, 'jobs'), finalData);
                 Alert.alert("¡Éxito!", "Vacante publicada con éxito.");
