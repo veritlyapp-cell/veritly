@@ -6,6 +6,7 @@ import { getCorsHeaders, checkRateLimit } from './_security';
 import { getSalaryRange, getMaxReasonableSalary } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
 import { canonicalCity, livesInOtherCity } from '../../utils/jobLocation';
+import { isJobExpired } from '../../utils/jobExpiry';
 import { MIN_AGE, ageAt, ageBracket, isValidBirthDate, isValidGender } from '../../utils/demographics';
 
 // Guarda la postulacion de un candidato y decide los descartes automaticos
@@ -56,7 +57,7 @@ export const handler: Handler = async (event) => {
         const jobRef = adminDb.collection('jobs').doc(jobId);
         const jobSnap = await jobRef.get();
         const job = jobSnap.data();
-        if (!jobSnap.exists || !job?.isExternal || job.status === 'Closed') {
+        if (!jobSnap.exists || !job?.isExternal || job.status === 'Closed' || isJobExpired(job)) {
             return { statusCode: 404, headers, body: JSON.stringify({ error: 'Esta vacante ya no recibe postulaciones.' }) };
         }
 

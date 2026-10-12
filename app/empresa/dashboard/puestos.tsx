@@ -1,10 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStringAsync } from 'expo-clipboard';
-import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog } from 'lucide-react-native';
+import { addDoc, collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, increment, query, updateDoc, where } from 'firebase/firestore';
+import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog, CopyPlus } from 'lucide-react-native';
 import ShareJobModal from '../../../components/ShareJobModal';
 import { jobLinkUrl } from '../../../utils/publicLinks';
 import { formatJobLocation } from '../../../utils/jobLocation';
+import { JOB_ACTIVE_DAYS, daysUntilExpiry, isJobExpired, jobExpiresAt } from '../../../utils/jobExpiry';
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
     tiempo_completo: 'Tiempo completo',
@@ -299,7 +300,76 @@ export default function CompanyJobs() {
         }
     };
 
+    const confirmWeb = (message: string) => (Platform.OS === 'web' ? window.confirm(message) : true);
+
+    // Republicar: la misma vacante vuelve a estar activa 60 dias con fecha de hoy
+    // ("Publicada hoy"), con todos los postulantes que ya tenia
+    const republishJob = async (job: any) => {
+        const count = job.candidateCount ?? 0;
+        if (!confirmWeb(`Republicar "${job.jobTitle}"\n\nSe publica de nuevo con fecha de hoy y queda activa ${JOB_ACTIVE_DAYS} días. Mantiene sus ${count} postulante(s) y su link.`)) return;
+        const now = new Date().toISOString();
+        try {
+            await updateDoc(doc(db, 'jobs', job.id), {
+                status: 'Open',
+                publishedAt: now,
+                republishedAt: now,
+                republishCount: increment(1),
+                closedReason: null,
+                closedAt: null,
+            });
+            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'Open', publishedAt: now, republishedAt: now, closedReason: null } : j));
+            Alert.alert('Republicada', `La vacante está activa por ${JOB_ACTIVE_DAYS} días.`);
+        } catch (e: any) {
+            console.error('Republish error:', e);
+            Alert.alert('Error', 'No se pudo republicar: ' + e.message);
+        }
+    };
+
+    // Copiar: vacante nueva con el mismo aviso y configuracion, sin postulantes
+    // (cuenta para el limite de vacantes, igual que crear una)
+    const copyJob = async (job: any) => {
+        if (!confirmWeb(`Copiar "${job.jobTitle}"\n\nSe crea una vacante nueva con el mismo aviso, sin postulantes y con un link nuevo. Después puedes editarla.`)) return;
+        try {
+            const membership = await getEffectiveMembership(auth.currentUser!.uid);
+            const companyId = membership.companyId;
+            const [jobsSnap, companySnap] = await Promise.all([
+                getCountFromServer(query(collection(db, 'jobs'), where('companyId', '==', companyId))),
+                getDoc(doc(db, 'users_empresas', companyId)),
+            ]);
+            const limit = companySnap.data()?.subscription?.internalVacanciesLimit || 10;
+            if (jobsSnap.data().count >= limit) {
+                return Alert.alert('Límite de vacantes', `Tu plan permite ${limit} vacantes. Elimina una o pasa a un plan con más vacantes para copiar esta.`);
+            }
+            const {
+                id: _id, candidateCount: _cc, applicantsCount: _ac, shortSlug: _ss, createdAt: _ca, publishedAt: _pa,
+                republishedAt: _ra, republishCount: _rc, closedReason: _cr, closedAt: _cl, updatedAt: _ua, status: _st, ...rest
+            } = job;
+            const now = new Date().toISOString();
+            const newDoc = await addDoc(collection(db, 'jobs'), {
+                ...rest,
+                companyId,
+                status: 'Open',
+                active: true,
+                applicantsCount: 0,
+                createdAt: now,
+                publishedAt: now,
+                updatedAt: now,
+                copiedFrom: job.id,
+            });
+            router.push({ pathname: '/empresa/dashboard/job/create', params: { id: newDoc.id } });
+        } catch (e: any) {
+            console.error('Copy job error:', e);
+            Alert.alert('Error', 'No se pudo copiar la vacante: ' + e.message);
+        }
+    };
+
     const toggleJobStatus = async (jobId: string, currentStatus: string) => {
+        // Una vacante vencida (60 dias) no se reactiva con el interruptor: la
+        // tarea diaria la volveria a cerrar. Se republica.
+        const job = jobs.find(j => j.id === jobId);
+        if (job && isJobExpired(job) && (currentStatus === 'Closed' || isJobExpired(job))) {
+            return republishJob(job);
+        }
         const newStatus = currentStatus === 'Closed' ? 'Open' : 'Closed';
         try {
             await updateDoc(doc(db, 'jobs', jobId), { status: newStatus });
@@ -323,13 +393,24 @@ export default function CompanyJobs() {
     };
 
     const renderJobItem = ({ item }: { item: any }) => {
-        const isActive = item.status !== 'Closed';
+        const expired = isJobExpired(item);
+        const isActive = item.status !== 'Closed' && !expired;
+        const daysLeft = daysUntilExpiry(item);
         return (
         <View style={[styles.jobCard, !isActive && { borderLeftColor: '#64748b', opacity: 0.7 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
                 <View style={{ flex: 1, minWidth: 200 }}>
                     <Text style={styles.jobTitle}>{item.jobTitle}</Text>
                     <Text style={styles.jobMeta}>{formatJobLocation(item) || 'Ubicación sin indicar'} • {EMPLOYMENT_LABELS[item.employmentType] || 'Tiempo completo'}</Text>
+                    {expired ? (
+                        <Text style={[styles.jobMeta, { color: '#B45309', marginTop: 2 }]}>
+                            Venció el {jobExpiresAt(item)?.toLocaleDateString('es-PE')} ({JOB_ACTIVE_DAYS} días). Republícala o cópiala.
+                        </Text>
+                    ) : isActive && daysLeft !== null ? (
+                        <Text style={[styles.jobMeta, { marginTop: 2 }, daysLeft <= 7 && { color: '#B45309' }]}>
+                            {daysLeft === 0 ? 'Vence hoy' : `Vence en ${daysLeft} día${daysLeft === 1 ? '' : 's'}`}
+                        </Text>
+                    ) : null}
                     {role !== 'reclutador' && (
                         <TouchableOpacity
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}
@@ -433,6 +514,30 @@ export default function CompanyJobs() {
                             <Text style={{ color: item.isExternal ? '#0077B5' : '#64748b', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>LINKEDIN</Text>
                         </TouchableOpacity>
                     </TooltipWrapper>
+
+                    {role !== 'reclutador' && (
+                        <TooltipWrapper title={`Publicar de nuevo con fecha de hoy (${JOB_ACTIVE_DAYS} días), con sus postulantes`}>
+                            <TouchableOpacity
+                                style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                                onPress={() => republishJob(item)}
+                            >
+                                <RotateCw color="#10b981" size={20} />
+                                <Text style={{ color: '#10b981', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>REPUBLICAR</Text>
+                            </TouchableOpacity>
+                        </TooltipWrapper>
+                    )}
+
+                    {role !== 'reclutador' && (
+                        <TooltipWrapper title="Crear una vacante nueva con este aviso, sin postulantes">
+                            <TouchableOpacity
+                                style={[styles.iconButton, { alignItems: 'center', minWidth: 50 }]}
+                                onPress={() => copyJob(item)}
+                            >
+                                <CopyPlus color="#4F46E5" size={20} />
+                                <Text style={{ color: '#4F46E5', fontSize: 8, fontWeight: 'bold', marginTop: 2 }}>COPIAR AVISO</Text>
+                            </TouchableOpacity>
+                        </TooltipWrapper>
+                    )}
 
                     {role !== 'reclutador' && (
                         <TooltipWrapper title="Editar vacante">

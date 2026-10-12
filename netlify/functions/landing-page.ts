@@ -3,6 +3,7 @@ import { adminDb } from './_firebaseAdmin';
 import { verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
 import { formatJobLocation } from '../../utils/jobLocation';
+import { isJobExpired } from '../../utils/jobExpiry';
 
 // Pagina de empleos publica: TODAS las cuentas tienen una (veritlyapp.com/e/{slug},
 // luego vjobs.app/{slug}) armada con su logo y datos de Configuracion. Los
@@ -132,7 +133,8 @@ export const handler: Handler = async (event) => {
             // vacante (respuestas de preguntas filtro, presupuesto, etc.)
             const jobs = jobsSnap.docs
                 .map(d => ({ id: d.id, ...d.data() }) as any)
-                .filter((j: any) => j.isExternal && j.isActive !== false && j.status !== 'Closed' && !j.isConfidential && !(customizable && j.hideOnJobsPage))
+                .filter((j: any) => j.isExternal && j.isActive !== false && j.status !== 'Closed' && !isJobExpired(j) && !j.isConfidential && !(customizable && j.hideOnJobsPage))
+                .map((j: any) => ({ ...j, createdAt: j.publishedAt || j.createdAt })) // "Publicada hace..." desde la ultima publicacion
                 .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
                 .map((j: any) => ({
                     id: j.id,

@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { adminDb } from './_firebaseAdmin';
 import { getSalaryRange } from '../../utils/salaryRange';
+import { isJobExpired } from '../../utils/jobExpiry';
 import { getActiveKillerQuestions } from '../../utils/killerQuestions';
 
 // Vacante publica para la pagina de postulacion: SOLO lo que el candidato debe
@@ -54,6 +55,9 @@ export const handler: Handler = async (event) => {
                 'isExternal', 'status', 'applicantsCount', 'isConfidential', 'confidentialLabel', 'shortSlug',
             ]),
             createdAt: toIso(job.createdAt),
+            // Ultima publicacion (republicar la renueva); vencida = cerrada
+            publishedAt: toIso(job.publishedAt) || toIso(job.createdAt),
+            ...(isJobExpired(job) && { status: 'Closed' }),
             isSalaryPublic: !!job.isSalaryPublic,
             salaryRange: job.isSalaryPublic ? getSalaryRange(job) : null,
             killerQuestions: getActiveKillerQuestions(job).map((q: any) => pick(q, ['question', 'type', 'options'])),
