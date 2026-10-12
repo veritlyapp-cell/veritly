@@ -5,7 +5,7 @@ import { verifyIdToken } from './_verifyAuth';
 import { getCorsHeaders, checkRateLimit } from './_security';
 import { getSalaryRange, getMaxReasonableSalary } from '../../utils/salaryRange';
 import { getActiveKillerQuestions, passesKillerQuestion } from '../../utils/killerQuestions';
-import { livesInOtherCity } from '../../utils/jobLocation';
+import { canonicalCity, livesInOtherCity } from '../../utils/jobLocation';
 import { MIN_AGE, ageAt, ageBracket, isValidBirthDate, isValidGender } from '../../utils/demographics';
 
 // Guarda la postulacion de un candidato y decide los descartes automaticos
@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
         const fullName = str(body.fullName, 120);
         const phone = str(body.phone, 40);
         const country = str(body.country, 60);
-        const city = str(body.city, 60);
+        const city = canonicalCity(str(body.city, 60)); // "cuzco" -> "Cusco"
         const cvFileName = str(body.cvFileName, 200);
         const salaryExpectation = Number(body.salaryExpectation);
         const killerAnswers = body.killerAnswers && typeof body.killerAnswers === 'object' ? body.killerAnswers : {};

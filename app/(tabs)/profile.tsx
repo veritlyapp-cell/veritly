@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { Briefcase, Calendar, CheckCircle2, ChevronDown, DollarSign, Globe, Mail, Map, Phone, Trash2, UploadCloud, User, XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -8,7 +8,9 @@ import { auth, db, storage } from '../../config/firebase';
 import { getUserProfileFromCloud, saveUserProfileToCloud } from '../../services/storage';
 import { extractTextFromPDF, generateProfileOptimization } from '../../utils/gemini';
 import { ref, uploadString, getDownloadURL, uploadBytes } from 'firebase/storage';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { COUNTRY_NAMES, OTHER_CITY, canonicalCity, citiesFor } from '../../utils/jobLocation';
+import { GENDERS, MIN_AGE, ageAt, toBirthDate } from '../../utils/demographics';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // DATOS DE PERÚ (Abreviados para el ejemplo, usa tu lista completa si la tienes a mano)
@@ -125,12 +127,24 @@ const DAYS = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2,
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const YEARS = Array.from({ length: 60 }, (_, i) => (new Date().getFullYear() - 18 - i).toString());
 
+// "05 de Marzo de 1990" (como se muestra en el perfil) -> "1990-03-05"
+const birthTextToIso = (text: string): string | null => {
+    const m = /^(\d{1,2}) de (\S+) de (\d{4})$/.exec(String(text || '').trim());
+    if (!m) return null;
+    const month = MONTHS.findIndex((x) => x.toLowerCase() === m[2].toLowerCase());
+    return month < 0 ? null : toBirthDate(m[1], month + 1, m[3]);
+};
+
 export default function ProfileScreen() {
     const [fullName, setFullName] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [country] = useState('Perú');
+    // Datos que se usan al postular (no se piden en cada postulacion)
+    const [country, setCountry] = useState('Perú');
+    const [city, setCity] = useState('');
+    const [cityIsOther, setCityIsOther] = useState(false);
+    const [gender, setGender] = useState('');
     const [department, setDepartment] = useState('');
     const [province, setProvince] = useState('');
     const [district, setDistrict] = useState('');
@@ -159,8 +173,10 @@ export default function ProfileScreen() {
     const [profileSuggestions, setProfileSuggestions] = useState<any>(null);
     const [secretCount, setSecretCount] = useState(0);
     const router = useRouter();
+    // Al venir desde una vacante ("Completar mi perfil"), vuelve a ella al guardar
+    const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
-    const [modalType, setModalType] = useState<'none' | 'dept' | 'prov' | 'dist' | 'date' | 'suggestions'>('none');
+    const [modalType, setModalType] = useState<'none' | 'dept' | 'prov' | 'dist' | 'date' | 'suggestions' | 'country'>('none');
     const [tempDay, setTempDay] = useState(DAYS[0]);
     const [tempMonth, setTempMonth] = useState(MONTHS[0]);
     const [tempYear, setTempYear] = useState(YEARS[10]);
@@ -184,6 +200,10 @@ export default function ProfileScreen() {
                 setBirthDate(data.birthDate || '');
                 setEmail(data.email || user.email || '');
                 setPhone(data.phone || '');
+                if (data.country && COUNTRY_NAMES.includes(data.country)) setCountry(data.country);
+                setCity(data.city || '');
+                setCityIsOther(!!data.city && !citiesFor(data.country || 'Perú').includes(data.city));
+                setGender(data.gender || '');
                 setDepartment(data.department || '');
                 setProvince(data.province || '');
                 setDistrict(data.district || '');
@@ -219,6 +239,8 @@ export default function ProfileScreen() {
 
     const saveProfile = async () => {
         if (!fullName) return showAlert("Falta Nombre", "Por favor ingresa tu nombre.");
+        const birthIso = birthTextToIso(birthDate);
+        if (birthIso && ageAt(birthIso) < MIN_AGE) return showAlert("Fecha de nacimiento", `Debes ser mayor de ${MIN_AGE} años para usar Veritly.`);
 
         const user = auth.currentUser;
         if (!user) return showAlert("Error", "No hay sesión activa.");
@@ -232,10 +254,11 @@ export default function ProfileScreen() {
             );
 
             const savePromise = async () => {
-                const contextForAI = `CANDIDATO: ${fullName}\nEDAD: ${birthDate}\nUBICACIÓN: ${district}, ${department}\nMODALIDAD: ${modality}\nSALARIO: ${salary}\nINTERESES: ${interests}\nEXPERIENCIA: ${bio}`;
+                // Sin edad ni genero: no se usan para evaluar al candidato
+                const contextForAI = `CANDIDATO: ${fullName}\nUBICACIÓN: ${[city, country].filter(Boolean).join(', ')}\nMODALIDAD: ${modality}\nSALARIO: ${salary}\nINTERESES: ${interests}\nEXPERIENCIA: ${bio}`;
 
                 await saveUserProfileToCloud(user.uid, {
-                    fullName, birthDate, email, phone, country, department, province, district,
+                    fullName, birthDate, email, phone, country, city: canonicalCity(city), gender, department, province, district,
                     salary, modality, interests, bio, fileName, cvUrl, cvBase64, cvLabel, contextForAI,
                     cv2FileName: fileName2, cv2Url: cvUrl2, cv2Base64: cvBase64_2, cv2Label: cvLabel2
                 });
@@ -255,11 +278,25 @@ export default function ProfileScreen() {
                         phone
                     });
                 } catch (ce) { /* Ignorar si no existe aún */ }
+
+                // Datos para postular (la vacante los lee de aca). Fecha de
+                // nacimiento y genero: solo estadisticas, la empresa no los ve.
+                await setDoc(doc(db, 'users_candidatos', user.uid), {
+                    fullName,
+                    phone,
+                    country,
+                    city: canonicalCity(city),
+                    ...(birthIso && gender && { demographics: { birthDate: birthIso, gender, updatedAt: new Date().toISOString() } }),
+                }, { merge: true });
             };
 
             // Corremos el guardado contra el reloj
             await Promise.race([savePromise(), timeoutPromise]);
 
+            if (typeof returnTo === 'string' && returnTo.startsWith('/vacante/')) {
+                router.replace(returnTo as any);
+                return;
+            }
             showAlert("✅ Guardado", "Perfil actualizado en la nube.");
         } catch (e: any) {
             showAlert("Error al Guardar", e.message);
@@ -414,6 +451,16 @@ export default function ProfileScreen() {
                         <ChevronDown size={20} color="#64748b" />
                     </TouchableOpacity>
 
+                    <Text style={styles.fieldLabel}>Género</Text>
+                    <View style={styles.chipRow}>
+                        {GENDERS.map((g) => (
+                            <TouchableOpacity key={g.value} style={[styles.chip, gender === g.value && styles.chipActive]} onPress={() => setGender(g.value)}>
+                                <Text style={[styles.chipText, gender === g.value && styles.chipTextActive]}>{g.label}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                    <Text style={styles.privacyHint}>Tu fecha de nacimiento y género no los ven las empresas ni se usan para evaluarte: solo para estadísticas anónimas.</Text>
+
                     <View style={styles.row}>
                         <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
                             <Mail size={18} color="#64748b" style={styles.inputIcon} />
@@ -429,41 +476,32 @@ export default function ProfileScreen() {
                 {/* 2. UBICACIÓN (UI ARREGLADA) */}
                 <Text style={styles.sectionTitle}>UBICACIÓN</Text>
                 <View style={styles.formSection}>
-                    <View style={[styles.inputGroup, { backgroundColor: '#1e293b', opacity: 0.7 }]}>
-                        <Globe size={18} color="#38bdf8" style={styles.inputIcon} />
-                        <Text style={[styles.inputText, { paddingVertical: 12 }]}>{country}</Text>
-                        <CheckCircle2 size={16} color="#10b981" style={{ marginLeft: 'auto' }} />
-                    </View>
-
-                    <TouchableOpacity style={styles.dropdownButton} onPress={() => setModalType('dept')}>
+                    <TouchableOpacity style={styles.dropdownButton} onPress={() => setModalType('country')}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Map size={18} color="#64748b" style={styles.inputIcon} />
-                            <Text style={[styles.inputText, !department && { color: '#64748b' }]}>
-                                {department || "Departamento"}
-                            </Text>
+                            <Globe size={18} color="#64748b" style={styles.inputIcon} />
+                            <Text style={styles.inputText}>{country}</Text>
                         </View>
                         <ChevronDown size={20} color="#64748b" />
                     </TouchableOpacity>
 
-                    <View style={styles.row}>
-                        <TouchableOpacity
-                            style={[styles.dropdownButton, { flex: 1, marginRight: 10 }, !department && { opacity: 0.5 }]}
-                            onPress={() => department && setModalType('prov')}
-                            disabled={!department}
-                        >
-                            <Text style={[styles.inputText, !province && { color: '#64748b' }]}>{province || "Provincia"}</Text>
-                            <ChevronDown size={16} color="#64748b" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.dropdownButton, { flex: 1 }, !province && { opacity: 0.5 }]}
-                            onPress={() => province && setModalType('dist')}
-                            disabled={!province}
-                        >
-                            <Text style={[styles.inputText, !district && { color: '#64748b' }]}>{district || "Distrito"}</Text>
-                            <ChevronDown size={16} color="#64748b" />
-                        </TouchableOpacity>
+                    <Text style={styles.fieldLabel}>Ciudad donde vives</Text>
+                    <View style={styles.chipRow}>
+                        {[...citiesFor(country), OTHER_CITY].map((c) => {
+                            const isOther = c === OTHER_CITY;
+                            const active = isOther ? cityIsOther : (!cityIsOther && city === c);
+                            return (
+                                <TouchableOpacity key={c} style={[styles.chip, active && styles.chipActive]} onPress={() => { setCityIsOther(isOther); setCity(isOther ? '' : c); }}>
+                                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
+                    {cityIsOther && (
+                        <View style={styles.inputGroup}>
+                            <Map size={18} color="#64748b" style={styles.inputIcon} />
+                            <TextInput style={styles.inputField} placeholder="Escribe tu ciudad" placeholderTextColor="#64748b" value={city} onChangeText={setCity} maxLength={60} />
+                        </View>
+                    )}
                 </View>
 
                 {/* 3. EXPECTATIVAS */}
@@ -594,12 +632,14 @@ export default function ProfileScreen() {
                         ) : (
                             <FlatList
                                 data={
+                                    modalType === 'country' ? COUNTRY_NAMES :
                                     modalType === 'dept' ? DEPARTAMENTOS :
                                         modalType === 'prov' ? (DATA_PERU[department] ? Object.keys(DATA_PERU[department]) : []) :
                                             modalType === 'dist' ? (DATA_PERU[department]?.[province] || []) : []
                                 }
                                 renderItem={({ item }) => (
                                     <TouchableOpacity style={styles.modalItem} onPress={() => {
+                                        if (modalType === 'country') { setCountry(item); setCity(''); setCityIsOther(false); setModalType('none'); }
                                         if (modalType === 'dept') handleSelectDepartment(item);
                                         if (modalType === 'prov') handleSelectProvince(item);
                                         if (modalType === 'dist') handleSelectDistrict(item);
@@ -623,6 +663,13 @@ const styles = StyleSheet.create({
     subHeader: { fontSize: 14, color: '#6B7280' },
     trashButton: { padding: 10, backgroundColor: 'rgba(220, 38, 38, 0.08)', borderRadius: 12 },
     sectionTitle: { color: '#4F46E5', fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15 },
+    fieldLabel: { color: '#6B7280', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+    chip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+    chipActive: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
+    chipText: { color: '#4B5563', fontSize: 13 },
+    chipTextActive: { color: '#4338CA', fontWeight: '700' },
+    privacyHint: { color: '#9CA3AF', fontSize: 11, marginBottom: 10 },
     formSection: { marginBottom: 10 },
     row: { flexDirection: 'row', justifyContent: 'space-between' },
 
@@ -660,4 +707,4 @@ const styles = StyleSheet.create({
     dateItemSelected: { backgroundColor: '#4F46E5' },
     dateText: { fontSize: 14, color: '#374151' },
     modalConfirmButton: { backgroundColor: '#4F46E5', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, marginTop: 20 }
-});
+});

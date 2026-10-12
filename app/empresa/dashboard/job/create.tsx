@@ -10,7 +10,7 @@ import { extractTextFromDocument } from '../../../../utils/gemini';
 import { analyzeJobPosting, extractJobData, optimizeJobDescription, validateDocumentType } from '../../../../utils/gemini-company';
 import { getEffectiveCompanyId } from '../../../../services/auth-service';
 import { getSalaryRange } from '../../../../utils/salaryRange';
-import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
+import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, canonicalCity, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
 import { JOB_AREAS, matchArea } from '../../../../utils/jobAreas';
 import { usePortalCustomizationAllowed } from '../../../../hooks/usePortalCustomizationAllowed';
 
@@ -491,9 +491,10 @@ export default function CreateJob() {
                 area: jobData.area,
                 workMode: jobData.workMode,
                 country: jobData.workMode === 'remoto' ? null : jobData.country,
-                city: jobData.workMode === 'remoto' ? null : jobData.city.trim(),
-                cityIsOther: jobData.workMode !== 'remoto' && !citiesFor(jobData.country).includes(jobData.city.trim()),
-                location: jobData.workMode === 'remoto' ? 'Remoto' : jobPlace({ workMode: jobData.workMode, city: jobData.city.trim(), country: jobData.country }),
+                // "Otra" con una ciudad de la lista ("cuzco") se guarda con su nombre ("Cusco")
+                city: jobData.workMode === 'remoto' ? null : canonicalCity(jobData.city),
+                cityIsOther: jobData.workMode !== 'remoto' && !citiesFor(jobData.country).includes(canonicalCity(jobData.city)),
+                location: jobData.workMode === 'remoto' ? 'Remoto' : jobPlace({ workMode: jobData.workMode, city: canonicalCity(jobData.city), country: jobData.country }),
                 originalText: rawText,
                 optimizedText: optimizedDescription,
                 companyId,

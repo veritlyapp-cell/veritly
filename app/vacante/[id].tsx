@@ -53,8 +53,7 @@ import { showAlert } from '../../utils/ui';
 import { getMaxReasonableSalary } from '../../utils/salaryRange';
 import { detectCvMimeType, rawBase64 } from '../../utils/cvSource';
 import { fetchPublicJob, getPrefetchedJob } from '../../utils/jobPrefetch';
-import { OTHER_CITY, citiesFor, formatJobLocation, locationNoteForAI } from '../../utils/jobLocation';
-import { GENDERS, MIN_AGE, ageAt, toBirthDate } from '../../utils/demographics';
+import { formatJobLocation, livesInOtherCity, locationNoteForAI } from '../../utils/jobLocation';
 import CircularProgress from '../../components/CircularProgress';
 import { auth, db, storage } from '../../config/firebase';
 
@@ -161,13 +160,13 @@ export default function ExternalApplication() {
     const [selectedCity, setSelectedCity] = useState('');
     const [cityIsOther, setCityIsOther] = useState(false);
     const needsCity = !!job?.city && !!job?.workMode && job.workMode !== 'remoto';
+    const livesElsewhere = needsCity && !!selectedCity && livesInOtherCity(job, { city: selectedCity, country: selectedCountry });
     // Fecha de nacimiento y genero: una sola vez (si el perfil ya los tiene no se
     // piden). Solo estadisticas anonimas: la empresa no los ve.
     const [hasDemographics, setHasDemographics] = useState(false);
-    const [birthDay, setBirthDay] = useState('');
-    const [birthMonth, setBirthMonth] = useState('');
-    const [birthYear, setBirthYear] = useState('');
-    const [gender, setGender] = useState('');
+    // Pais y ciudad del perfil (se aplican cuando carga la vacante)
+    const [profileCountry, setProfileCountry] = useState('');
+    const [profileCity, setProfileCity] = useState('');
 
     // Compartido entre los puntos de contacto que ofrecen Racso al candidato.
     // `context` identifica el punto exacto para poder medir clics antes vs
@@ -209,9 +208,13 @@ export default function ExternalApplication() {
     // pisaria el codigo guardado en el perfil del candidato, cargado en
     // loadCandidateProfile).
     useEffect(() => {
-        setSelectedCity('');
-        setCityIsOther(false);
-    }, [selectedCountry]);
+        if (profileCountry) setSelectedCountry(profileCountry);
+        if (profileCity) setSelectedCity(profileCity);
+        if (profileCountry && !phone) {
+            const match = LATAM_COUNTRIES.find(c => c.name === profileCountry);
+            if (match) setPhoneCountryCode(match.dialCode);
+        }
+    }, [profileCountry, profileCity, job]);
 
     useEffect(() => {
         if (selectedCountry && !phone) {
@@ -275,6 +278,8 @@ export default function ExternalApplication() {
                 foundCv2Name = d.profile?.cv2FileName || foundCv2Name;
                 foundCv2Label = d.profile?.cv2Label || foundCv2Label;
                 if (d.demographics?.birthDate && d.demographics?.gender) setHasDemographics(true);
+                if (d.country) setProfileCountry(d.country);
+                if (d.city) setProfileCity(d.city);
             }
 
             // 2. Extraer de users (Legacy / Perfil principal)
@@ -490,8 +495,7 @@ export default function ExternalApplication() {
         let hasErrors = false;
         const errors: Record<string, string> = {};
 
-        if (!fullName.trim()) { errors.fullName = 'Tu nombre completo es obligatorio.'; hasErrors = true; }
-        if (!phone.trim()) { errors.phone = 'Tu teléfono es obligatorio.'; hasErrors = true; }
+        if (missingProfile.length > 0) { errors.profile = 'Completa tu perfil antes de postular.'; hasErrors = true; }
         
         const expectationNumber = Number(salaryExpectation);
         const dynamicCurrency = job?.currency || 'S/';
@@ -517,13 +521,6 @@ export default function ExternalApplication() {
                 errors.killer = 'Por favor responde todas las preguntas de la oferta.';
                 hasErrors = true;
             }
-        }
-        if (needsCity && !selectedCity.trim()) { errors.city = 'Indica la ciudad donde vives.'; hasErrors = true; }
-        const birthDate = toBirthDate(birthDay, birthMonth, birthYear);
-        if (!hasDemographics) {
-            if (!birthDate) { errors.birthDate = 'Ingresa una fecha de nacimiento válida (día, mes y año).'; hasErrors = true; }
-            else if (ageAt(birthDate) < MIN_AGE) { errors.birthDate = `Debes ser mayor de ${MIN_AGE} años para postular.`; hasErrors = true; }
-            if (!gender) { errors.gender = 'Elige una opción (puedes elegir "Prefiero no decir").'; hasErrors = true; }
         }
         if (!file && !useSavedCv) { errors.file = 'Debes subir tu CV o usar el guardado.'; hasErrors = true; }
         if (!acceptedTerms) { errors.terms = 'Debes aceptar la política de privacidad.'; hasErrors = true; }
@@ -650,8 +647,7 @@ export default function ExternalApplication() {
                         email: (user?.email || authEmail).toLowerCase().trim(),
                         phone: `${phoneCountryCode} ${phone.trim()}`,
                         country: selectedCountry,
-                        city: needsCity ? selectedCity.trim() : '',
-                        ...(!hasDemographics && { birthDate, gender }),
+                        city: selectedCity.trim(),
                         salaryExpectation: expectationNumber,
                         killerAnswers,
                         cvUrl,
@@ -1273,6 +1269,16 @@ export default function ExternalApplication() {
 
     const activeKillerQuestions = (job.killerQuestions || []).filter((q: any) => q.question?.trim());
 
+    // Lo que falta en el perfil para poder postular (se completa una vez, en el perfil)
+    const missingProfile = [
+        !fullName.trim() && 'nombre',
+        !phone.trim() && 'teléfono',
+        !profileCountry && 'país',
+        !selectedCity.trim() && 'ciudad donde vives',
+        !hasDemographics && 'fecha de nacimiento y género',
+    ].filter(Boolean) as string[];
+    const goToProfile = () => router.push({ pathname: '/profile', params: { returnTo: `/vacante/${id}` } } as any);
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -1308,203 +1314,42 @@ export default function ExternalApplication() {
                     )}
                 </View>
 
-                {/* Personal info */}
+                {/* Tus datos: salen del perfil del candidato (no se piden en cada postulacion) */}
                 <View style={styles.formSection}>
-                    <Text style={styles.sectionTitle}>Información Personal</Text>
-
-                    <Text style={styles.label}>Nombre completo *</Text>
-                    <TextInput
-                        style={[styles.input, formErrors.fullName && styles.inputError]}
-                        placeholder="Tu nombre y apellidos"
-                        placeholderTextColor="#9CA3AF"
-                        value={fullName}
-                        onChangeText={(txt) => { setFullName(txt); if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: '' }); }}
-                    />
-                    {formErrors.fullName && <Text style={styles.errorText}>{formErrors.fullName}</Text>}
-
-                    <Text style={styles.label}>Teléfono / WhatsApp *</Text>
-                    {/* El margen va en la fila (no en el input) para que el selector
-                        de codigo tenga la misma altura que el campo */}
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, minWidth: 78 }}
-                            onPress={() => setShowPhoneCodeDropdown(!showPhoneCodeDropdown)}
-                        >
-                            <Text style={{ color: '#1E293B', fontWeight: '600', fontSize: 14 }}>{phoneCountryCode}</Text>
-                            <Text style={{ color: '#3b82f6', fontSize: 10, marginLeft: 4 }}>{showPhoneCodeDropdown ? '▲' : '▼'}</Text>
-                        </TouchableOpacity>
-                        <TextInput
-                            style={[styles.input, { flex: 1, marginBottom: 0 }, formErrors.phone && styles.inputError]}
-                            placeholder="999 000 111"
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="phone-pad"
-                            value={phone}
-                            onChangeText={(txt) => { setPhone(txt); if (formErrors.phone) setFormErrors({ ...formErrors, phone: '' }); }}
-                        />
-                    </View>
-                    {showPhoneCodeDropdown && (
-                        <View style={{ maxHeight: 220, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, padding: 6, marginTop: 5 }}>
-                            <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
-                                {LATAM_COUNTRIES.map((c) => {
-                                    const isSelected = phoneCountryCode === c.dialCode;
-                                    return (
-                                        <TouchableOpacity
-                                            key={c.name}
-                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent' }}
-                                            onPress={() => { setPhoneCountryCode(c.dialCode); setShowPhoneCodeDropdown(false); }}
-                                        >
-                                            <Text style={{ color: isSelected ? '#3b82f6' : '#475569', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>{c.name}</Text>
-                                            <Text style={{ color: isSelected ? '#3b82f6' : '#94a3b8', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>{c.dialCode}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+                    <Text style={styles.sectionTitle}>Tus datos</Text>
+                    {missingProfile.length > 0 ? (
+                        <View style={styles.profileAlert}>
+                            <Text style={styles.profileAlertTitle}>Completa tu perfil para postular</Text>
+                            <Text style={styles.profileAlertText}>
+                                Te falta: {missingProfile.join(', ')}. Se completa una sola vez y sirve para todas tus postulaciones.
+                            </Text>
+                            <TouchableOpacity style={styles.profileBtn} onPress={goToProfile}>
+                                <User size={16} color="#FFFFFF" />
+                                <Text style={styles.profileBtnText}>Completar mi perfil</Text>
+                            </TouchableOpacity>
                         </View>
+                    ) : (
+                        <>
+                            <View style={styles.dataRow}><Text style={styles.dataLabel}>Nombre</Text><Text style={styles.dataValue}>{fullName}</Text></View>
+                            <View style={styles.dataRow}><Text style={styles.dataLabel}>Teléfono</Text><Text style={styles.dataValue}>{phoneCountryCode} {phone}</Text></View>
+                            <View style={styles.dataRow}><Text style={styles.dataLabel}>Vives en</Text><Text style={styles.dataValue}>{[selectedCity, selectedCountry].filter(Boolean).join(', ')}</Text></View>
+                            <TouchableOpacity onPress={goToProfile} style={{ marginTop: 6 }}>
+                                <Text style={styles.editLink}>Editar en mi perfil</Text>
+                            </TouchableOpacity>
+                        </>
                     )}
-                    {formErrors.phone && <Text style={styles.errorText}>{formErrors.phone}</Text>}
-
-                    <Text style={styles.label}>País de residencia actual *</Text>
-                    {job.allowedCountries && job.allowedCountries.length > 0 && (
-                        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#f59e0b', marginVertical: 8 }}>
+                    {!!selectedCountry && job.allowedCountries?.length > 0 && !job.allowedCountries.includes(selectedCountry) && (
+                        <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#f59e0b', marginTop: 10 }}>
                             <Text style={{ color: '#d97706', fontSize: 12, fontWeight: 'bold' }}>
-                                ⚠ Esta vacante es solo válida para residentes de: {job.allowedCountries.join(', ')}
+                                ⚠ Esta vacante es solo para residentes de: {job.allowedCountries.join(', ')}. Según tu perfil vives en {selectedCountry}.
                             </Text>
                         </View>
                     )}
-                    
-                    {/* Selector Desplegable de Residencia */}
-                    <TouchableOpacity 
-                        style={{ 
-                            flexDirection: 'row', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            // mismo aspecto que styles.input
-                            backgroundColor: '#F9FAFB',
-                            borderWidth: 1,
-                            borderColor: '#E5E7EB',
-                            padding: 14,
-                            borderRadius: 10,
-                        }}
-                        onPress={() => setShowCandidateCountryDropdown(!showCandidateCountryDropdown)}
-                    >
-                        <Text style={{ color: selectedCountry ? '#111827' : '#9CA3AF', fontSize: 15 }}>
-                            {selectedCountry || 'Selecciona tu país'}
-                        </Text>
-                        <Text style={{ color: '#4F46E5', fontSize: 12, fontWeight: 'bold' }}>
-                            {showCandidateCountryDropdown ? '▲' : '▼'}
-                        </Text>
-                    </TouchableOpacity>
-
-                    {/* Menú Desplegable */}
-                    {showCandidateCountryDropdown && (
-                        <View style={{ 
-                            maxHeight: 200, 
-                            backgroundColor: '#FFFFFF', 
-                            borderWidth: 1.5, 
-                            borderColor: '#E2E8F0', 
-                            borderRadius: 12, 
-                            padding: 8,
-                            marginTop: 5,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 8,
-                            elevation: 3,
-                            zIndex: 10
-                        }}>
-                            <ScrollView nestedScrollEnabled style={{ flex: 1 }}>
-                                {LATAM_COUNTRIES.map((c) => {
-                                    const isSelected = selectedCountry === c.name;
-                                    const isAllowed = !job.allowedCountries || job.allowedCountries.length === 0 || job.allowedCountries.includes(c.name);
-                                    return (
-                                        <TouchableOpacity
-                                            key={c.name}
-                                            style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                paddingVertical: 10,
-                                                paddingHorizontal: 12,
-                                                borderRadius: 8,
-                                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                                                opacity: isAllowed ? 1 : 0.6
-                                            }}
-                                            onPress={() => {
-                                                setSelectedCountry(c.name);
-                                                setShowCandidateCountryDropdown(false);
-                                            }}
-                                        >
-                                            <Text style={{ color: isSelected ? '#3b82f6' : '#475569', fontSize: 13, fontWeight: isSelected ? 'bold' : 'normal' }}>
-                                                {c.name} {!isAllowed && '(No elegible)'}
-                                            </Text>
-                                            {isSelected && <Check size={14} color="#3b82f6" />}
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
-                        </View>
+                    {needsCity && livesElsewhere && (
+                        <Text style={styles.cityHint}>Esta vacante es {formatJobLocation(job)}. Puedes postular igual: la empresa verá que vives en otra ciudad.</Text>
                     )}
-
-                    {needsCity && (
-                        <>
-                            <Text style={[styles.label, { marginTop: 14 }]}>Ciudad donde vives *</Text>
-                            <Text style={styles.cityHint}>Esta vacante es {formatJobLocation(job).toLowerCase()}.</Text>
-                            <View style={styles.chipRow}>
-                                {[...citiesFor(selectedCountry), OTHER_CITY].map((c) => {
-                                    const isOther = c === OTHER_CITY;
-                                    const active = isOther ? cityIsOther : (!cityIsOther && selectedCity === c);
-                                    return (
-                                        <TouchableOpacity
-                                            key={c}
-                                            style={[styles.chip, active && styles.chipActive]}
-                                            onPress={() => { setCityIsOther(isOther); setSelectedCity(isOther ? '' : c); }}
-                                        >
-                                            <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                            {(cityIsOther || citiesFor(selectedCountry).length === 0) && (
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Escribe tu ciudad"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={selectedCity}
-                                    onChangeText={(t) => { setCityIsOther(true); setSelectedCity(t); }}
-                                    maxLength={60}
-                                />
-                            )}
-                            {formErrors.city && <Text style={styles.errorText}>{formErrors.city}</Text>}
-                        </>
-                    )}
+                    {formErrors.profile && <Text style={[styles.errorText, { marginTop: 8 }]}>{formErrors.profile}</Text>}
                 </View>
-
-                {!hasDemographics && (
-                    <View style={styles.formSection}>
-                        <Text style={styles.sectionTitle}>Sobre ti</Text>
-                        <Text style={styles.label}>Fecha de nacimiento *</Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Día" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={2} value={birthDay} onChangeText={(t) => setBirthDay(t.replace(/\D/g, ''))} />
-                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Mes" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={2} value={birthMonth} onChangeText={(t) => setBirthMonth(t.replace(/\D/g, ''))} />
-                            <TextInput style={[styles.input, { flex: 1.4 }]} placeholder="Año" placeholderTextColor="#9CA3AF" keyboardType="number-pad" maxLength={4} value={birthYear} onChangeText={(t) => setBirthYear(t.replace(/\D/g, ''))} />
-                        </View>
-                        {formErrors.birthDate && <Text style={styles.errorText}>{formErrors.birthDate}</Text>}
-
-                        <Text style={[styles.label, { marginTop: 8 }]}>Género *</Text>
-                        <View style={styles.chipRow}>
-                            {GENDERS.map((g) => (
-                                <TouchableOpacity key={g.value} style={[styles.chip, gender === g.value && styles.chipActive]} onPress={() => setGender(g.value)}>
-                                    <Text style={[styles.chipText, gender === g.value && styles.chipTextActive]}>{g.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                        {formErrors.gender && <Text style={styles.errorText}>{formErrors.gender}</Text>}
-
-                        <Text style={styles.cityHint}>
-                            Se piden una sola vez. La empresa no los ve y no se usan para evaluarte: solo para estadísticas anónimas del mercado laboral. Debes ser mayor de {MIN_AGE} años.
-                        </Text>
-                    </View>
-                )}
 
                 {/* Salary */}
                 <View style={styles.formSection}>
@@ -1779,7 +1624,16 @@ const styles = StyleSheet.create({
     infoText: { color: '#4B5563', fontSize: 14, lineHeight: 20, flex: 1 },
 
     errorText: { color: '#DC2626', fontSize: 12, marginTop: -8, marginBottom: 12 },
-    cityHint: { color: '#6B7280', fontSize: 12, marginBottom: 8 },
+    cityHint: { color: '#6B7280', fontSize: 12, marginTop: 8 },
+    profileAlert: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FCD34D', borderRadius: 12, padding: 14, gap: 6 },
+    profileAlertTitle: { color: '#92400E', fontWeight: '700', fontSize: 14 },
+    profileAlertText: { color: '#92400E', fontSize: 13, lineHeight: 18 },
+    profileBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#4F46E5', paddingVertical: 11, borderRadius: 10, marginTop: 6 },
+    profileBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+    dataRow: { flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+    dataLabel: { width: 90, color: '#6B7280', fontSize: 13 },
+    dataValue: { flex: 1, color: '#111827', fontSize: 14, fontWeight: '600' },
+    editLink: { color: '#4F46E5', fontWeight: '700', fontSize: 13 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
     chip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
     chipActive: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
