@@ -358,16 +358,18 @@ export default function CreateJob() {
             // coincide con una ciudad principal queda como "Otra" para revisar)
             const mode = ['presencial', 'hibrido', 'remoto'].includes(extracted.workMode) ? extracted.workMode : null;
             const detectedCountry = matchCountry(extracted.country) || matchCountry(extracted.location);
-            const country = detectedCountry || jobData.country || jobData.allowedCountries?.[0] || 'Perú';
+            // jobData es null en una vacante nueva (useFocusEffect lo limpia)
+            const prev = jobData || {};
+            const country = detectedCountry || prev.country || prev.allowedCountries?.[0] || 'Perú';
             const listedCity = matchCity(country, extracted.city) || matchCity(country, extracted.location);
             setJobData({
                 ...jobData, // Preserve manually set fields if any, or default ones
                 ...extracted,
-                workMode: mode || jobData.workMode || null,
+                workMode: mode || prev.workMode || null,
                 country,
                 city: listedCity || (extracted.city ? String(extracted.city).trim() : null),
                 cityIsOther: !listedCity && !!extracted.city,
-                area: matchArea(extracted.area) || jobData.area || 'Otros',
+                area: matchArea(extracted.area) || prev.area || 'Otros',
             });
             setOptimizedDescription(optimized);
             setStep(2);
