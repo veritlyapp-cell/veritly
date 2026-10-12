@@ -1628,6 +1628,13 @@ export default function JobDetailScreen() {
                                             </Text>
                                         </TouchableOpacity>
                                     </View>
+                                    {/* Donde vive (de su perfil al postular). Edad y genero nunca se muestran. */}
+                                    {(selectedCandidate.city || selectedCandidate.country) && (
+                                        <Text style={[styles.modalEmail, selectedCandidate.otherCity && { color: '#B45309', fontWeight: '600' }]}>
+                                            Vive en: {[selectedCandidate.city, selectedCandidate.country].filter(Boolean).join(', ')}
+                                            {selectedCandidate.otherCity ? ' (otra ciudad que la vacante)' : ''}
+                                        </Text>
+                                    )}
                                 </View>
                                 {selectedCandidate.matchScore !== undefined && (
                                     <CircularProgress percentage={selectedCandidate.matchScore} size={50} strokeWidth={4} />
