@@ -16,7 +16,8 @@ export function usePortalCustomizationAllowed(enabled = true) {
             try {
                 const { companyId } = await getEffectiveMembership(auth.currentUser!.uid);
                 const company = await getDoc(doc(db, 'users_empresas', companyId));
-                const planId = company.data()?.subscription?.planId;
+                const subscription = company.data()?.subscription;
+                const planId = subscription?.status === 'expired' ? null : subscription?.planId;
                 if (!planId) return;
                 const plan = await getDoc(doc(db, 'config_plans', planId));
                 const features: string[] = plan.data()?.features || [];

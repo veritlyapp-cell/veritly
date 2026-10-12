@@ -17,6 +17,78 @@ export default function PricingScreen() {
     const { formatPrice, locationReady } = useLocalPricing();
     const [systemPlans, setSystemPlans] = useState<any[]>([]);
     const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
+    const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+    // Renovacion / fin del plan pagado (manage-subscription.ts). null = sin datos
+    // (ej. miembro del equipo, que no puede cambiar el plan)
+    const [subStatus, setSubStatus] = useState<{ isPaidPlan: boolean; perpetual: boolean; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null>(null);
+    const [changingPlan, setChangingPlan] = useState(false);
+
+    const callManageSubscription = async (action: string) => {
+        const companyId = await getEffectiveCompanyId(auth.currentUser!.uid);
+        const idToken = await auth.currentUser!.getIdToken();
+        const res = await fetch('/.netlify/functions/manage-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, idToken, companyId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo completar la acción');
+        return data;
+    };
+
+    const loadSubscriptionStatus = async () => {
+        if (!auth.currentUser) return;
+        try {
+            const data = await callManageSubscription('status');
+            setSubStatus(data);
+            if (data.planId) setCurrentPlanId(data.planId);
+            if (data.plan) setCurrentPlanName(data.plan);
+        } catch {
+            setSubStatus(null);
+        }
+    };
+
+    useEffect(() => { loadSubscriptionStatus(); }, []);
+
+    const formatDate = (iso: string | null) =>
+        iso ? new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+    const confirmAction = (message: string) =>
+        Platform.OS === 'web' ? window.confirm(message) : true;
+
+    const handleDowngradeToFree = async () => {
+        if (!subStatus?.isPaidPlan) return;
+        const planLabel = currentPlanName || 'actual';
+        const message = subStatus.perpetual
+            ? `Tu plan ${planLabel} no tiene vencimiento. Si cambias a Freemium, el cambio es inmediato y tendrás los límites del plan gratuito.\n\n¿Cambiar a Freemium ahora?`
+            : `Tu plan ${planLabel} seguirá activo hasta el ${formatDate(subStatus.currentPeriodEnd) || 'final del periodo pagado'}. Después pasarás a Freemium y no se te volverá a cobrar.\n\n¿Confirmas el cambio?`;
+        if (!confirmAction(message)) return;
+        setChangingPlan(true);
+        try {
+            const result = await callManageSubscription('downgrade_to_free');
+            alert(result.immediate
+                ? 'Listo: ya estás en el plan Freemium.'
+                : `Listo: tu plan sigue activo hasta el ${formatDate(result.currentPeriodEnd)}. Después pasarás a Freemium.`);
+            await loadSubscriptionStatus();
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        } finally {
+            setChangingPlan(false);
+        }
+    };
+
+    const handleResume = async () => {
+        setChangingPlan(true);
+        try {
+            await callManageSubscription('resume');
+            alert('Listo: tu plan se seguirá renovando normalmente.');
+            await loadSubscriptionStatus();
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        } finally {
+            setChangingPlan(false);
+        }
+    };
 
     // Cargar el plan actual de la empresa (vive en Firestore, no en el
     // usuario de Firebase Auth)
@@ -28,6 +100,7 @@ export default function PricingScreen() {
                 const snap = await getDoc(doc(db, 'users_empresas', companyId));
                 if (snap.exists()) {
                     setCurrentPlanName(snap.data().subscription?.plan || null);
+                    setCurrentPlanId(snap.data().subscription?.planId || null);
                 }
             } catch (e) {
                 console.error("Error cargando plan actual:", e);
@@ -76,7 +149,8 @@ export default function PricingScreen() {
             return Alert.alert("Próximamente", "Inicia sesión desde tu PC para contratar planes.");
         }
 
-        if (planName === 'Freemium' || priceInSoles === 0) return;
+        // Plan gratuito: bajar desde un plan pagado (no pasa por Stripe Checkout)
+        if (planName === 'Freemium' || priceInSoles === 0) return handleDowngradeToFree();
 
         setLoading(true);
         try {
@@ -146,7 +220,9 @@ export default function PricingScreen() {
                     const isComingSoon = plan.isComingSoon;
                     
                     const priceInSoles = billingPeriod === 'monthly' ? (plan.priceMonthly || 0) : (plan.priceAnnual || 0);
-                    const isCurrentPlan = currentPlanName === plan.name;
+                    const isCurrentPlan = currentPlanId ? currentPlanId === plan.id : currentPlanName === plan.name;
+                    const isFreeCard = (plan.priceMonthly || 0) === 0;
+                    const freeChangeScheduled = isFreeCard && !!subStatus?.cancelAtPeriodEnd;
 
                     return (
                         <View key={plan.id} style={[styles.card, isRecommended && styles.cardPro, isBeta && { borderColor: '#10b981', borderWidth: 2 }, isComingSoon && { opacity: 0.8 }]}>
@@ -187,8 +263,31 @@ export default function PricingScreen() {
                             </View>
                             
                             {isCurrentPlan ? (
-                                <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
-                                    <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
+                                <View>
+                                    <View style={[styles.buttonOutline, { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
+                                        <Text style={[styles.buttonOutlineText, { color: 'white' }]}>Tu Plan Actual</Text>
+                                    </View>
+                                    {/* Hasta cuando dura el plan pagado */}
+                                    {subStatus?.isPaidPlan && (
+                                        subStatus.perpetual ? (
+                                            <Text style={styles.planNote}>Plan sin vencimiento.</Text>
+                                        ) : subStatus.cancelAtPeriodEnd ? (
+                                            <>
+                                                <Text style={[styles.planNote, { color: '#B45309' }]}>
+                                                    Activo hasta el {formatDate(subStatus.currentPeriodEnd)}. Después pasarás a Freemium.
+                                                </Text>
+                                                <TouchableOpacity onPress={handleResume} disabled={changingPlan}>
+                                                    <Text style={styles.planLink}>Mantener mi plan</Text>
+                                                </TouchableOpacity>
+                                            </>
+                                        ) : subStatus.currentPeriodEnd ? (
+                                            <Text style={styles.planNote}>Se renueva el {formatDate(subStatus.currentPeriodEnd)}.</Text>
+                                        ) : null
+                                    )}
+                                </View>
+                            ) : freeChangeScheduled ? (
+                                <View style={[styles.buttonOutline, { borderColor: '#F59E0B' }]}>
+                                    <Text style={[styles.buttonOutlineText, { color: '#B45309' }]}>Cambio programado: {formatDate(subStatus?.currentPeriodEnd || null)}</Text>
                                 </View>
                             ) : (
                                 <TouchableOpacity 
@@ -197,7 +296,7 @@ export default function PricingScreen() {
                                     style={{ opacity: isComingSoon ? 0.6 : 1 }}
                                 >
                                     <View style={[styles.buttonPro, { backgroundColor: isComingSoon ? '#9CA3AF' : (isRecommended ? '#4F46E5' : '#111827') }]}>
-                                        <Text style={styles.buttonProText}>{isComingSoon ? 'Próximamente' : (plan.priceMonthly === 0 ? 'Empezar Gratis' : 'Contratar')}</Text>
+                                        <Text style={styles.buttonProText}>{isComingSoon ? 'Próximamente' : (isFreeCard ? (subStatus?.isPaidPlan ? (changingPlan ? 'Cambiando...' : 'Cambiar a Freemium') : 'Empezar Gratis') : 'Contratar')}</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}
@@ -245,6 +344,8 @@ const FeatureItem = ({ text, color = '#94a3b8', iconColor = '#64748b' }: { text:
 );
 
 const styles = StyleSheet.create({
+    planNote: { color: '#6B7280', fontSize: 12, textAlign: 'center', marginTop: 8 },
+    planLink: { color: '#4F46E5', fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 6 },
     container: {
         flex: 1,
         backgroundColor: '#F9FAFB',

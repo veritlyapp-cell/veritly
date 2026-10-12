@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { adminDb } from './_firebaseAdmin';
 import { sendEmail } from './_sendEmail';
 import { buildPlanActivatedEmail } from './_emailTemplates';
+import { FREE_PLAN_ID, periodEndIso, planSubscriptionFields } from './_planFields';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -58,16 +59,21 @@ export const handler: Handler = async (event) => {
                     console.error("⚠️ No se pudo leer el plan:", e);
                 }
 
+                // Fecha de renovacion (para mostrar "se renueva el ...")
+                let currentPeriodEnd: string | null = null;
+                try {
+                    if (session.subscription) currentPeriodEnd = periodEndIso(await stripe.subscriptions.retrieve(session.subscription as string));
+                } catch (e) {
+                    console.error("⚠️ No se pudo leer la suscripción para la fecha de renovación:", e);
+                }
+
                 console.log(`💳 [stripe-webhook] Pago confirmado. Activando plan '${planId}' para: ${userId}`);
                 await adminDb.collection('users_empresas').doc(userId).set({
                     subscription: {
-                        planId: planId,
-                        plan: planData?.name || planId,
-                        aiAnalysisLimit: planData?.aiAnalysisLimit || 200,
-                        internalVacanciesLimit: planData?.internalVacanciesLimit || 5,
-                        publicVacanciesLimit: planData?.publicVacanciesLimit || 3,
-                        killerQuestionsLimit: planData?.killerQuestionsLimit || 2,
+                        ...(await planSubscriptionFields(planId)),
                         candidatesAnalyzed: 0,
+                        currentPeriodEnd,
+                        cancelAtPeriodEnd: false,
                         billingPeriod: billingPeriod || 'monthly',
                         stripeCustomerId: session.customer as string,
                         stripeSubscriptionId: session.subscription as string,
@@ -102,9 +108,25 @@ export const handler: Handler = async (event) => {
                 const { userId } = subscription.metadata || {};
                 if (!userId) break;
 
-                console.log(`🚫 [stripe-webhook] Suscripción cancelada para: ${userId}`);
-                await adminDb.collection('users_empresas').doc(userId).set({
-                    subscription: { status: 'expired' }
+                // Solo si es la suscripcion vigente de la cuenta (no una anterior
+                // reemplazada por otra compra)
+                const companyRef = adminDb.collection('users_empresas').doc(userId);
+                const current = (await companyRef.get()).data()?.subscription || {};
+                if (current.stripeSubscriptionId && current.stripeSubscriptionId !== subscription.id) break;
+
+                // Termino el plan pagado: vuelve a Freemium con sus limites (antes
+                // quedaba status 'expired' pero con el plan y sus funciones)
+                console.log(`🚫 [stripe-webhook] Suscripción terminada, pasa a Freemium: ${userId}`);
+                await companyRef.set({
+                    subscription: {
+                        ...(await planSubscriptionFields(FREE_PLAN_ID)),
+                        status: 'active',
+                        previousPlanId: current.planId || null,
+                        changedToFreeAt: new Date().toISOString(),
+                        stripeSubscriptionId: null,
+                        cancelAtPeriodEnd: false,
+                        currentPeriodEnd: null,
+                    }
                 }, { merge: true });
                 break;
             }
@@ -114,13 +136,15 @@ export const handler: Handler = async (event) => {
                 const { userId } = subscription.metadata || {};
                 if (!userId) break;
 
+                // Renovacion y cambio programado a Freemium (cancel_at_period_end)
+                const periodFields = { currentPeriodEnd: periodEndIso(subscription), cancelAtPeriodEnd: subscription.cancel_at_period_end };
                 if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
                     await adminDb.collection('users_empresas').doc(userId).set({
-                        subscription: { status: 'expired' }
+                        subscription: { status: 'expired', ...periodFields }
                     }, { merge: true });
                 } else if (subscription.status === 'active') {
                     await adminDb.collection('users_empresas').doc(userId).set({
-                        subscription: { status: 'active' }
+                        subscription: { status: 'active', ...periodFields }
                     }, { merge: true });
                 }
                 break;

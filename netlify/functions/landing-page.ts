@@ -69,7 +69,9 @@ async function suggestSlugs(name: string, companyId: string, country?: string): 
 async function planAllowsLandingPage(companyId: string): Promise<boolean> {
     try {
         const companySnap = await adminDb.collection('users_empresas').doc(companyId).get();
-        const planId = companySnap.exists ? companySnap.data()?.subscription?.planId : null;
+        const subscription = companySnap.exists ? companySnap.data()?.subscription : null;
+        // Pago atrasado (stripe-webhook.ts): sin funciones del plan
+        const planId = subscription?.status === 'expired' ? null : subscription?.planId;
         if (!planId) return false;
         const planSnap = await adminDb.collection('config_plans').doc(planId).get();
         if (!planSnap.exists) return false;
@@ -143,7 +145,7 @@ export const handler: Handler = async (event) => {
 
             // Que se muestra de Veritly en la pagina: Freemium = firma + "unete a
             // Veritly" + banner de Racso; planes de pago = solo la firma; Gold = nada
-            const planId = companyData.subscription?.planId || '';
+            const planId = companyData.subscription?.status === 'expired' ? '' : (companyData.subscription?.planId || '');
             const tier = customizable ? 'gold' : (planId && planId !== 'beta_free' ? 'paid' : 'free');
             return {
                 statusCode: 200, headers,
