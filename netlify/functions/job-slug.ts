@@ -67,7 +67,22 @@ export const handler: Handler = async (event) => {
             if (!slugSnap.exists) {
                 return { statusCode: 404, headers, body: JSON.stringify({ error: 'Enlace no encontrado' }) };
             }
-            return { statusCode: 200, headers, body: JSON.stringify({ jobId: slugSnap.data()!.jobId }) };
+            const jobId = slugSnap.data()!.jobId;
+
+            // vjobs.app/{empresa}/{vacante}: la vacante tiene que ser de esa empresa
+            // y no confidencial (si no, cualquiera podria armar un link que la
+            // muestre bajo el nombre de otra empresa)
+            if (body.companySlug) {
+                const [companySlugSnap, jobSnap] = await Promise.all([
+                    adminDb.collection('company_slugs').doc(String(body.companySlug).toLowerCase()).get(),
+                    adminDb.collection('jobs').doc(jobId).get(),
+                ]);
+                const job = jobSnap.data();
+                if (!companySlugSnap.exists || !job || job.companyId !== companySlugSnap.data()!.companyId || job.isConfidential) {
+                    return { statusCode: 404, headers, body: JSON.stringify({ error: 'Enlace no encontrado' }) };
+                }
+            }
+            return { statusCode: 200, headers, body: JSON.stringify({ jobId }) };
         }
 
         // ── El resto requiere autenticacion (dueño o miembro del equipo) ──

@@ -12,6 +12,14 @@ export const JOB_SHORT_BASE = 'vjobs.app/v/';
 export const jobsPageUrl = (slug: string) => `https://${JOBS_PAGE_BASE}${slug}`;
 export const jobShortUrl = (slug: string) => `https://${JOB_SHORT_BASE}${slug}`;
 
+// Link de una vacante: bajo la pagina de la empresa (vjobs.app/acme/ventas-lima)
+// si tiene link de pagina de empleos y no es confidencial; si no, el corto
+// generico (vjobs.app/v/ventas-lima), que no revela la empresa.
+export const jobLinkBase = (companySlug?: string | null, confidential?: boolean) =>
+    companySlug && !confidential ? `${JOBS_PAGE_BASE}${companySlug}/` : JOB_SHORT_BASE;
+export const jobLinkUrl = (jobSlug: string, companySlug?: string | null, confidential?: boolean) =>
+    `https://${jobLinkBase(companySlug, confidential)}${jobSlug}`;
+
 // El dominio corto solo sirve paginas publicas (pagina de empleos y links
 // cortos). Postular, login y el resto viven en veritlyapp.com: asi el candidato
 // no tiene una sesion distinta en cada dominio.

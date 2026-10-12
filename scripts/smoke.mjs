@@ -77,7 +77,8 @@ const PAGES = [
     ['/v/smoke-test', '[slug]-', null],
     // Dominio corto (reglas de vjobs.app en public/_redirects)
     ...(BASE.includes('veritlyapp.com') ? [
-        ['https://vjobs.app/smoke-test', '[slug]-', null],
+        ['https://vjobs.app/smoke-test', null, null], // app/[slug]/index.tsx: su chunk se llama index-*
+        ['https://vjobs.app/smoke-test/smoke-job', '[job]-', null],
         ['https://vjobs.app/v/smoke-test', '[slug]-', null],
         [`https://vjobs.app/vacante/${JOB_ID}`, '[id]-', 'Cargando oferta'], // redirige a veritlyapp.com
     ] : []),

@@ -3,23 +3,25 @@ import { Copy, Download, Link as LinkIcon, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../config/firebase';
-import { JOB_SHORT_BASE } from '../utils/publicLinks';
+import { jobLinkBase } from '../utils/publicLinks';
 
-// Compartir una vacante: link corto (vjobs.app/v/{slug}), opcion de elegir
-// uno propio y codigo QR descargable, para piezas graficas donde un link largo
-// no cabe o nadie lo va a tipear. Los links anteriores siguen funcionando.
-
-const BASE = `https://${JOB_SHORT_BASE}`;
+// Compartir una vacante: link corto (vjobs.app/{empresa}/{slug}, o
+// vjobs.app/v/{slug} si es confidencial), opcion de elegir uno propio y codigo
+// QR descargable, para piezas graficas donde un link largo no cabe o nadie lo
+// va a tipear. Los links anteriores siguen funcionando.
 
 type Props = {
     visible: boolean;
     onClose: () => void;
-    job: { id: string; jobTitle?: string; shortSlug?: string } | null;
+    job: { id: string; jobTitle?: string; shortSlug?: string; isConfidential?: boolean } | null;
+    companySlug?: string; // link de la pagina de empleos de la empresa
     ensureSlug: (job: any) => Promise<string>; // devuelve la URL corta (la crea si no existe)
     onSlugSaved: (jobId: string, slug: string) => void;
 };
 
-export default function ShareJobModal({ visible, onClose, job, ensureSlug, onSlugSaved }: Props) {
+export default function ShareJobModal({ visible, onClose, job, ensureSlug, onSlugSaved, companySlug }: Props) {
+    const prefix = jobLinkBase(companySlug, job?.isConfidential);
+    const BASE = `https://${prefix}`;
     const [slug, setSlug] = useState('');
     const [draft, setDraft] = useState('');
     const [qr, setQr] = useState('');
@@ -116,7 +118,7 @@ export default function ShareJobModal({ visible, onClose, job, ensureSlug, onSlu
                             <View>
                                 <Text style={styles.label}>Elige un link más corto o fácil de recordar</Text>
                                 <View style={styles.slugRow}>
-                                    <Text style={styles.slugPrefix}>{JOB_SHORT_BASE}</Text>
+                                    <Text style={styles.slugPrefix}>{prefix}</Text>
                                     <TextInput
                                         style={styles.slugInput}
                                         value={draft}

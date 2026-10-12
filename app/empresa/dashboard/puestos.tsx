@@ -3,7 +3,7 @@ import { setStringAsync } from 'expo-clipboard';
 import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { Briefcase, LogOut, Pencil, Plus, Trash2, Activity, Zap, TrendingUp, CreditCard, Link as LinkIcon, Power, Linkedin, QrCode, RotateCw, UserCog } from 'lucide-react-native';
 import ShareJobModal from '../../../components/ShareJobModal';
-import { jobShortUrl } from '../../../utils/publicLinks';
+import { jobLinkUrl } from '../../../utils/publicLinks';
 import { formatJobLocation } from '../../../utils/jobLocation';
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
@@ -58,6 +58,7 @@ export default function CompanyJobs() {
     const [jobs, setJobs] = useState<any[]>([]);
     // Vacante abierta en la ventana "Link / QR" (null = cerrada)
     const [shareJob, setShareJob] = useState<any | null>(null);
+    const [companySlug, setCompanySlug] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [checkingProfile, setCheckingProfile] = useState(true);
@@ -149,6 +150,10 @@ export default function CompanyJobs() {
             const membership = await getEffectiveMembership(auth.currentUser.uid);
             const companyId = membership.companyId;
             setRole(membership.role);
+            // Link de la pagina de empleos: los links de vacante cuelgan de el
+            getDoc(doc(db, 'users_empresas', companyId))
+                .then((snap) => setCompanySlug(snap.data()?.landingPage?.slug || ''))
+                .catch(() => {});
 
             // NOTA: Quitamos orderBy temporalmente para evitar error de "Index Missing" en Firestore si no esta creado
             // Un reclutador solo ve las vacantes que el Admin le asigno explicitamente.
@@ -239,11 +244,12 @@ export default function CompanyJobs() {
         router.replace('/empresa/signin');
     };
 
-    // Devuelve el enlace corto propio de una vacante (veritlyapp.com/v/{slug}),
+    // Devuelve el enlace propio de una vacante (vjobs.app/{empresa}/{slug}, o
+    // vjobs.app/v/{slug} si es confidencial o la empresa no tiene pagina),
     // generandolo la primera vez que se necesita. Se cachea en el doc de la
     // vacante (shortSlug) para no volver a llamar a la funcion despues.
     const getShortJobUrl = async (job: any): Promise<string> => {
-        if (job.shortSlug) return jobShortUrl(job.shortSlug);
+        if (job.shortSlug) return jobLinkUrl(job.shortSlug, companySlug, job.isConfidential);
         try {
             const idToken = await auth.currentUser!.getIdToken();
             const res = await fetch('/.netlify/functions/job-slug', {
@@ -254,7 +260,7 @@ export default function CompanyJobs() {
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, shortSlug: json.slug } : j));
-            return jobShortUrl(json.slug);
+            return jobLinkUrl(json.slug, companySlug, job.isConfidential);
         } catch (e) {
             console.warn('No se pudo generar el enlace corto, se usa el largo:', e);
             return `https://veritlyapp.com/vacante/${job.id}`;
@@ -573,6 +579,7 @@ export default function CompanyJobs() {
                 onClose={() => setShareJob(null)}
                 job={shareJob}
                 ensureSlug={getShortJobUrl}
+                companySlug={companySlug}
                 onSlugSaved={(jobId, slug) => setJobs(prev => prev.map(j => j.id === jobId ? { ...j, shortSlug: slug } : j))}
             />
 

@@ -1,7 +1,9 @@
 # Netlify aplica este archivo ANTES que las reglas de netlify.toml.
 #
 # Dominio corto vjobs.app: solo paginas publicas. vjobs.app/{slug} es la pagina
-# de empleos (app/[slug].tsx), vjobs.app/v/{slug} el link corto de una vacante.
+# de empleos (app/[slug]/index.tsx), vjobs.app/{slug}/{vacante} una vacante de
+# esa empresa (app/[slug]/[job].tsx) y vjobs.app/v/{slug} el link corto generico
+# (vacantes confidenciales).
 # Todo lo demas (postular, login, panel) va a veritlyapp.com, para que el
 # candidato no tenga una sesion distinta por dominio. Las reglas sin "!" no
 # tapan archivos que existen (bundle, favicon, etc.).
@@ -9,6 +11,7 @@ https://www.vjobs.app/*  https://vjobs.app/:splat        301!
 https://vjobs.app/       https://veritlyapp.com/          302!
 https://vjobs.app/v/*    /v/%5Bslug%5D.html               200
 https://vjobs.app/e/*    https://vjobs.app/:splat         301
+https://vjobs.app/:slug/:job  /%5Bslug%5D/%5Bjob%5D.html  200
 https://vjobs.app/:slug  /%5Bslug%5D.html                 200
 https://vjobs.app/*      https://veritlyapp.com/:splat    301
 
