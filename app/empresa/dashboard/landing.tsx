@@ -200,7 +200,7 @@ export default function LandingPageConfig() {
                 </TouchableOpacity>
 
                 <Text style={styles.footerNote}>
-                    Aparecen todas tus vacantes activas con link de postulación, excepto las confidenciales.
+                    Aparecen todas tus vacantes activas con link de postulación, excepto las confidenciales. Para esconder alguna, desactiva "Mostrar en mi Página de Empleos" al editar la vacante.
                 </Text>
             </ScrollView>
         </SafeAreaView>

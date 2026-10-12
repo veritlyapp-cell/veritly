@@ -121,13 +121,16 @@ export const handler: Handler = async (event) => {
                 return { statusCode: 404, headers, body: JSON.stringify({ error: 'Esta página no está activa' }) };
             }
 
-            // Todas las vacantes publicas activas de la empresa (nunca las confidenciales)
+            const customizable = await planAllowsLandingPage(companyId);
+
+            // Todas las vacantes publicas activas de la empresa (nunca las
+            // confidenciales). Solo Gold puede esconder alguna (hideOnJobsPage).
             const jobsSnap = await adminDb.collection('jobs').where('companyId', '==', companyId).get();
             // Solo datos publicos: antes devolvia el documento completo de cada
             // vacante (respuestas de preguntas filtro, presupuesto, etc.)
             const jobs = jobsSnap.docs
                 .map(d => ({ id: d.id, ...d.data() }) as any)
-                .filter((j: any) => j.isExternal && j.isActive !== false && j.status !== 'Closed' && !j.isConfidential)
+                .filter((j: any) => j.isExternal && j.isActive !== false && j.status !== 'Closed' && !j.isConfidential && !(customizable && j.hideOnJobsPage))
                 .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
                 .map((j: any) => ({
                     id: j.id,
@@ -138,7 +141,6 @@ export const handler: Handler = async (event) => {
                     createdAt: typeof j.createdAt === 'string' ? j.createdAt : j.createdAt?.toDate?.().toISOString?.() || null,
                 }));
 
-            const customizable = await planAllowsLandingPage(companyId);
             // Que se muestra de Veritly en la pagina: Freemium = firma + "unete a
             // Veritly" + banner de Racso; planes de pago = solo la firma; Gold = nada
             const planId = companyData.subscription?.planId || '';

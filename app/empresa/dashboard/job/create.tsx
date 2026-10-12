@@ -12,6 +12,7 @@ import { getEffectiveCompanyId } from '../../../../services/auth-service';
 import { getSalaryRange } from '../../../../utils/salaryRange';
 import { COUNTRY_NAMES, OTHER_CITY, WORK_MODES, citiesFor, jobPlace, matchCity, matchCountry } from '../../../../utils/jobLocation';
 import { JOB_AREAS, matchArea } from '../../../../utils/jobAreas';
+import { usePortalCustomizationAllowed } from '../../../../hooks/usePortalCustomizationAllowed';
 
 const Alert = {
     alert: (title: string, message?: string, buttons?: any) => {
@@ -92,6 +93,8 @@ const CURRENCY_OPTIONS = [
 
 export default function CreateJob() {
     const router = useRouter();
+    // Gold elige que vacantes salen en su pagina de empleos; el resto, todas
+    const isGold = usePortalCustomizationAllowed();
     const { id } = useLocalSearchParams(); // Si hay ID, es edición
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -477,7 +480,9 @@ export default function CreateJob() {
                 isExternal: !!jobData.isExternal,
                 // Una vacante confidencial no puede aparecer en la pagina publica de
                 // empleos de la empresa (esa pagina ya revela de quien es).
-                showOnLandingPage: !!jobData.showOnLandingPage && !jobData.isConfidential,
+                // Solo Gold puede esconder una vacante de su pagina de empleos
+                // (landing-page.ts ignora este campo en los demas planes)
+                hideOnJobsPage: !!jobData.hideOnJobsPage,
                 employmentType: jobData.employmentType || 'tiempo_completo',
                 isConfidential: !!jobData.isConfidential,
                 confidentialLabel: jobData.confidentialLabel?.trim() || '',
@@ -790,21 +795,32 @@ export default function CreateJob() {
                                     {jobData?.isExternal && (
                                         <View style={{ marginTop: 20, backgroundColor: '#1e293b', padding: 15, borderRadius: 8 }}>
 
-                                            {/* --- PUBLICAR EN PÁGINA DE EMPLEOS --- */}
-                                            <TouchableOpacity
-                                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}
-                                                onPress={() => setJobData({ ...jobData, showOnLandingPage: !jobData?.showOnLandingPage })}
-                                            >
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Publicar en Página de Empleos de la Empresa</Text>
+                                            {/* --- PAGINA DE EMPLEOS: Gold elige; el resto sale siempre (menos confidenciales) --- */}
+                                            {isGold && !jobData.isConfidential ? (
+                                                <TouchableOpacity
+                                                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}
+                                                    onPress={() => setJobData({ ...jobData, hideOnJobsPage: !jobData?.hideOnJobsPage })}
+                                                >
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Mostrar en mi Página de Empleos</Text>
+                                                        <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
+                                                            Con tu plan Gold eliges qué vacantes aparecen en tu página pública.
+                                                        </Text>
+                                                    </View>
+                                                    <View style={[styles.switchToggle, !jobData?.hideOnJobsPage ? { backgroundColor: '#3b82f6', alignItems: 'flex-end' } : { backgroundColor: '#334155', alignItems: 'flex-start' }]}>
+                                                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white' }} />
+                                                    </View>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
+                                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Página de Empleos</Text>
                                                     <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
-                                                        Aparecerá en tu landing page pública (disponible en planes Gold y Enterprise).
+                                                        {jobData.isConfidential
+                                                            ? 'Las vacantes confidenciales no aparecen en tu página de empleos.'
+                                                            : 'Aparecerá automáticamente en tu página de empleos pública.'}
                                                     </Text>
                                                 </View>
-                                                <View style={[styles.switchToggle, jobData?.showOnLandingPage ? { backgroundColor: '#3b82f6', alignItems: 'flex-end' } : { backgroundColor: '#334155', alignItems: 'flex-start' }]}>
-                                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white' }} />
-                                                </View>
-                                            </TouchableOpacity>
+                                            )}
 
                                             {/* --- MODALIDAD DE CONTRATACIÓN --- */}
                                             <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
@@ -843,7 +859,7 @@ export default function CreateJob() {
                                             <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#334155', paddingBottom: 20 }}>
                                                 <TouchableOpacity
                                                     style={{ flexDirection: 'row', alignItems: 'center', marginBottom: jobData.isConfidential ? 12 : 0 }}
-                                                    onPress={() => setJobData({ ...jobData, isConfidential: !jobData.isConfidential, showOnLandingPage: jobData.isConfidential ? jobData.showOnLandingPage : false })}
+                                                    onPress={() => setJobData({ ...jobData, isConfidential: !jobData.isConfidential })}
                                                 >
                                                     <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: '#f59e0b', backgroundColor: jobData.isConfidential ? '#f59e0b' : 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
                                                         {jobData.isConfidential && <Check size={14} color="white" />}

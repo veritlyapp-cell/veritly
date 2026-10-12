@@ -1,14 +1,13 @@
 import { Drawer } from 'expo-router/drawer';
 import { Briefcase, Settings, Star, Activity, FileText, LogOut, ShieldCheck, TrendingUp, BarChart3, MessageSquare, Globe } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Linking, Platform, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../../config/firebase';
-import { getEffectiveMembership } from '../../../services/auth-service';
+import { auth } from '../../../config/firebase';
 import { useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRequireRole } from '../../../hooks/useRequireRole';
+import { usePortalCustomizationAllowed } from '../../../hooks/usePortalCustomizationAllowed';
 
 const FloatingWhatsAppButton = () => {
     const handlePress = () => {
@@ -38,31 +37,7 @@ const FloatingWhatsAppButton = () => {
     );
 };
 
-// La pagina de empleos personalizable (colores, banner) es del plan Gold: el
-// resto no ve la opcion en el menu. Misma regla que landing-page.ts
-// (planAllowsLandingPage): el plan incluye "Landing Page" en sus features.
-function usePortalCustomizationAllowed(authorized: boolean) {
-    const [allowed, setAllowed] = useState(false);
-    useEffect(() => {
-        if (!authorized || !auth.currentUser) return;
-        if (auth.currentUser.email === 'oscar@veritlyapp.com') { setAllowed(true); return; }
-        (async () => {
-            try {
-                const { companyId } = await getEffectiveMembership(auth.currentUser!.uid);
-                const company = await getDoc(doc(db, 'users_empresas', companyId));
-                const planId = company.data()?.subscription?.planId;
-                if (!planId) return;
-                const plan = await getDoc(doc(db, 'config_plans', planId));
-                const features: string[] = plan.data()?.features || [];
-                setAllowed(features.includes('Landing Page') || features.includes('Landing Page Personalizada'));
-            } catch (e) {
-                console.warn('No se pudo verificar el plan para la página de empleos:', e);
-            }
-        })();
-    }, [authorized]);
-    return allowed;
-}
-
+// Pagina de Empleos en el menu: solo Gold (hooks/usePortalCustomizationAllowed.ts)
 export default function CompanyDrawerLayout() {
     const { loading, authorized } = useRequireRole('empresa');
     const portalCustomizationAllowed = usePortalCustomizationAllowed(authorized);
